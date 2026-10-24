@@ -1,5 +1,5 @@
 import { getErrorMessage } from "../../lib/errors";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Folder, ArrowUp, FolderPlus, ChevronRight, FileText } from "lucide-react";
 import { api } from "../../lib/api";
 import { useTranslation } from "../../lib/i18n";
@@ -26,6 +26,8 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
   
   const { error: toastError, success } = useToast();
   const { t } = useTranslation();
+  const translate = useRef(t);
+  useEffect(() => { translate.current = t; }, [t]);
 
   const fetchFiles = useCallback(async (path: string) => {
     setLoading(true);
@@ -34,7 +36,7 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
       setBrowseData(res);
       setCurrentPath(res.currentPath);
     } catch (err) {
-      toastError("Error", getErrorMessage(err));
+      toastError(translate.current("files.error"), getErrorMessage(err));
       if (path !== "/") {
         fetchFiles("/");
       }
@@ -62,12 +64,12 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
     if (!newDirName) return;
     try {
       await api.post(`/api/fs/mkdir?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(newDirName)}`);
-      success("Created", `Directory ${newDirName} created successfully`);
+      success(t("files.completed"), `${t("files.folderCreated")}: ${newDirName}`);
       setIsCreatingDir(false);
       setNewDirName("");
       fetchFiles(currentPath);
     } catch (err) {
-      toastError("Creation Error", getErrorMessage(err));
+      toastError(t("files.error"), getErrorMessage(err));
     }
   };
 
