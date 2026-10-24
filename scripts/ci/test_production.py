@@ -49,7 +49,8 @@ class ProductionComposeTest(unittest.TestCase):
         self.assertFalse(web.get("ports"))
         trust = next(mount for mount in web["volumes"] if mount["target"] == "/etc/sambryx/known_hosts")
         self.assertTrue(trust["read_only"])
-        self.assertFalse(trust["bind"]["create_host_path"])
+        # Compose versions may omit false values from the normalized JSON model.
+        self.assertFalse(trust.get("bind", {}).get("create_host_path", False))
         self.assertEqual([port["target"] for port in proxy["ports"]], [8443])
         self.assertEqual(proxy["ports"][0]["host_ip"], "127.0.0.1")
         self.assertTrue(model["networks"]["proxy"]["internal"])
