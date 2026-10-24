@@ -23,7 +23,8 @@ public record SambaProperties(
             @DefaultValue("7000ms") @NotNull Duration connectTimeout,
             @DefaultValue("30s") @NotNull Duration commandTimeout,
             @DefaultValue("30s") @NotNull Duration serverAliveInterval,
-            @DefaultValue("3") @Min(1) int serverAliveCountMax) {}
+            @DefaultValue("3") @Min(1) int serverAliveCountMax,
+            @DefaultValue("/etc/sambryx/known_hosts") @NotBlank String knownHosts) {}
 
     public record Paths(
             @DefaultValue("/etc/samba/smb.conf") @NotBlank String config,

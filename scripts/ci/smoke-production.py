@@ -30,6 +30,7 @@ class Fixture:
             "TLS_CERT_FILE": str(self.directory / "certificate.pem"),
             "TLS_KEY_FILE": str(self.directory / "tls.key"),
             "SSH_AUTHORIZED_KEYS_FILE": str(self.directory / "management.pub"),
+            "SSH_KNOWN_HOSTS_FILE": str(self.directory / "known_hosts"),
             "PROXY_UID": str(os.getuid()), "PROXY_GID": str(os.getgid()),
             "HTTPS_BIND_IP": "127.0.0.1", "HTTPS_PORT": "0",
             "SAMBA_BIND_IP": "127.0.0.1", "SAMBA_PORT": "0",
@@ -53,6 +54,9 @@ class Fixture:
         return self.compose_command("exec", "-T", "samba-node", *arguments, **options)
 
     def prepare(self):
+        trust = Path(self.environment["SSH_KNOWN_HOSTS_FILE"])
+        trust.write_text("")
+        trust.chmod(0o644)
         self.command(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
                       "-keyout", self.environment["TLS_KEY_FILE"],
                       "-out", self.environment["TLS_CERT_FILE"], "-days", "1",
@@ -104,6 +108,38 @@ class Fixture:
         check(session.secure and session.has_nonstandard_attr("HttpOnly"), "Session cookie is not protected")
         check(self.api("/api/monitoring/dashboard")["isRunning"], "Samba is not running")
         print("PASS: verified TLS, anonymous 401, CSRF, real SSH key login and secure session cookie", flush=True)
+
+    def verify_host_identity(self):
+        self.api("/api/auth/environment")
+        credentials = {"host": "samba-node", "username": "root", "authType": "key",
+                       "privateKey": (self.directory / "management").read_text()}
+        expected = self.node("ssh-keygen", "-lf", "/etc/ssh/ssh_host_ed25519_key.pub", "-E", "sha256", capture_output=True, text=True).stdout.split()[1]
+        for reason in ("UNKNOWN", "CHANGED"):
+            if reason == "CHANGED":
+                # A different valid public key simulates a server whose identity changed.
+                Path(self.environment["SSH_KNOWN_HOSTS_FILE"]).write_text(
+                    "samba-node " + (self.directory / "management.pub").read_text())
+            try:
+                self.api("/api/auth/login", credentials)
+            except urllib.error.HTTPError as error:
+                with error:
+                    check(error.code == 409, "Host identity failure must be a conflict")
+                    failure = json.load(error)["data"]
+                    check(failure["code"] == "SSH_HOST_KEY_" + reason, "Wrong host identity error")
+                    check(failure["fingerprint"] == expected, "Observed fingerprint differs from the server console")
+            else:
+                raise RuntimeError("Untrusted SSH host was accepted")
+            try:
+                self.opener.open(self.url + "/api/auth/me", timeout=10)
+            except urllib.error.HTTPError as error:
+                with error:
+                    check(error.code == 401, "Host identity failure authenticated a user")
+            else:
+                raise RuntimeError("Host identity failure created an authenticated session")
+        public = self.node("cat", "/etc/ssh/ssh_host_ed25519_key.pub", capture_output=True, text=True).stdout
+        # Docker exec is the fixture's trusted administrative channel, not a network key scan.
+        Path(self.environment["SSH_KNOWN_HOSTS_FILE"]).write_text("samba-node " + public)
+        print("PASS: unknown and changed SSH keys rejected without authentication; administrator key provisioned", flush=True)
 
     def smb(self, write=False):
         # Credentials are delivered on stdin, written into a private temporary file and never logged.
@@ -160,6 +196,7 @@ def main():
         try:
             fixture.prepare()
             fixture.start()
+            fixture.verify_host_identity()
             fixture.login()
             fixture.verify_persistence()
         except Exception:

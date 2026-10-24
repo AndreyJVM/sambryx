@@ -82,6 +82,29 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(sessions, bruteForce, shares);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"UNKNOWN", "CHANGED", "UNAVAILABLE"})
+    void hostKeyFailureCannotAuthenticateOrReachProtectedResources(String reason) throws Exception {
+        var failure = new mari.samba.core.SshHostKeyException(
+                mari.samba.core.SshHostKeyException.Reason.valueOf(reason), "SHA256:fixture");
+        doThrow(failure).when(sessions).createSession(anyString(), any(ConnectionRequestDto.class));
+        var result = mvc.perform(withCsrf(post("/api/auth/login"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(LOGIN))
+                .andExpect(status().is(reason.equals("UNAVAILABLE") ? 503 : 409))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("SSH_HOST_KEY_" + reason))
+                .andExpect(jsonPath("$.data.fingerprint").value("SHA256:fixture"))
+                .andReturn();
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        var session = (MockHttpSession) result.getRequest().getSession(false);
+        assertNull(session.getAttribute("SPRING_SECURITY_CONTEXT"));
+        mvc.perform(get("/api/shares").session(session)).andExpect(status().isUnauthorized());
+        verify(bruteForce).registerFailedLogin(anyString(), eq("qa-user"));
+        verify(bruteForce, never()).resetFailedLogin(anyString(), anyString());
+        verifyNoInteractions(shares);
+    }
+
     @Test
     void anonymousReadsRequireAuthenticationWithoutRedirect() throws Exception {
         for (String path : new String[] {"/api/shares", "/api/auth/me"}) {

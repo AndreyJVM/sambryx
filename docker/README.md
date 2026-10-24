@@ -62,3 +62,5 @@ Maven устанавливает локальные Node.js/npm для frontend.
 - **SSH Port**: `2222`
 - **Username**: `admin`
 - **Password**: `admin`
+
+Sandbox получает ключи только собственного Docker-узла в `.local/sandbox/known_hosts`. Для удалённых серверов настройте [проверку подлинности SSH](../docs/ssh-host-keys.md).

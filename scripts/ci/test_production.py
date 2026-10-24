@@ -22,6 +22,7 @@ class ProductionComposeTest(unittest.TestCase):
                 "TLS_CERT_FILE": str(fixture),
                 "TLS_KEY_FILE": str(fixture),
                 "SSH_AUTHORIZED_KEYS_FILE": str(fixture),
+                "SSH_KNOWN_HOSTS_FILE": str(fixture),
                 "PROXY_UID": "1000", "PROXY_GID": "1000",
                 "HTTPS_BIND_IP": "127.0.0.1", "HTTPS_PORT": "8443",
                 "SAMBA_BIND_IP": "127.0.0.1", "SAMBA_PORT": "445",
@@ -46,6 +47,10 @@ class ProductionComposeTest(unittest.TestCase):
         self.assertEqual(set(model["services"]), {"web", "nginx"})
         web, proxy = model["services"]["web"], model["services"]["nginx"]
         self.assertFalse(web.get("ports"))
+        trust = next(mount for mount in web["volumes"] if mount["target"] == "/etc/sambryx/known_hosts")
+        self.assertTrue(trust["read_only"])
+        # Compose versions may omit false values from the normalized JSON model.
+        self.assertFalse(trust.get("bind", {}).get("create_host_path", False))
         self.assertEqual([port["target"] for port in proxy["ports"]], [8443])
         self.assertEqual(proxy["ports"][0]["host_ip"], "127.0.0.1")
         self.assertTrue(model["networks"]["proxy"]["internal"])

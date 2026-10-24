@@ -5,7 +5,7 @@ export interface ApiResponse<T = unknown> {
 }
 
 export class ApiError extends Error {
-  constructor(public message: string, public status?: number) {
+  constructor(public message: string, public status?: number, public details?: {code?: string; fingerprint?: string}) {
     super(message);
     this.name = "ApiError";
   }
@@ -55,7 +55,7 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     }
 
     if (!res.ok || (Object.prototype.hasOwnProperty.call(json, "success") && !json.success)) {
-      throw new ApiError(json.message || "Произошла ошибка при выполнении запроса", res.status);
+      throw new ApiError(json.message || "Произошла ошибка при выполнении запроса", res.status, json.data);
     }
 
     return (Object.prototype.hasOwnProperty.call(json, "success") && Object.prototype.hasOwnProperty.call(json, "data")) ? json.data : json;

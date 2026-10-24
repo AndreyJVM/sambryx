@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import java.util.Map;
 import mari.samba.core.ApiResponse;
 import mari.samba.core.SambaCommandException;
+import mari.samba.core.SshHostKeyException;
 import mari.samba.infra.ExecutionSessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -75,7 +76,7 @@ public class AuthApiController {
      * @return a {@link ResponseEntity} with an {@link ApiResponse} wrapping the authentication status
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<Void>> connect(
+    public ResponseEntity<ApiResponse<?>> connect(
             @Valid @RequestBody ConnectionRequestDto request, @NonNull HttpServletRequest httpRequest) {
 
         String clientIp = getClientIp(httpRequest);
@@ -97,6 +98,12 @@ public class AuthApiController {
 
             return ResponseEntity.ok(ApiResponse.ok("Authentication successful", null));
 
+        } catch (SshHostKeyException e) {
+            var details = new HostKeyFailure(e.code(), e.fingerprint());
+            var status = e.reason() == SshHostKeyException.Reason.UNAVAILABLE
+                    ? HttpStatus.SERVICE_UNAVAILABLE
+                    : HttpStatus.CONFLICT;
+            return ResponseEntity.status(status).body(new ApiResponse<>(false, e.getMessage(), details));
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {
@@ -109,6 +116,8 @@ public class AuthApiController {
                     .body(ApiResponse.error("Login error: " + e.getMessage()));
         }
     }
+
+    public record HostKeyFailure(String code, String fingerprint) {}
 
     private HttpSession prepareLoginSession(HttpServletRequest request) {
         HttpSession session = request.getSession(true);

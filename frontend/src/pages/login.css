@@ -94,3 +94,7 @@
     transition: none !important;
   }
 }
+.login-page [role="alert"] span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
