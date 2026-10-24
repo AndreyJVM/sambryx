@@ -130,8 +130,8 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
                     {browseData?.directories.length && selectedItems.size === browseData.directories.length ? <CheckSquare className="w-3.5 h-3.5 text-accent-text" /> : <Square className="w-3.5 h-3.5 text-text-muted" />}
                   </button>
                 </th>
-                <th className="px-2 py-2 font-semibold text-foreground">Name</th>
-                <th className="px-2 py-2 font-semibold text-right w-20 text-foreground">Size</th>
+                <th className="px-2 py-2 font-semibold text-foreground">{t("files.name")}</th>
+                <th className="px-2 py-2 font-semibold text-right w-20 text-foreground">{t("files.size")}</th>
               </tr>
             </thead>
             <tbody>
@@ -194,20 +194,20 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
 
       {selectedItems.size > 0 && (
         <div className="px-3 py-2 border-t border-border bg-surface flex items-center justify-between shrink-0">
-          <span className="text-[11px] font-medium text-text-muted">{selectedItems.size} selected</span>
+          <span className="text-[11px] font-medium text-text-muted">{t("files.selected")}: {selectedItems.size}</span>
           <div className="flex gap-1.5">
             <button onClick={() => onAction('download')} className="px-2 py-1 bg-surface border border-border-strong rounded text-[11px] font-medium flex items-center gap-1 hover:bg-surface-2 text-foreground">
               <Download className="w-3 h-3" /> {t("common.download")}
             </button>
             <button onClick={() => onAction('copy')} className="px-2 py-1 bg-surface border border-border-strong rounded text-[11px] font-medium flex items-center gap-1 hover:bg-surface-2 text-foreground">
-              <Copy className="w-3 h-3" /> Copy
+              <Copy className="w-3 h-3" /> {t("files.copy")}
             </button>
             <button onClick={() => onAction('move')} className="px-2 py-1 bg-surface border border-border-strong rounded text-[11px] font-medium flex items-center gap-1 hover:bg-surface-2 text-foreground">
-              <MoveRight className="w-3 h-3" /> Move
+              <MoveRight className="w-3 h-3" /> {t("files.move")}
             </button>
             {/* TODO: token for status-error is not in theme palette, keeping functional status color */}
             <button onClick={() => onAction('delete')} className="px-2 py-1 bg-surface-2 text-status-error border border-status-error/30 rounded text-[11px] font-medium flex items-center gap-1 hover:bg-surface">
-              <Trash2 className="w-3 h-3" /> Delete
+              <Trash2 className="w-3 h-3" /> {t("common.delete")}
             </button>
           </div>
         </div>

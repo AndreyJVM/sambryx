@@ -4,6 +4,13 @@ export type Language = "ru" | "en";
 
 export const translations = {
   en: {
+    files: {
+      name: "Name", size: "Size", selected: "Selected", copy: "Copy", move: "Move",
+      error: "File operation error", downloadError: "Download failed", uploadError: "Upload failed",
+      noDownloads: "No files selected for download", samePath: "Source and destination are the same",
+      completed: "Completed", copyDone: "Items copied", moveDone: "Items moved", deleteDone: "Items deleted",
+      uploaded: "File uploaded", folderCreated: "Folder created"
+    },
     common: {
       cancel: "Cancel",
       close: "Close",
@@ -314,6 +321,13 @@ export const translations = {
     }
   },
   ru: {
+    files: {
+      name: "Имя", size: "Размер", selected: "Выбрано", copy: "Копировать", move: "Переместить",
+      error: "Ошибка файловой операции", downloadError: "Ошибка скачивания", uploadError: "Ошибка загрузки файла",
+      noDownloads: "Файлы для скачивания не выбраны", samePath: "Источник и назначение совпадают",
+      completed: "Готово", copyDone: "Элементы скопированы", moveDone: "Элементы перемещены", deleteDone: "Элементы удалены",
+      uploaded: "Файл загружен", folderCreated: "Папка создана"
+    },
     common: {
       cancel: "Отмена",
       close: "Закрыть",

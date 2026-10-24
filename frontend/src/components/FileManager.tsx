@@ -1,10 +1,14 @@
 import { getErrorMessage } from "../lib/errors";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FilePane, BrowseResult } from "./ui/file-pane";
+import { useTranslation } from "../lib/i18n";
 import { api } from "../lib/api";
 import { useToast } from "./ui/toast";
 
 export function FileManager() {
+  const { t } = useTranslation();
+  const translate = useRef(t);
+  useEffect(() => { translate.current = t; }, [t]);
   const [leftPath, setLeftPath] = useState("/");
   const [rightPath, setRightPath] = useState("/home");
   
@@ -31,7 +35,7 @@ export function FileManager() {
         setRightSelected(new Set());
       }
     } catch (err) {
-      toastError("FS Error", getErrorMessage(err));
+      toastError(translate.current("files.error"), getErrorMessage(err));
     } finally {
       side === 'left' ? setLeftLoading(false) : setRightLoading(false);
     }
@@ -66,7 +70,7 @@ export function FileManager() {
       await api.post("/api/fs/mkdir", { parentPath: path, name, dirName: name });
       fetchPane(path, side);
     } catch (err) {
-      toastError("Error", getErrorMessage(err));
+      toastError(t("files.error"), getErrorMessage(err));
     }
   };
 
@@ -74,7 +78,7 @@ export function FileManager() {
     try {
       const res = await fetch(`/api/fs/download?path=${encodeURIComponent(filePath)}`);
       if (!res.ok) {
-        let msg = "Download failed";
+        let msg = t("files.downloadError");
         try {
           const errJson = await res.json();
           msg = errJson.message || msg;
@@ -94,7 +98,7 @@ export function FileManager() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      toastError("Download Error", getErrorMessage(err));
+      toastError(t("files.downloadError"), getErrorMessage(err));
     }
   };
 
@@ -115,13 +119,13 @@ export function FileManager() {
         count++;
       }
       if (count === 0) {
-        toastError("Download Error", "No files selected for download");
+        toastError(t("files.downloadError"), t("files.noDownloads"));
       }
       return;
     }
     
     if (action !== 'delete' && destPath === srcPath) {
-      toastError("Error", "Source and destination are the same");
+      toastError(t("files.error"), t("files.samePath"));
       return;
     }
 
@@ -133,11 +137,11 @@ export function FileManager() {
           await api.post(`/api/fs/${action}`, { source: item, destination: destPath });
         }
       }
-      success("Success", `Items ${action}d successfully`);
+      success(t("files.completed"), t(`files.${action}Done`));
       fetchPane(leftPath, 'left');
       fetchPane(rightPath, 'right');
     } catch (err) {
-      toastError("Error", getErrorMessage(err));
+      toastError(t("files.error"), getErrorMessage(err));
     }
   };
 
@@ -153,10 +157,10 @@ export function FileManager() {
       });
       
       if (!res.ok) throw new Error(await res.text());
-      success("Success", "File uploaded");
+      success(t("files.completed"), t("files.uploaded"));
       fetchPane(path, side);
     } catch (err) {
-      toastError("Upload Error", getErrorMessage(err));
+      toastError(t("files.uploadError"), getErrorMessage(err));
     }
   };
 
