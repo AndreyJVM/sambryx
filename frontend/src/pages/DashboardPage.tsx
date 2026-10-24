@@ -42,7 +42,7 @@ interface DiskUsage {
 }
 type ServiceAction = "start" | "stop" | "restart";
 
-const panel = "rounded-xl border border-border bg-surface";
+const panel = "dashboard-panel rounded-xl border border-border bg-surface";
 const button =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-text disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -58,10 +58,10 @@ function Metric({
   icon: ReactNode;
 }) {
   return (
-    <div className={`${panel} p-5`}>
+    <div className={`${panel} dashboard-metric p-5`}>
       <div className="flex items-center justify-between gap-3 text-text-muted">
         <span className="text-sm">{label}</span>
-        {icon}
+        <span className="dashboard-metric-icon">{icon}</span>
       </div>
       <div className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">
         {value}
@@ -187,8 +187,8 @@ export default function DashboardPage() {
   const missing = initialLoading ? "…" : "—";
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="dashboard-page space-y-6 animate-in fade-in duration-300">
+      <header className="dashboard-heading flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-text-muted">
             <Activity className="h-3.5 w-3.5" />

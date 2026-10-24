@@ -52,6 +52,7 @@ export interface FstecReportDto {
 export default function FstecPage() {
   const [report, setReport] = useState<FstecReportDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [expandedRules, setExpandedRules] = useState<Record<string, boolean>>({});
   const [statusFilter, setStatusFilter] = useState<"ALL" | "FAILED" | "OK" | "MANUAL">("ALL");
   const [copiedRuleId, setCopiedRuleId] = useState<string | null>(null);
@@ -63,14 +64,15 @@ export default function FstecPage() {
   const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError("");
       const res = await api.get<FstecReportDto>("/api/fstec/check");
       setReport(res);
     } catch (err) {
-      toastError("FSTEC Check Error", getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, []);
 
   useEffect(() => {
     fetchReport();
@@ -174,7 +176,7 @@ export default function FstecPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="fstec-page space-y-6 animate-in fade-in duration-300">
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -210,6 +212,7 @@ export default function FstecPage() {
       </div>
 
       {/* Info notice */}
+      {loadError && <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p>{t(report ? "fstec.staleData" : "fstec.loadError")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
       <div className="p-4 rounded-xl border border-border bg-surface flex items-start gap-3 shadow-sm">
         <Info className="w-5 h-5 text-text-muted shrink-0 mt-0.5" />
         <p className="text-xs text-text-muted leading-relaxed">
@@ -219,7 +222,7 @@ export default function FstecPage() {
 
       {/* Loading Skeleton */}
       {loading && !report && (
-        <div className="space-y-4">
+        <div role="status" aria-busy="true" aria-label={t("sidebar.wait")} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="h-24 bg-surface border border-border rounded-xl animate-pulse" />
@@ -232,9 +235,9 @@ export default function FstecPage() {
       {/* Report Dashboard Cards */}
       {report && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <div className="fstec-metrics grid grid-cols-2 xl:grid-cols-5 gap-3.5">
             {/* Compliance Percent Card */}
-            <div className="p-4 rounded-xl border border-border bg-surface flex flex-col justify-between col-span-2 md:col-span-1 shadow-sm">
+            <div className="p-4 rounded-xl border border-border bg-surface flex flex-col justify-between col-span-2 xl:col-span-1 shadow-sm">
               <span className="text-xs font-medium text-text-muted">{t("fstec.complianceScore")}</span>
               <div className="my-2">
                 <div className="flex items-baseline gap-2">
@@ -242,7 +245,7 @@ export default function FstecPage() {
                     {report.compliancePercent}%
                   </span>
                 </div>
-                <div className="w-full bg-track h-2 rounded-full overflow-hidden mt-2">
+                <div role="progressbar" aria-label={t("fstec.complianceScore")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={report.compliancePercent} className="w-full bg-track h-2 rounded-full overflow-hidden mt-2">
                   <div
                     className={`h-full transition-all duration-500 rounded-full ${
                       report.compliancePercent >= 80
@@ -267,7 +270,7 @@ export default function FstecPage() {
                 <CheckCircle2 className="w-4 h-4 text-status-active" />
               </div>
               <span className="text-2xl font-bold text-foreground mt-2">{report.okCount}</span>
-              <span className="text-[11px] text-status-active font-medium">Соответствует</span>
+              <span className="text-[11px] text-status-active font-medium">{t("fstec.okCaption")}</span>
             </div>
 
             {/* FAILED count card */}
@@ -277,7 +280,7 @@ export default function FstecPage() {
                 <XCircle className="w-4 h-4 text-status-error" />
               </div>
               <span className="text-2xl font-bold text-foreground mt-2">{report.failedCount}</span>
-              <span className="text-[11px] text-status-error font-medium">Требует внимания</span>
+              <span className="text-[11px] text-status-error font-medium">{t("fstec.failedCaption")}</span>
             </div>
 
             {/* MANUAL count card */}
@@ -287,7 +290,7 @@ export default function FstecPage() {
                 <AlertTriangle className="w-4 h-4 text-status-warning" />
               </div>
               <span className="text-2xl font-bold text-foreground mt-2">{report.manualCount}</span>
-              <span className="text-[11px] text-status-warning font-medium">Ручной регламент</span>
+              <span className="text-[11px] text-status-warning font-medium">{t("fstec.manualCaption")}</span>
             </div>
 
             {/* NOT_APPLICABLE count card */}
@@ -297,14 +300,15 @@ export default function FstecPage() {
                 <HelpCircle className="w-4 h-4 text-text-muted" />
               </div>
               <span className="text-2xl font-bold text-foreground mt-2">{report.notApplicableCount}</span>
-              <span className="text-[11px] text-text-muted">Не применимо к роли</span>
+              <span className="text-[11px] text-text-muted">{t("fstec.naCaption")}</span>
             </div>
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-2 border-b border-border pb-3">
+          <div role="group" aria-label={t("fstec.filters")} className="fstec-filters flex flex-wrap items-center gap-2 border-b border-border pb-3">
             <button
               onClick={() => setStatusFilter("ALL")}
+              aria-pressed={statusFilter === "ALL"}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === "ALL"
                   ? "bg-foreground text-bg"
@@ -315,6 +319,7 @@ export default function FstecPage() {
             </button>
             <button
               onClick={() => setStatusFilter("FAILED")}
+              aria-pressed={statusFilter === "FAILED"}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === "FAILED"
                   ? "bg-status-error text-white"
@@ -325,6 +330,7 @@ export default function FstecPage() {
             </button>
             <button
               onClick={() => setStatusFilter("OK")}
+              aria-pressed={statusFilter === "OK"}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === "OK"
                   ? "bg-status-active text-white"
@@ -335,6 +341,7 @@ export default function FstecPage() {
             </button>
             <button
               onClick={() => setStatusFilter("MANUAL")}
+              aria-pressed={statusFilter === "MANUAL"}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === "MANUAL"
                   ? "bg-status-warning text-white"
@@ -359,9 +366,12 @@ export default function FstecPage() {
                   return (
                     <div key={rule.id} className="transition-colors hover:bg-surface-2/40">
                       {/* Main Rule Row */}
-                      <div
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={`fstec-rule-${encodeURIComponent(rule.id)}`}
                         onClick={() => toggleExpand(rule.id)}
-                        className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer select-none"
+                        className="fstec-rule-toggle w-full text-left p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer select-none"
                       >
                         <div className="flex items-start md:items-center gap-3 min-w-0">
                           <div className="shrink-0 pt-0.5 md:pt-0">
@@ -381,30 +391,29 @@ export default function FstecPage() {
 
                             <div className="mt-1 flex items-center gap-2 text-xs text-text-muted flex-wrap">
                               <span>
-                                Текущее: <span className="font-mono text-foreground font-medium">{rule.currentValue}</span>
+                                {t("fstec.currentLabel")}: <span className="font-mono text-foreground font-medium">{rule.currentValue}</span>
                               </span>
                               <span>→</span>
                               <span>
-                                Ожидаемое: <span className="font-mono text-foreground font-medium">{rule.expectedValue}</span>
+                                {t("fstec.expectedLabel")}: <span className="font-mono text-foreground font-medium">{rule.expectedValue}</span>
                               </span>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                          <button
-                            type="button"
+                          <span
                             className="p-1 text-text-muted hover:text-foreground transition-colors"
-                            aria-label="Toggle details"
+                            aria-hidden="true"
                           >
                             {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                          </button>
+                          </span>
                         </div>
-                      </div>
+                      </button>
 
                       {/* Expanded Details */}
                       {isExpanded && (
-                        <div className="px-4 pb-4 pt-1 bg-surface-2/60 border-t border-border/60 space-y-3.5">
+                        <div id={`fstec-rule-${encodeURIComponent(rule.id)}`} className="fstec-rule-details px-4 pb-4 pt-1 bg-surface-2/60 border-t border-border/60 space-y-3.5">
                           {/* How to fix */}
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
@@ -456,7 +465,7 @@ export default function FstecPage() {
                               <span className="text-xs font-semibold text-foreground block mb-1.5">
                                 {t("fstec.sharesDetails")} ({rule.shareResults.length}):
                               </span>
-                              <div className="rounded-lg border border-border bg-surface overflow-hidden">
+                              <div className="rounded-lg border border-border bg-surface overflow-x-auto">
                                 <table className="w-full text-left text-xs">
                                   <thead className="bg-surface-2 border-b border-border text-text-muted font-medium">
                                     <tr>

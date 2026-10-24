@@ -1,6 +1,6 @@
 import { getErrorMessage } from "../../lib/errors";
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, HardDrive, Plus, Trash2, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { FolderKanban, HardDrive, Plus, Trash2, Settings2, ChevronDown, ChevronUp, Search, RefreshCw, AlertTriangle } from "lucide-react";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/ui/toast";
 import { useConfirm } from "../../components/ui/confirm";
@@ -49,6 +49,8 @@ export default function SharesPage() {
   const [suggestionsUnavailable, setSuggestionsUnavailable] = useState(false);
   
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [query, setQuery] = useState("");
 
   const [sizes, setSizes] = useState<Record<string, string>>({});
   const [loadingSizes, setLoadingSizes] = useState<Record<string, boolean>>({});
@@ -93,6 +95,7 @@ export default function SharesPage() {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError("");
       setSuggestionsUnavailable(false);
       const unavailable = () => { setSuggestionsUnavailable(true); return []; };
       const [shRes, usRes, grRes, sysRes] = await Promise.all([
@@ -106,11 +109,11 @@ export default function SharesPage() {
       setSystemUsers(sysRes || []);
       setGroups(grRes || []);
     } catch (err) {
-      toastError("API Error", getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -191,22 +194,43 @@ export default function SharesPage() {
     setIsEditing(true);
   };
 
+  const resources = shares.filter(share => share.name !== "global");
+  const search = query.trim().toLocaleLowerCase();
+  const visibleShares = resources.filter(share =>
+    [share.name, share.path, share.comment || ""].some(value => value.toLocaleLowerCase().includes(search))
+  );
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+    <div className="shares-page space-y-6 animate-in fade-in duration-500 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("shares.title")}</h1>
-        <button onClick={() => openEditor()} className="text-[13px] font-medium text-on-accent bg-accent px-4 py-2 rounded-md hover:opacity-90 transition-colors flex items-center gap-2">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-text-muted"><FolderKanban className="h-3.5 w-3.5" />Samba · SMB</div>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("shares.title")}</h1>
+          <p className="mt-2 text-sm text-text-muted">{t("shares.subtitle")}</p>
+        </div>
+        <button onClick={() => openEditor()} className="shares-create text-[13px] font-medium text-on-accent bg-accent px-4 py-2 rounded-md hover:opacity-90 transition-colors flex items-center gap-2">
           <Plus className="w-4 h-4" /> {t("shares.newShare")}
         </button>
       </div>
 
+      <div className="shares-toolbar">
+        <label className="shares-search">
+          <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-muted" />
+          <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("shares.search")} aria-label={t("shares.search")} />
+        </label>
+        <span className="text-xs text-text-muted" role="status">{loading ? t("sidebar.wait") : `${t("shares.shown")}: ${visibleShares.length} / ${resources.length}`}</span>
+        <button onClick={() => void fetchAll()} disabled={loading} className="shares-refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{t("dashboard.refresh")}</button>
+      </div>
+
+      {loadError && <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p className="font-medium">{t(resources.length ? "shares.staleData" : "shares.loadError")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
+
       {loading ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" role="status" aria-label={t("sidebar.wait")} aria-busy="true">
           {[1,2,3].map(i => (
              <div key={i} className="h-20 bg-surface border border-border rounded-lg animate-pulse" />
           ))}
         </div>
-      ) : shares.filter(s => s.name !== 'global').length === 0 ? (
+      ) : resources.length === 0 && !loadError ? (
         <div className="text-center py-24 bg-surface rounded-lg border border-border border-dashed">
           <FolderKanban className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-50" />
           <h3 className="text-base font-semibold text-foreground">{t("shares.noShares")}</h3>
@@ -215,9 +239,11 @@ export default function SharesPage() {
             {t("shares.createShare")}
           </button>
         </div>
-      ) : (
-        <div className="bg-surface rounded-lg border border-border overflow-hidden overflow-x-auto">
-          <table className="w-full text-left min-w-[800px] border-collapse">
+      ) : visibleShares.length === 0 && resources.length > 0 ? (
+        <div className="shares-empty"><Search className="h-8 w-8 text-text-muted" /><h2>{t("shares.noMatches")}</h2><p>{t("shares.noMatchesHint")}</p><button onClick={() => setQuery("")} className="shares-refresh">{t("shares.clearSearch")}</button></div>
+      ) : visibleShares.length > 0 ? (
+        <div className="shares-list bg-surface rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-surface-2 text-[11px] font-medium text-text-muted uppercase">
               <tr>
                 <th className="py-3 px-5 w-[25%] font-medium">{t("shares.shareName")}</th>
@@ -227,21 +253,21 @@ export default function SharesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {shares.filter(s => s.name !== 'global').map((share) => (
+              {visibleShares.map((share) => (
               <tr key={share.name} className="hover:bg-surface-2 transition-colors group">
-                  <td className="py-4 px-5">
+                  <td data-label={t("shares.shareName")} className="py-4 px-5">
                     <div className="flex items-center gap-2.5">
                        <div className="bg-surface-2 border border-border p-1.5 rounded-md">
                          <FolderKanban className="w-4 h-4 text-foreground" />
                        </div>
-                       <span className="text-foreground font-semibold text-sm">{share.name}</span>
+                       <span className="shares-name text-foreground font-semibold text-sm">{share.name}</span>
                     </div>
                     {share.comment && <div className="text-[12px] text-text-muted mt-1.5 truncate max-w-[220px]" title={share.comment}>{share.comment}</div>}
                   </td>
                   
-                  <td className="py-4 px-5">
+                  <td data-label={t("shares.diskPath")} className="py-4 px-5">
                     <div className="flex flex-col gap-2 relative group-size">
-                      <span className="text-[13px] font-mono text-text-muted bg-surface-2 px-2 py-1 rounded-md border border-border inline-block w-fit" title={share.path}>
+                      <span className="shares-path text-[13px] font-mono text-text-muted bg-surface-2 px-2 py-1 rounded-md border border-border inline-block w-fit" title={share.path}>
                         {share.path || '/'}
                       </span>
                       <div className="flex items-center gap-2 mt-1 min-h-[20px]">
@@ -260,20 +286,18 @@ export default function SharesPage() {
                     </div>
                   </td>
 
-                  <td className="py-4 px-5">
+                  <td data-label={t("shares.access")} className="py-4 px-5">
                     <div className="flex flex-wrap gap-2">
-                      {/* TODO: status-warning and status-active tokens fallback */}
-                      {share.readOnly && <span className="bg-surface-2 text-status-warning border border-status-warning/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">RO</span>}
-                      {share.guestOk && <span className="bg-surface-2 text-status-active border border-status-active/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">GUEST</span>}
-                      {!share.readOnly && !share.guestOk && <span className="text-text-muted text-[10px] bg-surface-2 border border-border font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{t("shares.private")}</span>}
+                      <span className="shares-badge">{t(share.readOnly ? "shares.readOnly" : "shares.writeAccess")}</span>
+                      <span className={`shares-badge ${share.guestOk ? "shares-badge-guest" : ""}`}>{t(share.guestOk ? "shares.guestOk" : "shares.private")}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-5 text-right">
+                  <td data-label={t("common.actions")} className="shares-actions py-4 px-5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => openEditor(share)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors border border-border/60 hover:border-border" title={t("shares.configure")}>
+                      <button onClick={() => openEditor(share)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors border border-border/60 hover:border-border" title={t("shares.configure")} aria-label={`${t("shares.configure")}: ${share.name}`}>
                         <Settings2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(share.name)} className="p-2 text-text-muted hover:text-status-error hover:bg-status-error/10 rounded-md transition-colors border border-border/60 hover:border-border" title={t("common.delete")}>
+                      <button onClick={() => handleDelete(share.name)} className="p-2 text-text-muted hover:text-status-error hover:bg-status-error/10 rounded-md transition-colors border border-border/60 hover:border-border" title={t("common.delete")} aria-label={`${t("common.delete")}: ${share.name}`}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -283,7 +307,7 @@ export default function SharesPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       {currentShare && (
         <Modal 
@@ -292,7 +316,7 @@ export default function SharesPage() {
           title={currentShare.isNew ? t("shares.newShare") : `${t("shares.configure")}: ${currentShare.name}`}
           maxWidth="2xl"
         >
-          <form onSubmit={handleSave} className="space-y-6">
+          <form onSubmit={handleSave} className="share-editor space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label htmlFor="share-name" className="text-[12px] font-medium text-foreground">{t("shares.shareName")}</label>
@@ -307,7 +331,7 @@ export default function SharesPage() {
               </div>
               <div className="space-y-2">
                 <label htmlFor="share-path" className="text-[12px] font-medium text-foreground">{t("shares.diskPath")}</label>
-                <div className="flex gap-2">
+                <div className="share-path-field flex gap-2">
                   <input 
                     id="share-path"
                     required
@@ -324,8 +348,9 @@ export default function SharesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[12px] font-medium text-foreground">{t("shares.comment")}</label>
+              <label htmlFor="share-comment" className="text-[12px] font-medium text-foreground">{t("shares.comment")}</label>
               <input 
+                id="share-comment"
                 value={currentShare.comment || ""} 
                 onChange={(e) => setCurrentShare({ ...currentShare, comment: e.target.value })} 
                 className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none text-foreground transition-all py-2.5 px-3.5 text-[13px] rounded-lg"
@@ -401,6 +426,8 @@ export default function SharesPage() {
               <button 
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
+                aria-expanded={showAdvanced}
+                aria-controls="share-advanced-options"
                 className="w-full flex items-center justify-between text-[13px] font-medium text-foreground py-3 border-b border-border hover:bg-surface-2 transition-colors rounded-t-lg px-2"
               >
                 <div className="flex items-center gap-2">
@@ -410,7 +437,7 @@ export default function SharesPage() {
               </button>
               
               {showAdvanced && (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 animate-in slide-in-from-top-2 duration-300">
+                 <div id="share-advanced-options" className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 animate-in slide-in-from-top-2 duration-300">
                     {advancedFields.map(field => (
                         <div key={field.k} className="flex flex-col gap-1.5 overflow-visible">
                           <label htmlFor={`share-${field.k}`} className="text-[11px] font-semibold text-text-muted uppercase" title={field.l}>{field.l}</label>

@@ -6,6 +6,7 @@ export const translations = {
   en: {
     common: {
       cancel: "Cancel",
+      close: "Close",
       save: "Save",
       create: "Create",
       add: "Add",
@@ -29,6 +30,10 @@ export const translations = {
       settings: "Global Settings",
       fstec: "FSTEC Compliance",
       logout: "Sign Out",
+      navigation: "Main navigation",
+      skipContent: "Skip to content",
+      lightMode: "Light mode",
+      darkMode: "Dark mode",
       server: "Server",
       user: "User",
       running: "Running",
@@ -88,10 +93,20 @@ export const translations = {
       mount: "Mount",
       mkdir: "New Directory",
       dirEmpty: "Directory is empty",
-      dirname: "dirname"
+      dirname: "dirname",
+      newFolder: "New folder", uploadFile: "Upload file", selectAll: "Select all items"
     },
     shares: {
       title: "Network Shares",
+      subtitle: "Shared folders, storage paths and Samba access settings.",
+      search: "Search by name, path or description",
+      shown: "Shown",
+      noMatches: "No matching shares",
+      noMatchesHint: "Try another name, path or description.",
+      clearSearch: "Clear search",
+      loadError: "Could not load shares",
+      staleData: "Could not refresh shares. Showing the previous list.",
+      writeAccess: "Read / write",
       newShare: "New Share",
       noShares: "No shares available",
       noSharesDesc: "Create your first directory to share over the network.",
@@ -132,7 +147,18 @@ export const translations = {
       calculating: "Calculating...",
       private: "Private"
     },
+    lists: {
+      shown: "Shown",
+      loadError: "Could not load the list",
+      staleData: "Could not refresh. Showing the previous list.",
+      noMatches: "No matches",
+      noMatchesHint: "Try a different search.",
+      clearSearch: "Clear search"
+    },
     users: {
+      subtitle: "System and Samba accounts on the connected server.",
+      search: "Search by username or full name",
+      deleteWarning: "Permanently delete this account from the OS and Samba?",
       title: "Users Management",
       newUser: "New User",
       addUser: "Add User",
@@ -156,6 +182,8 @@ export const translations = {
       changePassword: "Change Password"
     },
     groups: {
+      subtitle: "System groups and their explicitly listed members.",
+      search: "Search by group or member name",
       title: "System Groups",
       newGroup: "New Group",
       noGroups: "No groups found.",
@@ -173,6 +201,9 @@ export const translations = {
     },
     ad: {
       title: "Active Directory Integration",
+      subtitle: "Domain membership and the health of DNS, Kerberos and Winbind.",
+      notJoined: "Not joined",
+      staleData: "Could not refresh domain status. Showing the previous result.",
       refresh: "Refresh",
       healthStatus: "Domain Health Status",
       healthDesc: "Check Kerberos ticket and Winbind daemon connectivity",
@@ -209,6 +240,13 @@ export const translations = {
     },
     config: {
       title: "Global Configuration",
+      subtitle: "Server identity, network interfaces and Samba protocols.",
+      loadError: "Could not load the configuration",
+      staleData: "Refresh failed. The displayed configuration may be out of date.",
+      backupError: "The backup list is unavailable. This does not mean there are no backups.",
+      resetWarning: "Replace the form values with defaults? They will only be applied after you save.",
+      restoreWarning: "Restore this backup on the server?",
+      saveHint: "Changes reach the server only when you apply the configuration.",
       general: "General",
       network: "Network",
       security: "Security",
@@ -237,6 +275,15 @@ export const translations = {
       badPassword: "Bad Password"
     },
     fstec: {
+      loadError: "Could not load the report",
+      staleData: "Check failed. Showing the previous report.",
+      filters: "Filter rules by status",
+      okCaption: "Check passed",
+      failedCaption: "Needs attention",
+      manualCaption: "Manual review",
+      naCaption: "Not applicable to this role",
+      currentLabel: "Current",
+      expectedLabel: "Expected",
       title: "FSTEC Compliance",
       subtitle: "Security compliance analyzer according to FSTEC recommendations for Samba software",
       recheck: "Recheck",
@@ -269,6 +316,7 @@ export const translations = {
   ru: {
     common: {
       cancel: "Отмена",
+      close: "Закрыть",
       save: "Сохранить",
       create: "Создать",
       add: "Добавить",
@@ -292,6 +340,10 @@ export const translations = {
       settings: "Глобальные настройки",
       fstec: "ФСТЭК",
       logout: "Выход",
+      navigation: "Основная навигация",
+      skipContent: "Перейти к содержимому",
+      lightMode: "Светлая тема",
+      darkMode: "Тёмная тема",
       server: "Сервер",
       user: "Пользователь",
       running: "Работает",
@@ -351,10 +403,20 @@ export const translations = {
       mount: "Монтирование",
       mkdir: "Новый ресурс",
       dirEmpty: "Папка пуста",
-      dirname: "имя_папки"
+      dirname: "имя_папки",
+      newFolder: "Новая папка", uploadFile: "Загрузить файл", selectAll: "Выбрать все элементы"
     },
     shares: {
       title: "Сетевые папки",
+      subtitle: "Общие папки, пути хранения и настройки доступа Samba.",
+      search: "Поиск по имени, пути или описанию",
+      shown: "Показано",
+      noMatches: "Ресурсы не найдены",
+      noMatchesHint: "Попробуйте другое имя, путь или описание.",
+      clearSearch: "Сбросить поиск",
+      loadError: "Не удалось загрузить ресурсы",
+      staleData: "Не удалось обновить ресурсы. Показан предыдущий список.",
+      writeAccess: "Чтение и запись",
       newShare: "Новый ресурс",
       noShares: "Нет общих ресурсов",
       noSharesDesc: "Создайте свою первую директорию для сетевого доступа (share).",
@@ -395,7 +457,18 @@ export const translations = {
       calculating: "Вычисление...",
       private: "Приватный"
     },
+    lists: {
+      shown: "Показано",
+      loadError: "Не удалось загрузить список",
+      staleData: "Не удалось обновить данные. Показан предыдущий список.",
+      noMatches: "Совпадений не найдено",
+      noMatchesHint: "Попробуйте другой поисковый запрос.",
+      clearSearch: "Сбросить поиск"
+    },
     users: {
+      subtitle: "Учётные записи ОС и Samba на подключённом сервере.",
+      search: "Поиск по логину или полному имени",
+      deleteWarning: "Удалить эту учётную запись из ОС и Samba без возможности отмены?",
       title: "Пользователи Samba",
       newUser: "Новый пользователь",
       addUser: "Добавить пользователя",
@@ -419,6 +492,8 @@ export const translations = {
       changePassword: "Сменить пароль"
     },
     groups: {
+      subtitle: "Системные группы и явно указанные участники.",
+      search: "Поиск по группе или имени участника",
       title: "Группы системы",
       newGroup: "Новая группа",
       noGroups: "Группы не найдены.",
@@ -436,6 +511,9 @@ export const translations = {
     },
     ad: {
       title: "Интеграция с Active Directory",
+      subtitle: "Подключение к домену и состояние DNS, Kerberos и Winbind.",
+      notJoined: "Вне домена",
+      staleData: "Не удалось обновить статус домена. Показан предыдущий результат.",
       refresh: "Обновить",
       healthStatus: "Состояние домена",
       healthDesc: "Проверка билетов Kerberos и связи с демоном Winbind",
@@ -472,6 +550,13 @@ export const translations = {
     },
     config: {
       title: "Глобальные настройки",
+      subtitle: "Имя сервера, сетевые интерфейсы и протоколы Samba.",
+      loadError: "Не удалось загрузить конфигурацию",
+      staleData: "Обновление не удалось. Отображаемая конфигурация может быть устаревшей.",
+      backupError: "Список резервных копий недоступен. Это не означает, что копий нет.",
+      resetWarning: "Заменить значения формы настройками по умолчанию? Они применятся только после сохранения.",
+      restoreWarning: "Восстановить на сервере эту резервную копию?",
+      saveHint: "Изменения отправятся на сервер после применения конфигурации.",
       general: "Общие",
       network: "Сеть",
       security: "Безопасность",
@@ -500,6 +585,15 @@ export const translations = {
       badPassword: "Плохой пароль (Bad Password)"
     },
     fstec: {
+      loadError: "Не удалось загрузить отчёт",
+      staleData: "Проверка не удалась. Показан предыдущий отчёт.",
+      filters: "Фильтр правил по статусу",
+      okCaption: "Проверка пройдена",
+      failedCaption: "Требует внимания",
+      manualCaption: "Ручная проверка",
+      naCaption: "Не применимо к роли",
+      currentLabel: "Текущее",
+      expectedLabel: "Ожидаемое",
       title: "ФСТЭК",
       subtitle: "Анализатор соответствия конфигурации Samba рекомендациям ФСТЭК России по безопасной настройке",
       recheck: "Перепроверить",
