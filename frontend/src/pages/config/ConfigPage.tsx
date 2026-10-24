@@ -1,6 +1,6 @@
 import { getErrorMessage } from "../../lib/errors";
 import { useEffect, useState, useCallback } from "react";
-import { Save, RotateCcw, Clock, ArrowLeft } from "lucide-react";
+import { Save, RotateCcw, Clock, ArrowLeft, RefreshCw, AlertTriangle, Settings2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/ui/toast";
 import { useConfirm } from "../../components/ui/confirm";
@@ -42,6 +42,8 @@ export default function ConfigPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [backupError, setBackupError] = useState(false);
   const { error: toastError, success } = useToast();
   const { confirm } = useConfirm();
   const { t } = useTranslation();
@@ -49,18 +51,20 @@ export default function ConfigPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError("");
+      setBackupError(false);
       const [resConfig, resBackups] = await Promise.all([
         api.get<SmbGlobalConfig>("/api/config/global"),
-        api.get<Backup[]>("/api/config/backups").catch(() => []) 
+        api.get<Backup[]>("/api/config/backups").catch(() => { setBackupError(true); return []; })
       ]);
       setConfig(resConfig);
       setBackups(resBackups || []);
     } catch (err) {
-      toastError("API Error", getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -84,9 +88,9 @@ export default function ConfigPage() {
   const handleReset = async () => {
     const ok = await confirm({
       title: t("config.defaults"),
-      message: "Restore defaults? This will erase current settings.",
+      message: t("config.resetWarning"),
       destructive: true,
-      confirmText: "Restore"
+      confirmText: t("config.restore")
     });
     if (!ok) return;
 
@@ -119,7 +123,7 @@ export default function ConfigPage() {
   const handleRestoreBackup = async (filename: string) => {
     const ok = await confirm({
       title: t("config.restore"),
-      message: `Restore configuration from backup: ${filename}?`,
+      message: `${t("config.restoreWarning")} ${filename}`,
       destructive: true,
       confirmText: t("config.restore")
     });
@@ -136,27 +140,35 @@ export default function ConfigPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl">
+      <div role="status" aria-busy="true" aria-label={t("sidebar.wait")} className="space-y-6 animate-in fade-in duration-500 max-w-4xl">
          <div className="h-10 w-48 bg-surface-2 animate-pulse rounded-md"></div>
          <div className="h-64 bg-surface border border-border rounded-lg animate-pulse"></div>
       </div>
     );
   }
 
-  if (!config) return null;
+  if (!config) return (
+    <div className="config-page space-y-6">
+      <h1 className="text-2xl font-semibold">{t("config.title")}</h1>
+      <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p>{t("config.loadError")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>
+      <button onClick={() => void fetchData()} className="shares-refresh"><RefreshCw className="h-4 w-4" />{t("dashboard.refresh")}</button>
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl pb-10">
+    <div className="config-page space-y-6 animate-in fade-in duration-500 max-w-4xl pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("config.title")}</h1>
+        <div><div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-text-muted"><Settings2 className="h-3.5 w-3.5" />smb.conf</div><h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("config.title")}</h1><p className="mt-2 text-sm text-text-muted">{t("config.subtitle")}</p></div>
         <div className="flex gap-2">
           <button onClick={handleReset} type="button" className="text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
             <RotateCcw className="w-4 h-4" /> {t("config.defaults")}
           </button>
         </div>
       </div>
+      {loadError && <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p>{t("config.staleData")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
+      {backupError && <p role="status" className="config-note">{t("config.backupError")}</p>}
 
-      <form onSubmit={handleSave} className="space-y-8">
+      <form onSubmit={handleSave} className="config-form space-y-8">
         
         <div className="bg-surface rounded-lg border border-border overflow-hidden">
            <div className="bg-surface-2 px-5 py-3 border-b border-border">
@@ -164,26 +176,26 @@ export default function ConfigPage() {
            </div>
            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.workgroup")}</label>
+                <label htmlFor="config-workgroup" className="text-[13px] font-medium text-foreground">{t("config.workgroup")}</label>
                 <input 
-                  value={config.workgroup} onChange={(e) => setConfig({...config, workgroup: e.target.value})} 
+                  id="config-workgroup" value={config.workgroup} onChange={(e) => setConfig({...config, workgroup: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm font-medium rounded-lg uppercase"
                 />
               </div>
               <div className="space-y-2">
-                <label className="flex flex-col gap-0.5">
+                <label htmlFor="config-netbiosName" className="flex flex-col gap-0.5">
                   <span className="text-[13px] font-medium text-foreground">{t("config.netbiosName")}</span>
                 </label>
                 <input 
-                  value={config.netbiosName} onChange={(e) => setConfig({...config, netbiosName: e.target.value})} 
+                  id="config-netbiosName" value={config.netbiosName} onChange={(e) => setConfig({...config, netbiosName: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm font-medium rounded-lg"
                   placeholder={t("config.autoGenerated")}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.serverString")}</label>
+                <label htmlFor="config-serverString" className="text-[13px] font-medium text-foreground">{t("config.serverString")}</label>
                 <input 
-                  value={config.serverString} onChange={(e) => setConfig({...config, serverString: e.target.value})} 
+                  id="config-serverString" value={config.serverString} onChange={(e) => setConfig({...config, serverString: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg"
                 />
               </div>
@@ -199,9 +211,9 @@ export default function ConfigPage() {
            </div>
            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.interfaces")}</label>
+                <label htmlFor="config-interfaces" className="text-[13px] font-medium text-foreground">{t("config.interfaces")}</label>
                 <input 
-                  value={config.interfaces} onChange={(e) => setConfig({...config, interfaces: e.target.value})} 
+                  id="config-interfaces" value={config.interfaces} onChange={(e) => setConfig({...config, interfaces: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm font-mono rounded-lg"
                   placeholder="lo eth0 192.168.1.10"
                 />
@@ -223,9 +235,9 @@ export default function ConfigPage() {
            </div>
            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.securityModel")}</label>
+                <label htmlFor="config-security" className="text-[13px] font-medium text-foreground">{t("config.securityModel")}</label>
                 <select 
-                  value={config.security} onChange={(e) => setConfig({...config, security: e.target.value})}
+                  id="config-security" value={config.security} onChange={(e) => setConfig({...config, security: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg appearance-none cursor-pointer"
                 >
                   <option value="user">User</option>
@@ -234,9 +246,9 @@ export default function ConfigPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.mapToGuest")}</label>
+                <label htmlFor="config-mapToGuest" className="text-[13px] font-medium text-foreground">{t("config.mapToGuest")}</label>
                 <select 
-                  value={config.mapToGuest} onChange={(e) => setConfig({...config, mapToGuest: e.target.value})}
+                  id="config-mapToGuest" value={config.mapToGuest} onChange={(e) => setConfig({...config, mapToGuest: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg appearance-none cursor-pointer"
                 >
                   <option value="never">{t("config.never")}</option>
@@ -245,9 +257,9 @@ export default function ConfigPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.minProtocol")}</label>
+                <label htmlFor="config-minProtocol" className="text-[13px] font-medium text-foreground">{t("config.minProtocol")}</label>
                 <select 
-                  value={config.minProtocol} onChange={(e) => setConfig({...config, minProtocol: e.target.value})}
+                  id="config-minProtocol" value={config.minProtocol} onChange={(e) => setConfig({...config, minProtocol: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg appearance-none cursor-pointer"
                 >
                   <option value="CORE">CORE (Legacy)</option>
@@ -257,9 +269,9 @@ export default function ConfigPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">{t("config.maxProtocol")}</label>
+                <label htmlFor="config-maxProtocol" className="text-[13px] font-medium text-foreground">{t("config.maxProtocol")}</label>
                 <select 
-                  value={config.maxProtocol} onChange={(e) => setConfig({...config, maxProtocol: e.target.value})}
+                  id="config-maxProtocol" value={config.maxProtocol} onChange={(e) => setConfig({...config, maxProtocol: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg appearance-none cursor-pointer"
                 >
                   <option value="NT1">NT1 (SMB1)</option>
@@ -279,9 +291,9 @@ export default function ConfigPage() {
            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">Domain Realm (e.g. ad.company.com)</label>
+                <label htmlFor="config-realm" className="text-[13px] font-medium text-foreground">Domain Realm (e.g. ad.company.com)</label>
                 <input 
-                  value={config.realm} onChange={(e) => setConfig({...config, realm: e.target.value.toUpperCase()})} 
+                  id="config-realm" value={config.realm} onChange={(e) => setConfig({...config, realm: e.target.value.toUpperCase()})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm rounded-lg uppercase"
                 />
               </div>
@@ -291,9 +303,9 @@ export default function ConfigPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[13px] font-medium text-foreground">Template Shell</label>
+                <label htmlFor="config-templateShell" className="text-[13px] font-medium text-foreground">Template Shell</label>
                 <input 
-                  value={config.templateShell} onChange={(e) => setConfig({...config, templateShell: e.target.value})} 
+                  id="config-templateShell" value={config.templateShell} onChange={(e) => setConfig({...config, templateShell: e.target.value})}
                   className="w-full bg-surface border border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 text-foreground transition-all py-2.5 px-3.5 text-sm font-mono rounded-lg"
                 />
               </div>
@@ -302,9 +314,9 @@ export default function ConfigPage() {
               <div className="p-4 border border-border rounded-lg bg-surface-2 space-y-4">
                  <h3 className="text-sm font-semibold">Default IDMAP (TDB)</h3>
                  <div className="space-y-2">
-                   <label className="text-[12px] font-medium text-text-muted">Range (e.g. 3000-7999)</label>
+                   <label htmlFor="config-idmapDefaultRange" className="text-[12px] font-medium text-text-muted">Range (e.g. 3000-7999)</label>
                    <input 
-                     value={config.idmapDefaultRange} onChange={(e) => setConfig({...config, idmapDefaultRange: e.target.value})} 
+                     id="config-idmapDefaultRange" value={config.idmapDefaultRange} onChange={(e) => setConfig({...config, idmapDefaultRange: e.target.value})}
                      className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md"
                    />
                  </div>
@@ -313,9 +325,9 @@ export default function ConfigPage() {
               <div className="p-4 border border-border rounded-lg bg-surface-tint text-text-on-tint space-y-4">
                  <h3 className="text-sm font-semibold">Domain IDMAP (RID)</h3>
                  <div className="space-y-2">
-                   <label className="text-[12px] font-medium text-text-on-tint">Range (e.g. 10000-999999)</label>
+                   <label htmlFor="config-idmapDomainRange" className="text-[12px] font-medium text-text-on-tint">Range (e.g. 10000-999999)</label>
                    <input 
-                     value={config.idmapDomainRange} onChange={(e) => setConfig({...config, idmapDomainRange: e.target.value})} 
+                     id="config-idmapDomainRange" value={config.idmapDomainRange} onChange={(e) => setConfig({...config, idmapDomainRange: e.target.value})}
                      className="w-full bg-surface border border-border-strong focus:border-accent text-foreground px-3 py-2 text-sm rounded-md"
                    />
                  </div>
@@ -338,14 +350,15 @@ export default function ConfigPage() {
                          <div className="bg-surface border border-border p-2 rounded-md">
                            <Clock className="w-5 h-5 text-text-muted group-hover:text-foreground transition-colors" />
                          </div>
-                         <div>
-                            <div className="text-sm font-semibold text-foreground font-mono">{bkp.filename}</div>
-                            <div className="text-xs text-text-muted font-medium mt-0.5">{bkp.createdAt} \u2022 {bkp.size}</div>
+                         <div className="min-w-0">
+                            <div className="break-words text-sm font-semibold text-foreground font-mono">{bkp.filename}</div>
+                            <div className="text-xs text-text-muted font-medium mt-0.5">{bkp.createdAt} · {bkp.size}</div>
                          </div>
                       </div>
                       <button 
                         type="button"
                         onClick={() => handleRestoreBackup(bkp.filename)}
+                        aria-label={`${t("config.restore")}: ${bkp.filename}`}
                         className="text-xs font-medium bg-surface text-foreground hover:bg-surface-2 py-1.5 px-3 rounded-md transition-colors border border-border-strong flex gap-1.5 items-center shrink-0"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -358,7 +371,8 @@ export default function ConfigPage() {
           </div>
         )}
 
-        <div className="flex justify-end pt-4 border-t border-border">
+        <div className="config-save-bar flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-border">
+          <p className="text-xs text-text-muted">{t("config.saveHint")}</p>
           <button 
             type="submit" 
             disabled={saving}

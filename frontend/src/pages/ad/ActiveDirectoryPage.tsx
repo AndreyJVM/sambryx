@@ -22,6 +22,7 @@ export default function ActiveDirectoryPage() {
   const { confirm } = useConfirm();
   const [status, setStatus] = useState<AdStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Form State
   const [domain, setDomain] = useState('');
@@ -32,14 +33,15 @@ export default function ActiveDirectoryPage() {
   const fetchStatus = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const res = await api.get<AdStatus>('/api/ad/status');
       setStatus(res);
     } catch (err) {
-      toast('error', 'Status Error', getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchStatus();
@@ -55,8 +57,8 @@ export default function ActiveDirectoryPage() {
     const ok = await confirm({
       title: t('ad.joinConfirmTitle'),
       message: t('ad.joinConfirmMsg').replace('{domain}', domain),
-      confirmText: 'Join Domain',
-      cancelText: 'Cancel'
+      confirmText: t('ad.joinDomain'),
+      cancelText: t('common.cancel')
     });
 
     if (!ok) return;
@@ -78,8 +80,8 @@ export default function ActiveDirectoryPage() {
     const ok = await confirm({
       title: t('ad.leaveConfirmTitle'),
       message: t('ad.leaveConfirmMsg'),
-      confirmText: 'Leave Domain',
-      cancelText: 'Cancel'
+      confirmText: t('ad.leaveDomain'),
+      cancelText: t('common.cancel')
     });
 
     if (!ok) return;
@@ -103,17 +105,18 @@ export default function ActiveDirectoryPage() {
   };
 
   if (loading && !status) {
-    return <div className="p-8 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-accent-text" /></div>;
+    return <div role="status" aria-label={t('sidebar.wait')} aria-busy="true" className="p-8 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-accent-text" /></div>;
   }
 
   return (
-    <div className="space-y-8 animate-fade-in fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('ad.title')}</h1>
-        <button onClick={fetchStatus} className="bg-surface hover:bg-surface-2 border border-border-strong px-4 py-2 rounded-md flex items-center text-sm font-medium transition-colors">
-          <RefreshCw className="w-4 h-4 mr-2 text-accent-text" /> {t('ad.refresh')}
+    <div className="ad-page space-y-8 animate-fade-in fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div><h1 className="text-3xl font-bold tracking-tight">{t('ad.title')}</h1><p className="mt-2 text-sm text-text-muted">{t('ad.subtitle')}</p></div>
+        <button onClick={fetchStatus} disabled={loading || isJoining} className="shares-refresh">
+          <RefreshCw className={`w-4 h-4 text-accent-text ${loading ? 'animate-spin' : ''}`} /> {t('ad.refresh')}
         </button>
       </div>
+      {loadError && <div role="alert" className="shares-error"><AlertCircle className="h-5 w-5 shrink-0" /><div><p>{t(status ? 'ad.staleData' : 'ad.statusNotAvailable')}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Status Panel */}
@@ -128,7 +131,7 @@ export default function ActiveDirectoryPage() {
           <div className="p-5">
           {status ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg border border-border">
+              <div className="flex flex-wrap gap-3 items-center justify-between p-4 bg-surface-2 rounded-lg border border-border">
                 <span className="font-medium text-foreground text-sm uppercase tracking-wider">{t('ad.domainJoinState')}</span>
                 {status.isJoined ? (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-tint text-accent-text rounded-full text-xs font-bold uppercase tracking-widest border border-border">
@@ -137,12 +140,13 @@ export default function ActiveDirectoryPage() {
                 ) : (
                   // TODO: status-error token
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-status-error/10 text-status-error rounded-full text-xs font-bold uppercase tracking-widest border border-status-error/20">
-                    <AlertCircle className="w-3.5 h-3.5" /> Not {t('ad.joined')}
+                    <AlertCircle className="w-3.5 h-3.5" /> {t('ad.notJoined')}
                   </span>
                 )}
               </div>
+              {status.domainName && <p className="ad-domain font-mono text-sm">{status.domainName}</p>}
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
                    <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">{t('ad.winbindService')}</div>
                    <div className="font-semibold text-sm flex items-center gap-2">
@@ -152,12 +156,16 @@ export default function ActiveDirectoryPage() {
                    </div>
                  </div>
                  <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
-                   <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">{t('ad.kerberosDns')}</div>
+                   <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">Kerberos</div>
                    <div className="font-semibold text-sm flex items-center gap-2">
                      {/* TODO: status-error / active token */}
                      <span className={`w-2 h-2 rounded-full ${status.kerberosWorking ? 'bg-accent' : 'bg-status-error'}`}></span>
                      {status.kerberosWorking ? t('ad.ok') : t('ad.errorsDetected')}
                    </div>
+                 </div>
+                 <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
+                   <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">DNS</div>
+                   <div className="font-semibold text-sm flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${status.dnsReachable ? 'bg-status-active' : 'bg-status-error'}`} />{status.dnsReachable ? t('ad.ok') : t('ad.errorsDetected')}</div>
                  </div>
               </div>
             </div>
@@ -178,21 +186,21 @@ export default function ActiveDirectoryPage() {
 
           <form onSubmit={handleJoin} className="p-5 space-y-4">
              <div className="space-y-1.5">
-               <label className="text-sm font-medium">{t('ad.targetDomain')}</label>
-               <input type="text" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all uppercase" placeholder="e.g. ad.company.com" value={domain} onChange={e => setDomain(e.target.value.toUpperCase())} required />
+               <label htmlFor="ad-domain" className="text-sm font-medium">{t('ad.targetDomain')}</label>
+               <input id="ad-domain" type="text" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all uppercase" placeholder="ad.example.com" value={domain} onChange={e => setDomain(e.target.value.toUpperCase())} required />
              </div>
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-1.5">
-                 <label className="text-sm font-medium">{t('ad.adminUser')}</label>
-                 <input type="text" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all" value={username} onChange={e => setUsername(e.target.value)} required />
+                 <label htmlFor="ad-username" className="text-sm font-medium">{t('ad.adminUser')}</label>
+                 <input id="ad-username" type="text" autoComplete="username" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all" value={username} onChange={e => setUsername(e.target.value)} required />
                </div>
                <div className="space-y-1.5">
-                 <label className="text-sm font-medium">{t('ad.adminPass')}</label>
-                 <input type="password" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all" value={password} onChange={e => setPassword(e.target.value)} required />
+                 <label htmlFor="ad-password" className="text-sm font-medium">{t('ad.adminPass')}</label>
+                 <input id="ad-password" type="password" autoComplete="current-password" className="w-full bg-surface border border-border-strong focus:border-accent px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all" value={password} onChange={e => setPassword(e.target.value)} required />
                </div>
              </div>
              
-             <div className="pt-4 flex gap-3">
+             <div className="pt-4 flex flex-wrap gap-3">
                 <button type="submit" disabled={isJoining || status?.isJoined === true} className="flex-1 bg-accent text-on-accent hover:opacity-90 flex justify-center items-center px-4 py-2 rounded-md text-sm font-bold transition-opacity disabled:opacity-50">
                    {isJoining ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
                    {t('ad.joinDomain')}

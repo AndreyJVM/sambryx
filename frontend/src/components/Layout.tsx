@@ -22,6 +22,7 @@ import { api } from "../lib/api";
 import { useToast } from "./ui/toast";
 import { useTranslation } from "../lib/i18n";
 import { GlobalSearch } from "./ui/global-search";
+import "./workspace.css";
 
 export default function Layout({ children }: { children?: React.ReactNode }) {
   const location = useLocation();
@@ -143,8 +144,9 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const userInitial = (userInfo.user || "U").slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen flex text-foreground bg-bg font-sans selection:bg-accent selection:text-on-accent">
-      <aside className={`bg-surface flex-col hidden md:flex border-r border-border shrink-0 z-20 transition-[width] duration-200 ease-in-out ${
+    <div className="workspace min-h-screen flex text-foreground bg-bg font-sans selection:bg-accent selection:text-on-accent">
+      <a href="#workspace-content" className="workspace-skip">{t("sidebar.skipContent")}</a>
+      <aside className={`workspace-sidebar bg-surface flex-col hidden md:flex border border-border shrink-0 z-20 transition-[width] duration-200 ease-in-out ${
         isCollapsed ? "w-[68px]" : "w-[260px]"
       }`}>
         {/* Header */}
@@ -159,7 +161,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
                   alt="Sambryx"
                   className="h-7 w-auto shrink-0 transition-transform group-hover:scale-105"
                 />
-                <span className="font-normal text-foreground">Sambryx</span>
+                <span className="font-semibold text-foreground">Sambryx</span>
               </Link>
               <div className="flex items-center gap-0.5">
                 <button
@@ -180,6 +182,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
                   onClick={toggleCollapse}
                   className="p-1.5 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground"
                   title={t("sidebar.collapse")}
+                  aria-label={t("sidebar.collapse")}
                 >
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
@@ -190,6 +193,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
               onClick={toggleCollapse}
               className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-lg transition-colors group relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground"
               title={t("sidebar.expand")}
+              aria-label={t("sidebar.expand")}
             >
               <img
                 src={`${import.meta.env.BASE_URL}sambryx/logo-mark.svg`}
@@ -202,7 +206,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
         </div>
 
         {/* 1. Navigation */}
-        <nav className={`flex-1 py-3 flex flex-col gap-1 overflow-y-auto custom-scrollbar ${
+        <nav aria-label={t("sidebar.navigation")} className={`flex-1 py-3 flex flex-col gap-1 overflow-y-auto custom-scrollbar ${
           isCollapsed ? "px-2 items-center" : "px-3"
         }`}>
           {navItems.map((item) => {
@@ -212,6 +216,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
+                aria-current={isActive ? "page" : undefined}
                 title={isCollapsed ? item.name : undefined}
                 className={`flex items-center rounded-lg transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground ${
                   isCollapsed
@@ -368,13 +373,24 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border bg-surface px-6 flex items-center justify-between gap-4 shrink-0">
-          <div className="flex-1 max-w-xl">
+      <div className="workspace-body flex-1 flex flex-col min-w-0">
+        <header className="workspace-header border-b border-border bg-surface flex items-center justify-between gap-4 shrink-0">
+          <Link to="/dashboard" className="workspace-mobile-brand md:hidden" aria-label="Sambryx">
+            <img src={`${import.meta.env.BASE_URL}sambryx/logo-mark.svg`} alt="" />
+            <span>Sambryx</span>
+          </Link>
+          <div className="workspace-search flex-1 max-w-xl">
             <GlobalSearch />
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <div className="workspace-mobile-tools flex md:hidden">
+              <button onClick={toggleLang} title={lang === "ru" ? "Switch to English" : "Переключить на Русский"}>{lang.toUpperCase()}</button>
+              <button onClick={toggleDark} aria-label={isDark ? t("sidebar.lightMode") : t("sidebar.darkMode")}>
+                {isDark ? <Sun /> : <Moon />}
+              </button>
+              <button onClick={handleLogout} aria-label={t("sidebar.logout")}><LogOut /></button>
+            </div>
             {/* GitHub Project & Issues Link */}
             <a
               href="https://github.com/AndreyJVM/sambryx"
@@ -389,7 +405,14 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-y-auto">
+        <nav className="workspace-mobile-nav md:hidden" aria-label={t("sidebar.navigation")}>
+          {navItems.map(({ name, path, icon: Icon }) => (
+            <Link key={path} to={path} aria-current={location.pathname.includes(path) ? "page" : undefined}>
+              <Icon aria-hidden="true" /><span>{name}</span>
+            </Link>
+          ))}
+        </nav>
+        <main id="workspace-content" tabIndex={-1} className="workspace-content flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
             {children || <Outlet />}
           </div>

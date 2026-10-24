@@ -167,7 +167,7 @@ export function FileManager() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 h-[500px]">
+    <div className="file-manager flex flex-col xl:flex-row gap-4">
       <FilePane 
         title="Left Pane"
         path={leftPath}

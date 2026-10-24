@@ -91,6 +91,7 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
           {!isCreatingDir ? (
             <button 
               onClick={() => setIsCreatingDir(true)} 
+              aria-label={t("dashboard.newFolder")}
               className="text-[11px] font-medium text-foreground bg-surface border border-border-strong px-2 py-1 rounded hover:bg-surface-2 transition-colors flex items-center gap-1"
             >
               <FolderPlus className="w-3.5 h-3.5" />
@@ -108,9 +109,9 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
               <button type="button" onClick={() => setIsCreatingDir(false)} className="text-[11px] bg-surface border border-border-strong px-2 py-1 rounded hover:bg-surface-2 text-foreground">{t("common.cancel")}</button>
             </form>
           )}
-          <label className="text-[11px] font-medium text-foreground bg-surface border border-border-strong px-2 py-1 rounded hover:bg-surface-2 transition-colors flex items-center gap-1 cursor-pointer">
+          <label title={t("dashboard.uploadFile")} className="text-[11px] font-medium text-foreground bg-surface border border-border-strong px-2 py-1 rounded hover:bg-surface-2 transition-colors flex items-center gap-1 cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
-            <input type="file" className="hidden" onChange={e => e.target.files?.[0] && onUploadFile(e.target.files[0])} />
+            <input aria-label={t("dashboard.uploadFile")} type="file" className="sr-only" onChange={e => e.target.files?.[0] && onUploadFile(e.target.files[0])} />
           </label>
         </div>
       </div>
@@ -125,7 +126,7 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
             <thead className="sticky top-0 bg-surface-2 border-b border-border z-10">
               <tr>
                 <th className="px-3 py-2 w-8">
-                  <button onClick={onSelectAll}>
+                  <button onClick={onSelectAll} aria-label={t("dashboard.selectAll")}>
                     {browseData?.directories.length && selectedItems.size === browseData.directories.length ? <CheckSquare className="w-3.5 h-3.5 text-accent-text" /> : <Square className="w-3.5 h-3.5 text-text-muted" />}
                   </button>
                 </th>
@@ -157,7 +158,7 @@ export function FilePane({ onNavigate, browseData, loading, selectedItems, onTog
                     }}
                   >
                     <td className="px-3 py-2">
-                      <button onClick={(e) => { e.stopPropagation(); onToggleSelect(item.fullPath); }}>
+                      <button aria-label={`${t("common.select")}: ${item.name}`} aria-pressed={selectedItems.has(item.fullPath)} onClick={(e) => { e.stopPropagation(); onToggleSelect(item.fullPath); }}>
                         {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-accent-text" /> : <Square className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />}
                       </button>
                     </td>
