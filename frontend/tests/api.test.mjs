@@ -88,3 +88,20 @@ test("a rejected state changing request is never automatically retried", async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "/api/auth/login");
 });
+
+test("host key failures retain their structured details without retrying login", async () => {
+  const { api, calls } = harness("XSRF-TOKEN=fixture", () => ({
+    status: 409,
+    ok: false,
+    json: async () => ({ success: false, message: "SSH identity rejected", data: {
+      code: "SSH_HOST_KEY_CHANGED", fingerprint: "SHA256:fixture",
+    } }),
+  }));
+  await assert.rejects(api.post("/api/auth/login", { host: "fixture.test" }), error => {
+    assert.equal(error.status, 409);
+    assert.equal(error.details.code, "SSH_HOST_KEY_CHANGED");
+    assert.equal(error.details.fingerprint, "SHA256:fixture");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});

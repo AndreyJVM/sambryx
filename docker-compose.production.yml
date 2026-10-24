@@ -25,6 +25,13 @@ services:
       SERVER_SERVLET_SESSION_COOKIE_HTTP_ONLY: "true"
       SERVER_SERVLET_SESSION_COOKIE_SAME_SITE: lax
     networks: [proxy, ssh-egress]
+    volumes:
+      - type: bind
+        source: ${SSH_KNOWN_HOSTS_FILE:?Set SSH_KNOWN_HOSTS_FILE to administrator-verified known_hosts}
+        target: /etc/sambryx/known_hosts
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: [CMD, wget, --quiet, --spider, "http://127.0.0.1:8080/api/auth/environment"]
       interval: 15s

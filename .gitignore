@@ -49,3 +49,6 @@ frontend/*.js
 
 ### Production deployment secrets ###
 /deploy/production/secrets/
+
+# Local SSH trust configuration
+/.local/

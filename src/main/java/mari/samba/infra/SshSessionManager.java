@@ -2,6 +2,7 @@ package mari.samba.infra;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -45,24 +46,39 @@ public class SshSessionManager implements CommandExecutor {
 
     public void createSession(String sessionId, ConnectionRequestDto request) throws Exception {
         JSch jsch = new JSch();
-        if (request.isKeyAuth()) {
-            if (request.getPrivateKey() != null && !request.getPrivateKey().isBlank()) {
-                byte[] prvkey = request.getPrivateKey().getBytes(StandardCharsets.UTF_8);
-                byte[] passphrase = (request.getPassphrase() != null
-                                && !request.getPassphrase().isBlank())
+        String knownHosts = properties != null && properties.ssh() != null
+                ? properties.ssh().knownHosts()
+                : "/etc/sambryx/known_hosts";
+        VerifiedHostKeys hostKeys = VerifiedHostKeys.configure(jsch, knownHosts);
+        Session session = null;
+        boolean published = false;
+        try {
+            if (request.isKeyAuth()) {
+                byte[] key = request.getPrivateKey().getBytes(StandardCharsets.UTF_8);
+                byte[] passphrase = request.getPassphrase() != null
+                                && !request.getPassphrase().isBlank()
                         ? request.getPassphrase().getBytes(StandardCharsets.UTF_8)
                         : null;
-                jsch.addIdentity("key-" + sessionId, prvkey, null, passphrase);
+                jsch.addIdentity("login-key", key, null, passphrase);
+            }
+            session = jsch.getSession(request.getUsername(), request.getHost(), request.getPort());
+            session.setConfig("StrictHostKeyChecking", "yes");
+            if (!request.isKeyAuth()) {
+                session.setPassword(request.getPassword());
+            }
+            session.connect((int) getConnectTimeout().toMillis());
+            sessions.put(sessionId, session);
+            published = true;
+        } catch (JSchException | RuntimeException e) {
+            if (hostKeys.rejection() != null) {
+                throw hostKeys.rejection();
+            }
+            throw new SambaCommandException("SSH connection failed. Check the connection details and credentials.");
+        } finally {
+            if (!published && session != null) {
+                session.disconnect();
             }
         }
-        Session session = jsch.getSession(request.getUsername(), request.getHost(), request.getPort());
-        if (!request.isKeyAuth()) {
-            session.setPassword(request.getPassword());
-        }
-        session.setConfig("StrictHostKeyChecking", "no");
-        session.connect((int) getConnectTimeout().toMillis());
-        sessions.put(sessionId, session);
-        log.info("SSH session established for user '{}' on host '{}'", request.getUsername(), request.getHost());
     }
 
     public Session getSession(String sessionId) {

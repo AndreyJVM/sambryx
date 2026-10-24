@@ -59,6 +59,22 @@ else
     exit 1
 fi
 
+# Trust is provisioned only from the operator-controlled disposable Docker node.
+export SSH_KNOWN_HOSTS_FILE="$PROJECT_ROOT/.local/sandbox/known_hosts"
+mkdir -p "$(dirname "$SSH_KNOWN_HOSTS_FILE")"
+if [ -L "$SSH_KNOWN_HOSTS_FILE" ] || { [ -e "$SSH_KNOWN_HOSTS_FILE" ] && [ ! -f "$SSH_KNOWN_HOSTS_FILE" ]; }; then
+    echo "Sandbox known_hosts must be a regular file, not a symlink or directory." >&2
+    exit 1
+fi
+if [ ! -e "$SSH_KNOWN_HOSTS_FILE" ]; then
+    install -m 0644 /dev/null "$SSH_KNOWN_HOSTS_FILE"
+fi
+seed_sandbox_host_keys() {
+    $COMPOSE_CMD exec -T samba-node sh -c 'for key in /etc/ssh/ssh_host_*_key.pub; do if [ -f "$key" ]; then printf "samba-node "; cat "$key"; fi; done' > "$SSH_KNOWN_HOSTS_FILE"
+    test -s "$SSH_KNOWN_HOSTS_FILE"
+    chmod 0644 "$SSH_KNOWN_HOSTS_FILE"
+}
+
 # Check Docker daemon availability
 if ! docker info >/dev/null 2>&1; then
     echo "Error: the Docker daemon is stopped or inaccessible to the current user." >&2
@@ -280,6 +296,7 @@ rebuild_full() {
     $COMPOSE_CMD up -d
 
     wait_for_node
+    seed_sandbox_host_keys
     print_banner
 }
 
@@ -336,6 +353,7 @@ $COMPOSE_CMD up -d
 
 # 4. Wait for container readiness
 wait_for_node
+seed_sandbox_host_keys
 print_banner
 
 # 5. Interactive command loop

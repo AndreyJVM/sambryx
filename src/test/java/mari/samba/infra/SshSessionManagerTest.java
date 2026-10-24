@@ -31,6 +31,9 @@ import org.slf4j.LoggerFactory;
 
 class SshSessionManagerTest {
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path directory;
+
     private static final String SECRET = "synthetic-password-for-regression";
     private static final String COMMAND = LinuxCommands.netAdsJoin("admin", SECRET);
     private final Session session = mock(Session.class);
@@ -112,10 +115,17 @@ class SshSessionManagerTest {
     @ParameterizedTest
     @ValueSource(strings = {"execute", "executeWithInput", "executeCommand", "executeCommandWithInput"})
     void disconnectedSessionRejectsCommandsBeforeOpeningChannel(String variant) throws Exception {
-        SshSessionManager manager = new SshSessionManager(null);
-        try (var jsch =
-                mockConstruction(JSch.class, (mock, context) -> when(mock.getSession("admin", "fixture.test", 22))
-                        .thenReturn(session))) {
+        var file = java.nio.file.Files.writeString(directory.resolve("known_hosts"), "");
+        SshSessionManager manager = new SshSessionManager(new SambaProperties(
+                new SambaProperties.Ssh(
+                        Duration.ofSeconds(1), Duration.ofSeconds(30), Duration.ofSeconds(30), 3, file.toString()),
+                null,
+                null,
+                null));
+        try (var jsch = mockConstruction(JSch.class, (mock, context) -> {
+            when(mock.getSession("admin", "fixture.test", 22)).thenReturn(session);
+            when(mock.getHostKeyRepository()).thenReturn(mock(com.jcraft.jsch.HostKeyRepository.class));
+        })) {
             manager.createSession(
                     "session", new ConnectionRequestDto("fixture.test", 22, "admin", "password", SECRET, null, null));
             when(session.isConnected()).thenReturn(false);
@@ -176,7 +186,11 @@ class SshSessionManagerTest {
 
     private SshSessionManager manager(Duration timeout) {
         SambaProperties properties = new SambaProperties(
-                new SambaProperties.Ssh(Duration.ofSeconds(1), timeout, Duration.ofSeconds(30), 3), null, null, null);
+                new SambaProperties.Ssh(
+                        Duration.ofSeconds(1), timeout, Duration.ofSeconds(30), 3, "/etc/sambryx/known_hosts"),
+                null,
+                null,
+                null);
         return new SshSessionManager(properties) {
             @Override
             public Session getSession(String sessionId) {

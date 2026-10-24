@@ -51,5 +51,6 @@ nav:
   - Архитектура: architecture.md
   - Сборка и поставки: distribution.md
   - Production Compose: production.md
+  - SSH-ключи серверов: ssh-host-keys.md
   - Переименование: renaming.md
   - Статический анализ: static-analysis.md

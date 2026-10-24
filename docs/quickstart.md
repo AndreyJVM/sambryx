@@ -3,10 +3,12 @@
 ## Запуск через Docker
 
 Самый быстрый способ развернуть **Sambryx** — использовать готовый образ с Docker Hub.
+Сначала подготовьте `.local/ssh/known_hosts` с [независимо проверенными ключами сервера](ssh-host-keys.md).
 
 ```bash
 docker run -d \
   --name sambryx \
+  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
   -p 8080:8080 \
   --restart unless-stopped \
   andreyvorobevaqa/sambryx:latest
@@ -31,3 +33,5 @@ cd sambryx
 ```
 
 После запуска откройте браузер по адресу: http://localhost:8080/ui.
+
+Перед первым подключением настройте [доверенные SSH-ключи сервера](ssh-host-keys.md).

@@ -21,6 +21,13 @@ services:
     environment:
       - TZ=UTC
       - SPRING_PROFILES_ACTIVE=docker
+    volumes:
+      - type: bind
+        source: ${SSH_KNOWN_HOSTS_FILE:-./.local/sandbox/known_hosts}
+        target: /etc/sambryx/known_hosts
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       samba-node:
         condition: service_healthy

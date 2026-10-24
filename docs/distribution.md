@@ -72,3 +72,5 @@ ssh -N -L 127.0.0.1:8080:127.0.0.1:8080 administrator@panel-server
 
 Production-конфигурация с HTTPS и дополнительным Samba/SSH-узлом описана в
 [руководстве Docker Compose](production.md).
+
+Перед первым подключением настройте [доверенные SSH-ключи сервера](ssh-host-keys.md).

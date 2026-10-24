@@ -22,9 +22,12 @@
 
 ## Быстрый старт с Docker (Продакшн)
 
+Перед SSH-входом настройте [проверку ключей сервера](docs/ssh-host-keys.md): нужен файл `.local/ssh/known_hosts` с независимо проверенными публичными ключами.
+
 ```bash
 docker run -d \
   --name sambryx \
+  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
   -p 8080:8080 \
   --restart unless-stopped \
   andreyvorobevaqa/sambryx:latest

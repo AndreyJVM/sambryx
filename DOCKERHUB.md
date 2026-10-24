@@ -2,6 +2,10 @@
 
 Sambryx is a lightweight and modern web interface for managing Samba file servers on Linux, built with Java 21, Spring Boot, and React. It operates using a Zero-Agent architecture, managing remote servers directly via SSH without requiring local agents or config mounts.
 
+## SSH host identity verification
+
+Before connecting, provision an OpenSSH known_hosts file with public host keys verified through a trusted administrative channel. Unknown, changed and revoked keys are rejected before SSH authentication. Mount the file read-only at /etc/sambryx/known_hosts; it must be readable by UID 10001. Do not blindly trust ssh-keyscan output. See the [host key guide](https://andreyjvm.github.io/sambryx/ssh-host-keys/).
+
 ## Quick Start
 
 Run the container using Docker:
@@ -9,6 +13,7 @@ Run the container using Docker:
 ```bash
 docker run -d \
   --name sambryx \
+  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
   -p 8080:8080 \
   --restart unless-stopped \
   andreyvorobevaqa/sambryx:latest
@@ -24,6 +29,7 @@ with Astra Linux SE 1.8 and Parsec has not been verified on a target system:
 ```bash
 docker run -d \
   --name sambryx \
+  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
   -p 8080:8080 \
   --restart unless-stopped \
   andreyvorobevaqa/sambryx:astra-latest
