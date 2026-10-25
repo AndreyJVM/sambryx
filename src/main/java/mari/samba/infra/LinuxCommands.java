@@ -159,9 +159,17 @@ public final class LinuxCommands {
 
     public static String cleanupOldBackups(String backupDir, int keepCount) {
         if (keepCount < 1 || keepCount > 100) throw new SecurityException("Invalid backup keep count.");
-        return String.format(
-                "ls -t %s/smb.conf.backup_* 2>/dev/null | tail -n +%d | xargs -r sudo rm --",
-                escape(requireValidPath(backupDir)), keepCount + 1);
+        String safeDirectory = escape(requireValidPath(backupDir));
+        String script = String.join(
+                " ",
+                "export LC_ALL=C;",
+                "backup_list=$(mktemp) || exit 1;",
+                "trap 'rm -f -- \"$backup_list\"' EXIT;",
+                "find " + safeDirectory + " -maxdepth 1 -type f -name 'smb.conf.backup_*' -printf '%T@ %p\\0'",
+                "| sort -z -nr > \"$backup_list\" || exit 1;",
+                "tail -z -n +" + (keepCount + 1) + " -- \"$backup_list\"",
+                "| cut -z -d ' ' -f 2- | xargs -0 -r sudo rm --");
+        return "bash -o pipefail -c " + escape(script);
     }
 
     // ==========================================

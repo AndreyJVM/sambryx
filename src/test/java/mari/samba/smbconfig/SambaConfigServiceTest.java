@@ -131,7 +131,7 @@ class SambaConfigServiceTest {
 
             assertThat(executedCommands.get(1))
                     .startsWith("sudo cp -- '/etc/samba/smb.conf' '/etc/samba/backups/smb.conf.backup_");
-            assertThat(executedCommands.get(2)).startsWith("ls -t '/etc/samba/backups'/smb.conf.backup_*");
+            assertThat(executedCommands.get(2)).isEqualTo(LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
         }
 
         @Test
@@ -285,7 +285,7 @@ class SambaConfigServiceTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"backup", "backup-copy", "write", "validate", "move", "restart"})
+        @ValueSource(strings = {"backup", "backup-copy", "cleanup", "write", "validate", "move", "restart"})
         void updateSmbConf_stopsAfterFailedStage(String failedStage) {
             String sessionId = "session-failure";
             String content = "[global]\nworkgroup = TEST";
@@ -298,6 +298,7 @@ class SambaConfigServiceTest {
             String failedCommand =
                     switch (failedStage) {
                         case "backup" -> LinuxCommands.mkdir("/etc/samba/backups");
+                        case "cleanup" -> LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10);
                         case "validate" -> validate;
                         case "move" -> move;
                         case "restart" -> restart;
@@ -329,10 +330,13 @@ class SambaConfigServiceTest {
                 verify(commandExecutor, never())
                         .execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
             }
-            if (List.of("backup", "backup-copy", "write").contains(failedStage)) {
+            if (failedStage.equals("cleanup")) {
+                verify(commandExecutor, never()).execute(sessionId, write, content);
+            }
+            if (List.of("backup", "backup-copy", "cleanup", "write").contains(failedStage)) {
                 verify(commandExecutor, never()).execute(sessionId, validate);
             }
-            if (List.of("backup", "backup-copy", "write", "validate").contains(failedStage)) {
+            if (List.of("backup", "backup-copy", "cleanup", "write", "validate").contains(failedStage)) {
                 verify(commandExecutor, never()).execute(sessionId, move);
             }
             if (!failedStage.equals("restart")) {
