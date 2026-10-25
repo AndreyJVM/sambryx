@@ -177,12 +177,13 @@ class SambaConfigServiceTest {
             sambaConfigService.restoreBackup(sessionId, filename);
 
             // then
-            verify(commandExecutor).execute(eq(sessionId), eq(LinuxCommands.mkdir("/etc/samba/backups")));
-            verify(commandExecutor)
-                    .execute(
-                            eq(sessionId),
-                            eq(LinuxCommands.copy("/etc/samba/backups/" + filename, "/etc/samba/smb.conf")));
-            verify(commandExecutor).execute(eq(sessionId), eq(LinuxCommands.systemctl("restart", "smbd")));
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor)
+                    .execute(sessionId, LinuxCommands.testparmSilent("/etc/samba/backups/" + filename));
+            order.verify(commandExecutor).execute(sessionId, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor)
+                    .execute(sessionId, LinuxCommands.copy("/etc/samba/backups/" + filename, "/etc/samba/smb.conf"));
+            order.verify(commandExecutor).execute(sessionId, LinuxCommands.systemctl("restart", "smbd"));
         }
 
         @Test
