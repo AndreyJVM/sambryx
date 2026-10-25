@@ -1,0 +1,83 @@
+import { test as base, expect } from '@playwright/test';
+
+const users = [
+  { username: 'alice', fullName: 'Alice Example' },
+  { username: 'bob', fullName: 'Bob Example' },
+];
+
+export const test = base.extend({
+  app: [async ({ context, page, baseURL }, use, testInfo) => {
+    const origin = new URL(baseURL).origin;
+    const state = {
+      authenticated: true,
+      loginFailure: false,
+      failShares: false,
+      failDashboard: false,
+      requests: [],
+      shares: [
+        { name: 'team', path: '/srv/samba/team', comment: 'Project documents', readOnly: false, guestOk: false, browseable: true },
+        { name: 'archive', path: '/srv/samba/archive', comment: 'Past reports', readOnly: true, guestOk: false, browseable: true },
+      ],
+    };
+    const unexpected = [];
+    const browserErrors = [];
+    const onPageError = error => browserErrors.push(error.message);
+    page.on('pageerror', onPageError);
+    await context.addInitScript(({ theme }) => {
+      localStorage.setItem('samba_lang', 'en');
+      if (!localStorage.getItem('theme')) localStorage.setItem('theme', theme);
+    }, { theme: testInfo.project.use.colorScheme });
+
+    await context.route('**/*', async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.origin !== origin) {
+        unexpected.push(`External request: ${url.origin}`);
+        return route.abort('blockedbyclient');
+      }
+      if (!url.pathname.startsWith('/api/')) return route.continue();
+      const method = request.method();
+      const path = url.pathname;
+      state.requests.push({ method, path, body: request.postDataJSON(), headers: request.headers() });
+      const reply = (data, status = 200, message = '', headers = {}) => route.fulfill({
+        status, contentType: 'application/json', headers,
+        body: JSON.stringify({ success: status < 400, message, data }),
+      });
+      if (path === '/api/auth/environment' && method === 'GET') {
+        return reply({}, 200, '', { 'set-cookie': 'XSRF-TOKEN=browser-fixture; Path=/; SameSite=Lax' });
+      }
+      if (path === '/api/auth/login' && method === 'POST') {
+        if (state.loginFailure) return reply({ code: 'SSH_HOST_KEY_CHANGED', fingerprint: 'SHA256:synthetic-browser-fixture' }, 409, 'Server identity changed');
+        state.authenticated = true;
+        return reply(null);
+      }
+      if (path === '/api/auth/me' && method === 'GET') return state.authenticated
+        ? reply({ host: 'files.example.test', user: 'operator' }) : reply(null, 401, 'Not authenticated');
+      if (method === 'GET') {
+        if (path === '/api/shares') return state.failShares ? reply(null, 503, 'Fixture unavailable') : reply(state.shares);
+        if (path === '/api/users') return reply(users);
+        if (path === '/api/users/system') return reply(users.map(user => user.username));
+        if (path === '/api/groups') return reply([{ name: 'engineering', members: ['alice', 'bob'] }]);
+        if (path === '/api/monitoring/dashboard') return state.failDashboard ? reply(null, 503, 'Fixture unavailable')
+          : reply({ isRunning: true, connections: [{ pid: '100', user: 'alice', machine: '192.0.2.10' }], openFiles: [] });
+        if (path === '/api/fs/disk-usage') return reply({ total: '200 GB', used: '84 GB', available: '116 GB', usePercent: 42, mountPoint: '/' });
+        if (path === '/api/fs/browse') {
+          const currentPath = url.searchParams.get('path') || '/';
+          return reply({ currentPath, parentPath: currentPath === '/' ? null : '/', directories: [{ name: 'team', fullPath: '/srv/samba/team', type: 'dir' }] });
+        }
+        if (path === '/api/config/global') return reply({ workgroup: 'TEAM', netbiosName: 'FILES', serverString: 'Fixture', security: 'user', mapToGuest: 'never', interfaces: '', bindInterfacesOnly: false, minProtocol: 'SMB2', maxProtocol: 'SMB3', disableNetbios: true, loadPrinters: false });
+        if (path === '/api/config/backups') return reply([]);
+        if (path === '/api/ad/status') return reply({ isJoined: false, domainName: '', dnsReachable: true, kerberosWorking: false, winbindWorking: true });
+        if (path === '/api/fstec/check') return reply({ checkedAt: '2026-01-01T12:00:00Z', compliancePercent: 100, okCount: 0, failedCount: 0, manualCount: 0, notApplicableCount: 0, rules: [] });
+      }
+      unexpected.push(`${method} ${path}`);
+      return reply(null, 501, 'Unexpected API request in browser fixture');
+    });
+    await use(state);
+    page.off('pageerror', onPageError);
+    expect(unexpected, 'No unconfigured endpoints or external services may be used').toEqual([]);
+    expect(browserErrors, 'No uncaught browser errors').toEqual([]);
+  }, { auto: true }],
+});
+
+export { expect };
