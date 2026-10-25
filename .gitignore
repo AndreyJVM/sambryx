@@ -42,7 +42,8 @@ GEMINI.md
 frontend/node_modules/
 frontend/dist/
 frontend/node/
-frontend/package-lock.json
+frontend/playwright-report/
+frontend/test-results/
 frontend/*.tsbuildinfo
 frontend/*.d.ts
 frontend/*.js

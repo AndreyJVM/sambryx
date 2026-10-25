@@ -54,3 +54,4 @@ nav:
   - SSH-ключи серверов: ssh-host-keys.md
   - Переименование: renaming.md
   - Статический анализ: static-analysis.md
+  - Тестирование интерфейса: testing.md
