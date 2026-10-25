@@ -146,7 +146,8 @@ public class SambaConfigService {
 
     /**
      * Restores the Samba configuration from a specific backup file. This action also creates a safety
-     * backup of the current state and restarts the {@code smbd} service.
+     * backup of the current state and restarts the {@code smbd} service. The selected backup must
+     * pass {@code testparm} validation before any configuration replacement or service restart.
      *
      * @param sessionId the active SSH session identifier
      * @param filename the exact name of the backup file to restore
@@ -159,6 +160,7 @@ public class SambaConfigService {
         }
 
         String backupFile = backupDir + "/" + filename;
+        commandExecutor.execute(sessionId, LinuxCommands.testparmSilent(backupFile));
         createBackup(sessionId);
 
         commandExecutor.execute(sessionId, LinuxCommands.copy(backupFile, configPath));

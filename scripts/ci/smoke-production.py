@@ -77,14 +77,14 @@ class Fixture:
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPSHandler(context=context), urllib.request.HTTPCookieProcessor(self.cookies))
 
-    def api(self, path, body=None):
+    def api(self, path, body=None, method=None):
         headers = {}
         content = None
         if body is not None:
             token = next(cookie.value for cookie in self.cookies if cookie.name == "XSRF-TOKEN")
             headers = {"Content-Type": "application/json", "X-XSRF-TOKEN": token}
             content = json.dumps(body).encode()
-        request = urllib.request.Request(self.url + path, content, headers)
+        request = urllib.request.Request(self.url + path, content, headers, method=method)
         with self.opener.open(request, timeout=60) as response:
             value = json.load(response)
         check(value.get("success"), "API operation failed: " + path)
@@ -181,6 +181,60 @@ with tempfile.TemporaryDirectory() as directory:
         check(any(share["name"] == "lifecycle" for share in self.api("/api/shares")), "Share configuration was lost")
         print("PASS: real SMB write/read, service restart, UID, host key, password, shares and data survive recreation", flush=True)
 
+    def config_bytes(self):
+        return self.node("cat", "/etc/samba/smb.conf", capture_output=True).stdout
+
+    def samba_pid(self):
+        return self.node("supervisorctl", "-c", "/opt/sambryx-node/supervisord.conf",
+                         "pid", "smbd", capture_output=True, text=True).stdout.strip()
+
+    def verify_restore(self):
+        original = self.config_bytes()
+        check(self.api("/api/config/raw").encode() == original, "API and node configuration differ")
+        self.api("/api/config/backups", {})
+        backups = self.api("/api/config/backups")
+        check(backups, "Created backup is not listed")
+        # Use a fixed synthetic name to avoid the API's second-resolution safety-backup names.
+        backup = "smb.conf.backup_20990101_000001"
+        self.node("mv", "--", "/etc/samba/backups/" + max(item["filename"] for item in backups),
+                  "/etc/samba/backups/" + backup)
+        check(any(item["filename"] == backup for item in self.api("/api/config/backups")),
+              "Restore candidate is not listed")
+        check(self.node("cat", "/etc/samba/backups/" + backup, capture_output=True).stdout == original,
+              "Backup content differs from the active configuration")
+        changed = original.decode() + "\n[global]\nserver string = Disposable restore smoke\n"
+        self.api("/api/config/raw", {"content": changed}, method="PUT")
+        check(self.config_bytes() == changed.encode(), "Configuration change was not installed")
+        self.api("/api/config/backups/" + backup + "/restore", {})
+        check(self.config_bytes() == original, "Restore did not recover the exact backup content")
+        check(self.api("/api/config/raw").encode() == original, "API did not read restored content")
+        check(self.api("/api/monitoring/dashboard")["isRunning"], "Samba stopped after restore")
+        self.smb()
+        print("PASS: API backup, configuration change and restore recover exact content; SMB remains readable", flush=True)
+
+        corrupted = "smb.conf.backup_20990101_000002"
+        path = "/etc/samba/backups/" + corrupted
+        self.node("tee", path, input=b"[global]\nsecurity = invalid-smoke-value\n", stdout=subprocess.DEVNULL)
+        validation = subprocess.run(self.compose + ["exec", "-T", "samba-node", "testparm", "-s", path],
+                                    cwd=ROOT, env=self.environment, capture_output=True)
+        check(validation.returncode != 0, "Corrupted fixture must fail real testparm validation")
+        before = self.config_bytes()
+        pid = self.samba_pid()
+        check(pid.isdigit() and int(pid) > 0, "Cannot observe the running Samba process")
+        try:
+            self.api("/api/config/backups/restore?filename=" + corrupted, {})
+        except urllib.error.HTTPError as error:
+            with error:
+                check(error.code == 500, "Unexpected invalid backup response status")
+                check(json.load(error).get("success") is False, "Invalid backup response must indicate failure")
+        else:
+            raise RuntimeError("Corrupted backup was accepted")
+        check(self.config_bytes() == before, "Rejected backup replaced the active configuration")
+        check(self.api("/api/config/raw").encode() == before, "API content changed after rejected restore")
+        check(self.samba_pid() == pid, "Rejected backup restarted Samba")
+        self.smb()
+        print("PASS: invalid backup rejected; active bytes, Samba PID and SMB data preserved", flush=True)
+
     def cleanup(self):
         subprocess.run(self.compose + ["down", "--volumes", "--remove-orphans"], cwd=ROOT,
                        env=self.environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
@@ -199,6 +253,7 @@ def main():
             fixture.verify_host_identity()
             fixture.login()
             fixture.verify_persistence()
+            fixture.verify_restore()
         except Exception:
             # Application logs may contain credentials; collect infrastructure diagnostics only.
             subprocess.run(fixture.compose + ["logs", "--tail", "40", "nginx", "samba-node"],

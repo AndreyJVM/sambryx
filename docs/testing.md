@@ -86,6 +86,19 @@ npx playwright show-trace test-results/<failed-test>/trace.zip
 регрессионный тест, который воспроизводит проблему, затем изменяйте реализацию.
 
 
+## Восстановление конфигурации через Docker + SSH
+
+[Production Compose Smoke](production.md#проверка-конфигурации-и-smoke-тест) выполняет
+публичные backup/restore-запросы через HTTPS и настоящий SSH. Успех подтверждается сравнением
+байтов `smb.conf`, чтением API и SMB; отказ повреждённой копии — сохранностью действующего
+файла и PID `smbd`, а также чтением SMB после ошибки. Этот тест запускается в CI в существующем
+job Production Compose Smoke и использует только одноразовый Compose-проект.
+
+`ConfigWorkflowIntegrationTest` отдельно проверяет HTTP error mapping и отсутствие команд
+замены/restart при ошибке `testparm`; граница SSH там замокана, security filters отключены.
+Проверка настоящих filters, TLS, CSRF и host-key verification сохраняется в Compose smoke.
+Эти уровни не подтверждают восстановление пользователей, паролей, SID или всех данных из томов.
+
 ## Аудит зависимостей frontend
 
 Проверка #28 от 25 октября 2026 года воспроизводится из `frontend/`:

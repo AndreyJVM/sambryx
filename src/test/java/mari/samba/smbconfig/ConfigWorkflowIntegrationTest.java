@@ -92,6 +92,22 @@ class ConfigWorkflowIntegrationTest {
     }
 
     @Test
+    void invalidBackupReturnsErrorWithoutReplacingFileOrRestartingSamba() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String filename = "smb.conf.backup_20301015_143000";
+        String backup = "/etc/samba/backups/" + filename;
+        when(commands.execute(session.getId(), LinuxCommands.testparmSilent(backup)))
+                .thenThrow(new SambaCommandException("Invalid backup configuration"));
+
+        mvc.perform(post("/api/config/backups/{filename}/restore", filename).session(session))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(commands, never()).execute(session.getId(), LinuxCommands.copy(backup, "/etc/samba/smb.conf"));
+        verify(commands, never()).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
+    }
+
+    @Test
     void restoreCopyFailureReturnsErrorAndDoesNotRestartSamba() throws Exception {
         MockHttpSession session = new MockHttpSession();
         String filename = "smb.conf.backup_20301015_143000";
