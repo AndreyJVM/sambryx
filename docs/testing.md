@@ -84,3 +84,45 @@ npx playwright show-trace test-results/<failed-test>/trace.zip
 Добавляя сценарий, проверяйте наблюдаемый результат и необходимые побочные эффекты.
 Предпочитайте доступные роли и подписи элементов. При изменении поведения сначала добавьте
 регрессионный тест, который воспроизводит проблему, затем изменяйте реализацию.
+
+
+## Аудит зависимостей frontend
+
+Проверка #28 от 25 октября 2026 года воспроизводится из `frontend/`:
+
+```bash
+npm ci
+npm audit
+npm audit --omit=dev
+npm ls vite esbuild tailwindcss postcss-nested postcss-selector-parser react-router-dom react-router
+```
+
+Audit зависит от актуальной базы advisory: сохранённый lockfile фиксирует версии, но не будущий
+результат аудита. Ненулевой код выхода означает наличие findings; не скрывайте его в CI.
+`--omit=dev` помогает отделить runtime-зависимости, но сам по себе не доказывает применимость.
+
+Исходный lockfile на `0bb8456` давал 7 findings: 6 moderate и 1 high. Выбран ограниченный
+переход Vite 5.4.21 → 6.4.5 с esbuild 0.25.12. Vite 6 поддерживает существующий Node.js 20.15.0,
+а установленный React plugin 4.7.0 поддерживает Vite 6. Требования Node.js, React, Tailwind,
+маршрутизация, конфигурация сборки и Docker-поставка сохраняются. Используемые настройки не
+затрагивают изменения SSR, Sass, resolve conditions и экспериментальных API из
+[руководства миграции Vite 5 → 6](https://v6.vite.dev/guide/migration).
+
+| Пакеты исходного отчёта | Применимость и решение |
+|---|---|
+| Vite (high) | Dev-server: обход ограничений файловой системы, обработка source maps и launch-editor; часть advisory относится к Windows, часть — и к другим ОС. Обновлён до 6.4.5, выше всех затронутых диапазонов исходного отчёта. В runtime Docker находятся JRE и JAR со статическими ресурсами, Vite туда не включается. |
+| esbuild (moderate) | [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99): доступ стороннего сайта к esbuild dev-server. Sambryx использует esbuild через Vite при сборке; зависимость обновляется вместе с Vite до исправленной версии 0.25.12. |
+| postcss-selector-parser, postcss-nested, tailwindcss (3 moderate) | [GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf): CPU exhaustion при разборе недоверенных CSS-селекторов. Это одна первичная уязвимость и два зависимых package findings. Парсер 6.1.4 остаётся в build tooling Tailwind 3.4.19/postcss-nested 6.2.0; вход — доверенные исходники репозитория, HTTP-запросы и пользовательские CSS сервером не компилируются. Сборка непроверенных PR всё равно исполняет недоверенный код и должна оставаться изолированной без секретов. |
+| react-router, react-router-dom (2 moderate) | Поставляются в JS bundle, остаются 6.30.6. [GHSA-wrjc-x8rr-h8h6](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6) требует передачи контролируемого атакующим пути в Link/useNavigate. В Layout, DashboardPage и ActiveDirectoryPage назначения заданы константами; GlobalSearch строит назначения `/shares`, `/users`, `/groups`, а не берёт их из результатов API. [GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg) касается SSR hydration: здесь BrowserRouter/Routes и createRoot, без SSR и deserializeErrors. |
+
+После обновления получены **5 moderate, 0 high** в полном audit и **2 moderate** в
+`--omit=dev`. Это зарегистрированные остаточные findings, а не исправления Router или CSS parser.
+Решение ограничено текущими путями данных: не передавайте внешние URL, query-параметры или значения
+API в Link/useNavigate и не добавляйте серверную компиляцию пользовательского CSS без повторной
+оценки. При появлении SSR, динамических назначений навигации, недоверенных CSS или новых advisory
+пересмотрите исключения до публикации изменения. Повторяйте audit при обновлении lockfile.
+
+Исправления этих остаточных advisory доступны в Router >=7.18.0 и parser >=7.1.6.
+Переход Router 6 → 7 и Tailwind 3 → 4 либо принудительная замена parser за пределами диапазона
+postcss-nested — отдельные изменения совместимости; в #28 они не выполняются. Не используйте
+`npm audit fix --force` и не отключайте проверки ради нулевого отчёта.
