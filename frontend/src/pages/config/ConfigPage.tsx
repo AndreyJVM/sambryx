@@ -1,5 +1,5 @@
 import { getErrorMessage } from "../../lib/errors";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Save, RotateCcw, Clock, ArrowLeft, RefreshCw, AlertTriangle, Settings2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/ui/toast";
@@ -42,13 +42,17 @@ export default function ConfigPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const restoreLock = useRef(false);
+  const restoreResultRef = useRef<HTMLDivElement>(null);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreResult, setRestoreResult] = useState<{ filename: string; success: boolean } | null>(null);
   const [loadError, setLoadError] = useState("");
   const [backupError, setBackupError] = useState(false);
   const { error: toastError, success } = useToast();
   const { confirm } = useConfirm();
   const { t } = useTranslation();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (safeErrorMessage?: string) => {
     try {
       setLoading(true);
       setLoadError("");
@@ -60,7 +64,7 @@ export default function ConfigPage() {
       setConfig(resConfig);
       setBackups(resBackups || []);
     } catch (err) {
-      setLoadError(getErrorMessage(err));
+      setLoadError(safeErrorMessage || getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -68,9 +72,13 @@ export default function ConfigPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    if (!loading && restoreResult) restoreResultRef.current?.scrollIntoView({ block: "center" });
+  }, [loading, restoreResult]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!config) return;
+    if (!config || restoreLock.current) return;
 
     try {
       setSaving(true);
@@ -86,6 +94,7 @@ export default function ConfigPage() {
   };
 
   const handleReset = async () => {
+    if (restoreLock.current) return;
     const ok = await confirm({
       title: t("config.defaults"),
       message: t("config.resetWarning"),
@@ -121,20 +130,29 @@ export default function ConfigPage() {
   };
 
   const handleRestoreBackup = async (filename: string) => {
-    const ok = await confirm({
-      title: t("config.restore"),
-      message: `${t("config.restoreWarning")} ${filename}`,
-      destructive: true,
-      confirmText: t("config.restore")
-    });
-    if (!ok) return;
-
+    if (restoreLock.current || saving) return;
+    restoreLock.current = true;
     try {
-      await api.post(`/api/config/backups/${filename}/restore`);
-      success("Restored", `Backup ${filename} restored successfully. Restart service applied.`);
-      fetchData(); // reload UI config values
-    } catch (err) {
-      toastError("Restore Error", getErrorMessage(err));
+      const ok = await confirm({
+        title: t("config.restore"),
+        message: t("config.restoreWarning").replace("{filename}", filename),
+        destructive: true,
+        confirmText: t("config.restore")
+      });
+      if (!ok) return;
+      setRestoreResult(null);
+      setRestoring(filename);
+      try {
+        await api.post(`/api/config/backups/${encodeURIComponent(filename)}/restore`);
+      } catch {
+        setRestoreResult({ filename, success: false });
+        return;
+      }
+      setRestoreResult({ filename, success: true });
+      await fetchData(t("config.restoreRefreshError"));
+    } finally {
+      setRestoring(null);
+      restoreLock.current = false;
     }
   };
 
@@ -160,7 +178,7 @@ export default function ConfigPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
         <div><div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-text-muted"><Settings2 className="h-3.5 w-3.5" />smb.conf</div><h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("config.title")}</h1><p className="mt-2 text-sm text-text-muted">{t("config.subtitle")}</p></div>
         <div className="flex gap-2">
-          <button onClick={handleReset} type="button" className="text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
+          <button onClick={handleReset} disabled={!!restoring || saving} type="button" className="disabled:opacity-50 text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
             <RotateCcw className="w-4 h-4" /> {t("config.defaults")}
           </button>
         </div>
@@ -336,6 +354,18 @@ export default function ConfigPage() {
         </div>
         )}
 
+        {restoring && (
+          <p role="status" aria-live="polite" aria-busy="true" className="config-note break-words">
+            {t("config.restoring").replace("{filename}", restoring)}
+          </p>
+        )}
+        {restoreResult && (
+          <div ref={restoreResultRef} role={restoreResult.success ? "status" : "alert"} className="bg-surface-2 border border-border rounded-lg p-4 break-words">
+            <p className="font-semibold">{t(restoreResult.success ? "config.restoreSuccess" : "config.restoreError")}</p>
+            <p className="font-mono text-sm mt-2">{restoreResult.filename}</p>
+            <p className="text-sm text-text-muted mt-2">{t(restoreResult.success ? "config.restoreSuccessDetail" : "config.restoreErrorDetail")}</p>
+          </div>
+        )}
         {backups.length > 0 && (
           <div className="bg-surface rounded-lg border border-border overflow-hidden">
              <div className="bg-surface-2 px-5 py-3 border-b border-border flex items-center gap-2">
@@ -343,11 +373,11 @@ export default function ConfigPage() {
              </div>
              <div className="p-5">
                 <p className="text-sm text-text-muted mb-4">{t("config.backupsDesc")}</p>
-                <div className="grid gap-3 select-none">
+                <div className="grid grid-cols-1 gap-3 select-none">
                   {backups.map((bkp) => (
                     <div key={bkp.filename} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-border rounded-md bg-surface-2 hover:border-border-strong transition-colors group">
-                      <div className="flex items-center gap-3">
-                         <div className="bg-surface border border-border p-2 rounded-md">
+                      <div className="flex min-w-0 items-center gap-3">
+                         <div className="shrink-0 bg-surface border border-border p-2 rounded-md">
                            <Clock className="w-5 h-5 text-text-muted group-hover:text-foreground transition-colors" />
                          </div>
                          <div className="min-w-0">
@@ -357,9 +387,10 @@ export default function ConfigPage() {
                       </div>
                       <button 
                         type="button"
+                        disabled={!!restoring || saving}
                         onClick={() => handleRestoreBackup(bkp.filename)}
                         aria-label={`${t("config.restore")}: ${bkp.filename}`}
-                        className="text-xs font-medium bg-surface text-foreground hover:bg-surface-2 py-1.5 px-3 rounded-md transition-colors border border-border-strong flex gap-1.5 items-center shrink-0"
+                        className="disabled:opacity-50 text-xs font-medium bg-surface text-foreground hover:bg-surface-2 py-1.5 px-3 rounded-md transition-colors border border-border-strong flex gap-1.5 items-center shrink-0"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
                         {t("config.restore")}
@@ -375,7 +406,7 @@ export default function ConfigPage() {
           <p className="text-xs text-text-muted">{t("config.saveHint")}</p>
           <button 
             type="submit" 
-            disabled={saving}
+            disabled={saving || !!restoring}
             className="text-sm font-medium text-on-accent bg-accent px-6 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {saving ? t("config.saving") : t("config.applyConfig")}

@@ -13,7 +13,11 @@ export const test = base.extend({
       loginFailure: false,
       failShares: false,
       failDashboard: false,
+      failConfig: false,
       requests: [],
+      backups: [],
+      workgroup: 'TEAM',
+      restore: null,
       shares: [
         { name: 'team', path: '/srv/samba/team', comment: 'Project documents', readOnly: false, guestOk: false, browseable: true },
         { name: 'archive', path: '/srv/samba/archive', comment: 'Past reports', readOnly: true, guestOk: false, browseable: true },
@@ -65,10 +69,19 @@ export const test = base.extend({
           const currentPath = url.searchParams.get('path') || '/';
           return reply({ currentPath, parentPath: currentPath === '/' ? null : '/', directories: [{ name: 'team', fullPath: '/srv/samba/team', type: 'dir' }] });
         }
-        if (path === '/api/config/global') return reply({ workgroup: 'TEAM', netbiosName: 'FILES', serverString: 'Fixture', security: 'user', mapToGuest: 'never', interfaces: '', bindInterfacesOnly: false, minProtocol: 'SMB2', maxProtocol: 'SMB3', disableNetbios: true, loadPrinters: false });
-        if (path === '/api/config/backups') return reply([]);
+        if (path === '/api/config/global') return state.failConfig ? reply(null, 503, 'synthetic-sensitive-refresh-output') : reply({ workgroup: state.workgroup, netbiosName: 'FILES', serverString: 'Fixture', security: 'user', mapToGuest: 'never', interfaces: '', bindInterfacesOnly: false, minProtocol: 'SMB2', maxProtocol: 'SMB3', disableNetbios: true, loadPrinters: false });
+        if (path === '/api/config/backups') return reply(state.backups);
         if (path === '/api/ad/status') return reply({ isJoined: false, domainName: '', dnsReachable: true, kerberosWorking: false, winbindWorking: true });
         if (path === '/api/fstec/check') return reply({ checkedAt: '2026-01-01T12:00:00Z', compliancePercent: 100, okCount: 0, failedCount: 0, manualCount: 0, notApplicableCount: 0, rules: [] });
+      }
+      if (method === 'POST' && state.restore && path === `/api/config/backups/${state.restore.filename}/restore`) {
+        await state.restore.wait;
+        if (state.restore.abort) return route.abort('failed');
+        if (state.restore.failRefresh) state.failConfig = true;
+        if (state.restore.status) return reply(null, state.restore.status, state.restore.message);
+        state.workgroup = 'RESTORED';
+        state.backups = [...state.backups, { filename: 'smb.conf.backup_20261025_140000', createdAt: '2026-10-25 14:00:00', size: '2 KB' }];
+        return reply(null);
       }
       unexpected.push(`${method} ${path}`);
       return reply(null, 501, 'Unexpected API request in browser fixture');
