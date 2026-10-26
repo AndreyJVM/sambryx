@@ -216,6 +216,7 @@ export default function DashboardPage() {
               void refresh();
             }}
             disabled={refreshing || pendingAction !== null}
+            data-session-activity
             aria-label={t("dashboard.refresh")}
           >
             <RefreshCw

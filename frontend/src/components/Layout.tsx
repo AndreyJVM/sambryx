@@ -23,6 +23,7 @@ import { useToast } from "./ui/toast";
 import { useTranslation } from "../lib/i18n";
 import { GlobalSearch } from "./ui/global-search";
 import "./workspace.css";
+import SessionWarning from "./SessionWarning";
 
 export default function Layout({ children }: { children?: React.ReactNode }) {
   const location = useLocation();
@@ -145,6 +146,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
 
   return (
     <div className="workspace min-h-screen flex text-foreground bg-bg font-sans selection:bg-accent selection:text-on-accent">
+      <SessionWarning />
       <a href="#workspace-content" className="workspace-skip">{t("sidebar.skipContent")}</a>
       <aside className={`workspace-sidebar bg-surface flex-col hidden md:flex border border-border shrink-0 z-20 transition-[width] duration-200 ease-in-out ${
         isCollapsed ? "w-[68px]" : "w-[260px]"

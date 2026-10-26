@@ -4,6 +4,13 @@ export type Language = "ru" | "en";
 
 export const translations = {
   en: {
+    session: {
+      warningTitle: "Session ending soon",
+      warningDescription: "After 15 minutes of inactivity, access is locked and a new SSH connection is required.",
+      remaining: "Seconds remaining:",
+      continue: "Continue work",
+      unavailable: "Unable to verify session status. Access may have expired."
+    },
     files: {
       name: "Name", size: "Size", selected: "Selected", copy: "Copy", move: "Move",
       error: "File operation error", downloadError: "Download failed", uploadError: "Upload failed",
@@ -327,6 +334,13 @@ export const translations = {
     }
   },
   ru: {
+    session: {
+      warningTitle: "Сессия скоро завершится",
+      warningDescription: "После 15 минут бездействия доступ блокируется. Потребуется повторное SSH-подключение.",
+      remaining: "Осталось секунд:",
+      continue: "Продолжить работу",
+      unavailable: "Не удалось проверить сессию. Доступ мог истечь."
+    },
     files: {
       name: "Имя", size: "Размер", selected: "Выбрано", copy: "Копировать", move: "Переместить",
       error: "Ошибка файловой операции", downloadError: "Ошибка скачивания", uploadError: "Ошибка загрузки файла",

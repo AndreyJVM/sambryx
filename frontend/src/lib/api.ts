@@ -58,6 +58,9 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
       throw new ApiError(json.message || "Произошла ошибка при выполнении запроса", res.status, json.data);
     }
 
+    if (unsafe && !["/api/auth/login", "/api/auth/activity"].includes(url)) {
+      window.dispatchEvent(new Event("sambryx:session-change"));
+    }
     return (Object.prototype.hasOwnProperty.call(json, "success") && Object.prototype.hasOwnProperty.call(json, "data")) ? json.data : json;
   } catch (err) {
     if (err instanceof ApiError) throw err;

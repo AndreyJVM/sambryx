@@ -1,13 +1,19 @@
 package mari.samba.config;
 
+import java.time.Clock;
+import mari.samba.infra.ExecutionSessionManager;
+import mari.samba.session.AdministratorSessionFilter;
+import mari.samba.session.AdministratorSessions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
@@ -19,6 +25,7 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
  */
 @Configuration
 @EnableWebSecurity
+@EnableScheduling
 public class SecurityConfig {
 
     /**
@@ -36,6 +43,16 @@ public class SecurityConfig {
         "/api/auth/environment",
         "/error"
     };
+
+    @Bean
+    public Clock sessionClock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    public AdministratorSessions administratorSessions(ExecutionSessionManager execution, Clock clock) {
+        return new AdministratorSessions(execution, clock);
+    }
 
     /**
      * Configures the main security filter chain for HTTP requests.
@@ -55,7 +72,7 @@ public class SecurityConfig {
      * @throws Exception if an error occurs during configuration
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, AdministratorSessions sessions) throws Exception {
 
         CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
         // Resolves CSRF token properly for SPAs (Angular/React/Vue)
@@ -73,6 +90,7 @@ public class SecurityConfig {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), new AntPathRequestMatcher("/**")))
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin));
 
+        http.addFilterAfter(new AdministratorSessionFilter(sessions), AuthorizationFilter.class);
         return http.build();
     }
 }

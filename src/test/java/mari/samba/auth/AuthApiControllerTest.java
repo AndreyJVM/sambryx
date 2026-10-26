@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 @WebMvcTest(AuthApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@org.springframework.context.annotation.Import(mari.samba.config.SecurityConfig.class)
 class AuthApiControllerTest {
 
     @Autowired

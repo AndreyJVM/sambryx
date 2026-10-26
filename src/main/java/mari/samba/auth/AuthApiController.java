@@ -8,6 +8,7 @@ import mari.samba.core.ApiResponse;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshHostKeyException;
 import mari.samba.infra.ExecutionSessionManager;
+import mari.samba.session.AdministratorSessions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthApiController {
 
     private final AuthService authService;
+    private final AdministratorSessions administratorSessions;
 
     /**
      * Constructs a new {@link AuthApiController}.
@@ -41,12 +43,15 @@ public class AuthApiController {
      * @param sessionManager manages SSH execution sessions
      * @param bruteForceService provides tracking and limiting for login attempts
      * @param authService the overarching authentication service (optional)
+     * @param administratorSessions owns the administrator activity deadline
      */
     public AuthApiController(
             ExecutionSessionManager sessionManager,
             BruteForceProtectionService bruteForceService,
-            @Autowired(required = false) AuthService authService) {
+            @Autowired(required = false) AuthService authService,
+            AdministratorSessions administratorSessions) {
         this.authService = authService != null ? authService : new AuthServiceImpl(sessionManager, bruteForceService);
+        this.administratorSessions = administratorSessions;
     }
 
     @GetMapping("/environment")
@@ -87,14 +92,12 @@ public class AuthApiController {
 
             authService.login(sessionId, request, clientIp);
 
-            session.setAttribute(
-                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                    SecurityContextHolder.getContext());
-
-            String hostDisplay =
-                    request.getHost() + (request.getResolvedPort() != 22 ? ":" + request.getResolvedPort() : "");
-            session.setAttribute("sambaHost", hostDisplay);
-            session.setAttribute("sambaUser", request.getUsername());
+            try {
+                publishSession(session, request);
+            } catch (IllegalStateException e) {
+                authService.logout(sessionId);
+                throw e;
+            }
 
             return ResponseEntity.ok(ApiResponse.ok("Authentication successful", null));
 
@@ -117,11 +120,22 @@ public class AuthApiController {
         }
     }
 
+    private void publishSession(HttpSession session, ConnectionRequestDto request) {
+        session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, SecurityContextHolder.getContext());
+        String hostDisplay =
+                request.getHost() + (request.getResolvedPort() != 22 ? ":" + request.getResolvedPort() : "");
+        session.setAttribute("sambaHost", hostDisplay);
+        session.setAttribute("sambaUser", request.getUsername());
+        administratorSessions.register(session);
+    }
+
     public record HostKeyFailure(String code, String fingerprint) {}
 
     private HttpSession prepareLoginSession(HttpServletRequest request) {
         HttpSession session = request.getSession(true);
         String previousId = session.getId();
+        administratorSessions.forget(previousId);
         boolean previouslyAuthenticated =
                 session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) != null
                         || session.getAttribute("sambaUser") != null;
@@ -181,6 +195,7 @@ public class AuthApiController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@Nullable HttpSession session) {
         if (session != null) {
+            administratorSessions.forget(session.getId());
             authService.logout(session.getId());
             session.invalidate();
         } else {

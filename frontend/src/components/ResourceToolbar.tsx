@@ -18,7 +18,7 @@ export function ResourceToolbar({ query, onQueryChange, searchLabel, count, tota
         <input type="search" value={query} onChange={event => onQueryChange(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} />
       </label>
       <span role="status" className="text-xs text-text-muted">{loading ? t("sidebar.wait") : `${t("lists.shown")}: ${count} / ${total}`}</span>
-      <button onClick={onRefresh} disabled={loading} className="shares-refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{t("dashboard.refresh")}</button>
+      <button data-session-activity onClick={onRefresh} disabled={loading} className="shares-refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{t("dashboard.refresh")}</button>
     </div>
   );
 }

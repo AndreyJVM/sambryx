@@ -219,7 +219,7 @@ export default function SharesPage() {
           <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("shares.search")} aria-label={t("shares.search")} />
         </label>
         <span className="text-xs text-text-muted" role="status">{loading ? t("sidebar.wait") : `${t("shares.shown")}: ${visibleShares.length} / ${resources.length}`}</span>
-        <button onClick={() => void fetchAll()} disabled={loading} className="shares-refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{t("dashboard.refresh")}</button>
+        <button data-session-activity onClick={() => void fetchAll()} disabled={loading} className="shares-refresh"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{t("dashboard.refresh")}</button>
       </div>
 
       {loadError && <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p className="font-medium">{t(resources.length ? "shares.staleData" : "shares.loadError")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
