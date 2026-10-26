@@ -10,6 +10,8 @@ SSH-подключение не будет разрешено. Существу�
 Не путайте ключ сервера с ключом пользователя: `SSH_AUTHORIZED_KEYS_FILE` разрешает вход
 клиенту, а `SSH_KNOWN_HOSTS_FILE` подтверждает подлинность сервера. Они не взаимозаменяемы.
 
+<a id="obtain-trusted-key"></a>
+
 ## Получение доверенного ключа
 
 Через консоль сервера, консоль гипервизора или другой уже доверенный административный канал:
@@ -47,7 +49,9 @@ host certificates / `@cert-authority` не поддерживаются; исп�
 
 ```bash
 mkdir -p .local/ssh
-# Populate known_hosts with independently verified public host keys first.
+# Create the file only if it does not exist; never truncate existing trust.
+touch .local/ssh/known_hosts
+# Add independently verified public host keys before login.
 chmod 0644 .local/ssh/known_hosts
 ```
 
@@ -67,10 +71,25 @@ SSH_KNOWN_HOSTS_FILE=./deploy/production/secrets/known_hosts
 `samba.ssh.known-hosts`. По умолчанию используется `/etc/sambryx/known_hosts`.
 Недоступный файл приводит к безопасному отказу входа, но не выключает HTTP-приложение.
 
+<a id="bundled-bootstrap"></a>
+
 ## Первый запуск встроенного production-узла
 
-Подготовьте TLS-файлы, ключ управления и `.env` по production-инструкции. Создайте пустой
-`known_hosts` по указанному пути; вход пока будет запрещён. Запустите только Samba-узел:
+Подготовьте TLS-файлы, `.env` и ключ управления по разделу
+[полного стека](production.md#bundled-samba). Публичный `management.pub` уже должен
+существовать: он нужен даже для запуска только узла.
+
+Для новой установки со стандартным `SSH_KNOWN_HOSTS_FILE` создайте файл доверия.
+`touch` сохраняет существующие записи; не очищайте файл при повторном запуске.
+Если в `.env` выбран другой путь, используйте его вместо указанного:
+
+```bash
+mkdir -p deploy/production/secrets
+touch deploy/production/secrets/known_hosts
+chmod 0644 deploy/production/secrets/known_hosts
+```
+
+Пустой файл запрещает вход до добавления проверенного ключа. Запустите только Samba-узел:
 
 ```bash
 docker compose --env-file deploy/production/.env \
@@ -85,12 +104,34 @@ docker compose --env-file deploy/production/.env \
 docker compose --env-file deploy/production/.env \
   -f docker-compose.production.yml -f docker-compose.samba.yml \
   exec -T samba-node cat /etc/ssh/ssh_host_ed25519_key.pub
+docker compose --env-file deploy/production/.env \
+  -f docker-compose.production.yml -f docker-compose.samba.yml \
+  exec -T samba-node ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
 ```
 
-Поместите полученный публичный ключ в `known_hosts` с именем `samba-node`, установите права
-`0644` и запустите полный стек через `bash scripts/production/run.sh --with-samba`.
+Сверьте SHA-256 отпечаток ключа, который собираетесь добавить, с результатом доверенной
+консоли узла. После подтверждения поместите публичный ключ в `known_hosts` одной строкой:
+
+```text
+samba-node ssh-ed25519 <base64-public-key-from-trusted-console>
+```
+
+Завершающий комментарий публичного ключа необязателен. Сохраните права `0644` и запустите
+полный стек через `bash scripts/production/run.sh --with-samba`.
+Не записывайте в этот файл приватный ключ `management`: он нужен только для формы входа.
 Скрипт локального disposable sandbox сам получает публичные ключи собственного контейнера
 через Docker Engine в отдельный `.local/sandbox/known_hosts`, не затрагивая рабочие доверенные ключи; такое действие не применяется к произвольным удалённым серверам.
+
+## Если ключ ещё не добавлен
+
+Сообщение о неизвестном ключе означает, что доверие для этого host/port не настроено.
+Показанный страницей отпечаток является полученным по сети, а не подтверждённым.
+Проверьте адрес и порт в форме, получите ключ и отпечаток через доверенный канал,
+сверьте их и добавьте запись с точным именем. Затем пересоздайте панель по
+[production-инструкции](production.md#first-connection) и повторите вход.
+Не копируйте отпечаток из ошибки в качестве основания доверия.
+
+<a id="changed-key"></a>
 
 ## Если ключ изменился
 
