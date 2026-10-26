@@ -10,6 +10,8 @@ export const test = base.extend({
     const origin = new URL(baseURL).origin;
     const state = {
       authenticated: true,
+      sessionRemaining: 15 * 60_000,
+      renewalDenied: false,
       loginFailure: false,
       failShares: false,
       failDashboard: false,
@@ -57,6 +59,17 @@ export const test = base.extend({
       }
       if (path === '/api/auth/me' && method === 'GET') return state.authenticated
         ? reply({ host: 'files.example.test', user: 'operator' }) : reply(null, 401, 'Not authenticated');
+      if (path === '/api/auth/session' && method === 'GET') return state.authenticated
+        ? reply({ serverTime: Date.now(), deadline: Date.now() + state.sessionRemaining }) : reply(null, 401);
+      if (path === '/api/auth/activity' && method === 'POST') {
+        if (!state.authenticated || state.renewalDenied) return reply(null, 401);
+        state.sessionRemaining = 15 * 60_000;
+        return reply({ serverTime: Date.now(), deadline: Date.now() + state.sessionRemaining });
+      }
+      if (path === '/api/auth/logout' && method === 'POST') {
+        state.authenticated = false;
+        return reply(null);
+      }
       if (method === 'GET') {
         if (path === '/api/shares') return state.failShares ? reply(null, 503, 'Fixture unavailable') : reply(state.shares);
         if (path === '/api/users') return reply(users);

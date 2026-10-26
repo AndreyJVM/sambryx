@@ -2,7 +2,7 @@ import { test, expect } from './fixtures.mjs';
 
 const selected = 'smb.conf.backup_20261024_123456';
 const other = 'smb.conf.backup_20261023_123456';
-const mutations = app => app.requests.filter(request => request.method !== 'GET');
+const mutations = app => app.requests.filter(request => request.method !== 'GET' && request.path !== '/api/auth/activity');
 
 async function openBackups(page, app) {
   app.backups = [selected, other].map(filename => ({ filename, createdAt: '2026-10-24 12:34:56', size: '2 KB' }));

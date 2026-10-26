@@ -11,9 +11,10 @@ interface ModalProps {
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   zIndex?: number;
+  showCloseButton?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, description, children, maxWidth = 'md', zIndex = 50 }: ModalProps) {
+export function Modal({ isOpen, onClose, title, description, children, maxWidth = 'md', zIndex = 50, showCloseButton = true }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useDialog(isOpen, onClose);
@@ -52,14 +53,14 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
             <h2 id={titleId} className="text-lg font-semibold text-foreground tracking-tight">{title}</h2>
             {description && <p id={descriptionId} className="text-[13px] text-text-muted mt-0.5">{description}</p>}
           </div>
-          <button 
+          {showCloseButton && <button
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
             className="p-1.5 min-h-11 min-w-11 shrink-0 flex items-center justify-center text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors"
           >
             <X className="w-5 h-5" />
-          </button>
+          </button>}
         </div>
         <div className="p-6 overflow-y-auto custom-scrollbar">
           {children}

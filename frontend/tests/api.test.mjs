@@ -17,7 +17,8 @@ function harness(cookie, fetchResponse) {
     exports,
     document,
     Headers,
-    window: { location: { pathname: "/ui/login", href: "" } },
+    Event,
+    window: { dispatchEvent: () => {}, location: { pathname: "/ui/login", href: "" } },
     fetch: async (url, options) => {
       calls.push({ url, ...options });
       return fetchResponse(url, options, document);
