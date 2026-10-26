@@ -137,6 +137,30 @@ public final class LinuxCommands {
                 "sudo cp -- %s %s", escape(requireValidPath(source)), escape(requireValidPath(destination)));
     }
 
+    /** Publishes a completed backup without replacing an existing directory entry. */
+    public static String createBackup(String source, String basePath) {
+        String safeSource = escape(requireValidPath(source));
+        String safeBase = escape(requireValidPath(basePath));
+        String script = String.join(
+                " ",
+                "staged=$(mktemp "
+                        + escape(requireValidPath(
+                                basePath.substring(0, basePath.lastIndexOf('/')) + "/.smb.conf.staging.XXXXXX"))
+                        + ") || exit 1;",
+                "trap 'rm -f -- \"$staged\"' EXIT;",
+                "cp -- " + safeSource + " \"$staged\" || exit 1;",
+                "base=" + safeBase + ";",
+                "for ((attempt=0; attempt<100; attempt++)); do",
+                "candidate=$base;",
+                "if ((attempt>0)); then candidate=${base}_$attempt; fi;",
+                "if [ -e \"$candidate\" ] || [ -L \"$candidate\" ]; then continue; fi;",
+                "ln -T -- \"$staged\" \"$candidate\" || exit 1;",
+                "printf '%s\\n' \"$candidate\"; exit 0;",
+                "done;",
+                "echo 'Backup name attempts exhausted.' >&2; exit 1;");
+        return "sudo bash -c " + escape(script);
+    }
+
     public static String copyRecursive(String source, String destination) {
         return String.format(
                 "sudo cp -r -- %s %s", escape(requireValidPath(source)), escape(requireValidPath(destination)));
