@@ -20,24 +20,19 @@
 
 Полное руководство пользователя, инструкции по настройке и описание архитектуры доступны в **[документации](https://AndreyJVM.github.io/sambryx/)**
 
-## Быстрый старт с Docker (Продакшн)
+## Установка с Docker
 
-Перед SSH-входом настройте [проверку ключей сервера](docs/ssh-host-keys.md): нужен файл `.local/ssh/known_hosts` с независимо проверенными публичными ключами.
+Для одного администратора с существующим Samba-сервером начните с
+[быстрого старта](docs/quickstart.md): готовый образ, Docker Compose и HTTPS через Nginx.
+На машине с панелью нужны Docker Engine, Compose и доверенный TLS-сертификат;
+JDK, Maven и Node.js для установки не нужны.
 
-```bash
-docker run -d \
-  --name sambryx \
-  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
-  -p 8080:8080 \
-  --restart unless-stopped \
-  andreyvorobevaqa/sambryx:latest
-```
+Перед первым входом подготовьте [сервер](docs/server-setup.md) и
+[доверенные SSH-ключи](docs/ssh-host-keys.md). Форма принимает SSH-реквизиты сервера;
+отдельная учётная запись панели не создаётся.
 
-Откройте браузер по адресу http://localhost:8080/ui.
-
-Для развёртывания с HTTPS используйте [production Docker Compose](docs/production.md).
-Доступны панель для существующего SSH-сервера и отдельный полный стек с Samba.
-
+[Production-инструкция](docs/production.md) содержит команды установки, `.env`,
+проверку готовности и дополнительный вариант со встроенным Samba-узлом.
 При обновлении существующей установки см. [переход на Sambryx](docs/renaming.md).
 
 ## Локальная разработка и тестирование (Sandbox)
