@@ -106,9 +106,9 @@ public class SambaConfigService {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String backupFile = backupDir + "/smb.conf.backup_" + timestamp;
 
-        commandExecutor.execute(sessionId, LinuxCommands.copy(configPath, backupFile));
+        commandExecutor.execute(sessionId, LinuxCommands.createBackup(configPath, backupFile));
         commandExecutor.execute(sessionId, LinuxCommands.cleanupOldBackups(backupDir, 10));
-        log.info("Created configuration backup: {}", backupFile);
+        log.info("Created configuration backup");
     }
 
     /**
@@ -155,7 +155,7 @@ public class SambaConfigService {
      *     format
      */
     public void restoreBackup(@NonNull String sessionId, @NonNull String filename) {
-        if (!filename.matches("^smb\\.conf\\.backup_\\d{8}_\\d{6}$")) {
+        if (!filename.matches("^smb\\.conf\\.backup_\\d{8}_\\d{6}(?:_[1-9][0-9]?)?$")) {
             throw new IllegalArgumentException("Invalid backup filename format.");
         }
 
