@@ -1,10 +1,8 @@
-# Sambryx
-
-<p>
+<p align="center">
   <img src="frontend/public/sambryx/logo-full-light.svg" alt="Sambryx" height="64">
 </p>
 
-<p>
+<p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange.svg" alt="Java 21">
   <img src="https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen.svg" alt="Spring Boot">
   <img src="https://img.shields.io/badge/Docker-Ready-blue.svg" alt="Docker Ready">
