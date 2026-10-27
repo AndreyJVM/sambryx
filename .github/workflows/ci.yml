@@ -239,43 +239,12 @@ jobs:
           IMAGE_ID: ${{ steps.build-standard.outputs.imageid }}
         run: bash scripts/ci/smoke-docker.sh "$IMAGE_ID" target/*.jar
 
-      - name: Extract Astra Docker metadata
-        id: meta-astra
-        uses: docker/metadata-action@v5
-        with:
-          images: andreyvorobevaqa/sambryx
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}},prefix=astra-
-            type=semver,pattern={{major}}.{{minor}},prefix=astra-
-            type=raw,value=astra-latest,enable=true
-
-      - name: Reject overlapping standard and Astra tags
+      - name: Validate standard Docker tags
         env:
           STANDARD_TAGS: ${{ steps.meta.outputs.tags }}
-          ASTRA_TAGS: ${{ steps.meta-astra.outputs.tags }}
         run: python3 scripts/ci/docker-tags.py check
 
-      - name: Package experimental Astra Docker image
-        id: build-astra
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./docker/Dockerfile.astra
-          load: true
-          push: false
-          tags: ${{ steps.meta-astra.outputs.tags }}
-          labels: ${{ steps.meta-astra.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke-test experimental image on Ubuntu runner
-        env:
-          IMAGE_ID: ${{ steps.build-astra.outputs.imageid }}
-        run: bash scripts/ci/smoke-docker.sh "$IMAGE_ID" target/*.jar
-
-      - name: Publish smoke-tested Docker images
+      - name: Publish smoke-tested Docker image
         env:
           STANDARD_TAGS: ${{ steps.meta.outputs.tags }}
-          ASTRA_TAGS: ${{ steps.meta-astra.outputs.tags }}
         run: python3 scripts/ci/docker-tags.py push
