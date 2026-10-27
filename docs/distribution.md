@@ -74,3 +74,49 @@ Production-конфигурация с HTTPS и дополнительным Sam
 [руководстве Docker Compose](production.md).
 
 Перед первым подключением настройте [доверенные SSH-ключи сервера](ssh-host-keys.md).
+
+## Обслуживание workflow
+
+Пять workflow разделены по назначению:
+
+| Файл | Назначение |
+| --- | --- |
+| `ci.yml` | Сборка, Python guards, frontend, Browser Smoke Tests, Production Compose Smoke и выпуск по тегу. |
+| `codeql.yml` | Независимый анализ Java, JavaScript/TypeScript и Python. |
+| `docs.yml` | Публикация документации из `master` в GitHub Pages. |
+| `dockerhub-description.yml` | Синхронизация и проверка описания Docker Hub. |
+| `docker-aliases.yml` | Ручное восстановление aliases уже выпущенных образов. |
+
+В `ci.yml` права по умолчанию ограничены `contents: read`; запись разрешена только
+заданию GitHub Release. В workflow документации запись разрешена заданию публикации.
+CodeQL отдельно получает `security-events: write`. Имена проверок и зависимости выпуска
+сохранены: GitHub Release и Docker publication независимо ожидают Build & Test,
+Browser Smoke Tests и Production Compose Smoke. Сбой одной публикации всё ещё может
+оставить частичный выпуск; атомарность выпуска требует отдельного изменения.
+
+Локальные проверки и сборка обычного образа:
+
+```bash
+python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
+bash -n scripts/ci/select-jar.sh
+jar=$(bash scripts/ci/select-jar.sh target)
+docker build --build-arg "JAR_FILE=$jar" --tag sambryx:local .
+bash scripts/ci/smoke-docker.sh sambryx:local "$jar"
+```
+
+`select-jar.sh DIRECTORY` требует ровно один JAR, проверяет frontend через
+`verify-artifacts.py` и выводит только путь в stdout; диагностика идёт в stderr.
+Команды сборки требуют предварительного `./mvnw clean package`.
+`docker-tags.py check` читает многострочные `STANDARD_TAGS` и `ASTRA_TAGS`, отклоняет
+пустые или некорректные ссылки и пересечение наборов. Режим `push` повторяет всю
+проверку до первого вызова Docker и останавливается при первой ошибке push.
+Локальные тесты этого режима подменяют Docker, не публикуя образы.
+
+Build & Test имеет timeout 30 минут, Browser Smoke Tests — 10, Production Compose Smoke — 20,
+GitHub Release — 10, Docker publication — 40, CodeQL — 30, документация — 15.
+Существующие таймауты Docker Hub sync (5) и alias repair (10) сохранены.
+При ошибке Build & Test артефакт `backend-test-reports` сохраняет XML/TXT Surefire на 7 дней,
+если отчёты уже созданы. Отменённые задания его не загружают. Браузерная диагностика
+остаётся в `browser-smoke-report`. Эти артефакты доступны на странице запуска Actions.
+Полный workspace, Compose config с подставленными значениями и application logs
+в новые артефакты не включаются.

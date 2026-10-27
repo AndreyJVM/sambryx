@@ -14,12 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -64,14 +65,20 @@ jobs:
       - name: Build and smoke-test standard runtime image
         shell: bash
         run: |
-          jars=(target/*.jar)
-          if [[ ${#jars[@]} -ne 1 || ! -f "${jars[0]}" ]]; then
-            echo "Expected exactly one application JAR in target/" >&2
-            exit 1
-          fi
-          python3 scripts/ci/verify-artifacts.py "${jars[0]}"
-          docker build --build-arg "JAR_FILE=${jars[0]}" --tag sambryx-ci:standard .
-          bash scripts/ci/smoke-docker.sh sambryx-ci:standard "${jars[0]}"
+          jar=$(bash scripts/ci/select-jar.sh target)
+          docker build --build-arg "JAR_FILE=$jar" --tag sambryx-ci:standard .
+          bash scripts/ci/smoke-docker.sh sambryx-ci:standard "$jar"
+
+      - name: Upload backend failure reports
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            target/surefire-reports/*.xml
+            target/surefire-reports/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload Built JAR Artifact
         uses: actions/upload-artifact@v4
@@ -150,6 +157,9 @@ jobs:
   github-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     needs: [build-and-test, production-compose-smoke, browser-smoke]
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -175,6 +185,7 @@ jobs:
   docker-publish:
     name: Build & Publish Docker Images
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     needs: [build-and-test, production-compose-smoke, browser-smoke]
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -189,14 +200,7 @@ jobs:
           path: target
 
       - name: Verify downloaded application artifact
-        shell: bash
-        run: |
-          jars=(target/*.jar)
-          if [[ ${#jars[@]} -ne 1 || ! -f "${jars[0]}" ]]; then
-            echo "Expected exactly one tested application JAR" >&2
-            exit 1
-          fi
-          python3 scripts/ci/verify-artifacts.py "${jars[0]}"
+        run: bash scripts/ci/select-jar.sh target
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -250,16 +254,7 @@ jobs:
         env:
           STANDARD_TAGS: ${{ steps.meta.outputs.tags }}
           ASTRA_TAGS: ${{ steps.meta-astra.outputs.tags }}
-        shell: bash
-        run: |
-          test -n "$STANDARD_TAGS"
-          test -n "$ASTRA_TAGS"
-          while IFS= read -r tag; do
-            if grep -Fxq -- "$tag" <<< "$STANDARD_TAGS"; then
-              echo "Standard and Astra image tags must not overlap" >&2
-              exit 1
-            fi
-          done <<< "$ASTRA_TAGS"
+        run: python3 scripts/ci/docker-tags.py check
 
       - name: Package experimental Astra Docker image
         id: build-astra
@@ -283,13 +278,4 @@ jobs:
         env:
           STANDARD_TAGS: ${{ steps.meta.outputs.tags }}
           ASTRA_TAGS: ${{ steps.meta-astra.outputs.tags }}
-        shell: bash
-        run: |
-          test -n "$STANDARD_TAGS"
-          test -n "$ASTRA_TAGS"
-          while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then docker push "$tag"; fi
-          done <<< "$STANDARD_TAGS"
-          while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then docker push "$tag"; fi
-          done <<< "$ASTRA_TAGS"
+        run: python3 scripts/ci/docker-tags.py push
