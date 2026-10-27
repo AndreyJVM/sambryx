@@ -259,7 +259,7 @@ docker compose --env-file deploy/production/.env \
 обновились файловые подключения secrets. Nginx ограничивает тело запроса 64 MiB; отдельные лимиты
 загрузки Spring Boot настраиваются независимо и могут быть ниже.
 
-## Проверка конфигурации и smoke-тест
+## Проверка конфигурации и smoke-тест {#проверка-конфигурации-и-smoke-тест}
 
 ```bash
 python3 -B -m unittest discover -s scripts/ci -p 'test_production.py' -v

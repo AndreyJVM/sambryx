@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check or push disjoint STANDARD_TAGS and ASTRA_TAGS from Docker metadata."""
+"""Check or push STANDARD_TAGS from Docker metadata."""
 
 import argparse
 import os
@@ -22,11 +22,8 @@ def main():
     arguments = parser.parse_args()
     try:
         standard = tag_set("STANDARD_TAGS")
-        astra = tag_set("ASTRA_TAGS")
-        if set(standard) & set(astra):
-            raise ValueError("Standard and Astra image tags must not overlap")
         if arguments.operation == "push":
-            for tag in standard + astra:
+            for tag in standard:
                 subprocess.run(["docker", "push", tag], check=True)
     except ValueError as error:
         print(str(error), file=sys.stderr)

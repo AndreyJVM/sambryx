@@ -29,8 +29,7 @@ class WorkflowScriptsTest(unittest.TestCase):
         docker.chmod(0o755)
         self.environment = {**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"],
                             "DOCKER_CALLS": str(self.calls),
-                            "STANDARD_TAGS": "example/app:1.2.3\nexample/app:latest",
-                            "ASTRA_TAGS": "example/app:astra-1.2.3\nexample/app:astra-latest"}
+                            "STANDARD_TAGS": "example/app:1.2.3\nexample/app:latest"}
 
     def jar(self, name="application.jar", valid=True):
         path = self.directory / "target" / name
@@ -69,18 +68,11 @@ class WorkflowScriptsTest(unittest.TestCase):
         self.jar("second.jar")
         self.assertNotEqual(self.run_jar().returncode, 0)
 
-    def test_disjoint_tags_push_in_order(self):
+    def test_standard_tags_push_in_order(self):
         result = self.run_tags(publish=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.docker_calls(), [["push", tag] for tag in
-                         (self.environment["STANDARD_TAGS"] + "\n" + self.environment["ASTRA_TAGS"]).splitlines()])
-
-    def test_overlapping_or_empty_sets_reject_before_push(self):
-        self.environment["ASTRA_TAGS"] = self.environment["STANDARD_TAGS"]
-        self.assertNotEqual(self.run_tags(publish=True).returncode, 0)
-        self.environment["ASTRA_TAGS"] = ""
-        self.assertNotEqual(self.run_tags(publish=True).returncode, 0)
-        self.assertEqual(self.docker_calls(), [])
+                         self.environment["STANDARD_TAGS"].splitlines()])
 
     def test_check_does_not_publish(self):
         result = self.run_tags()
@@ -88,17 +80,16 @@ class WorkflowScriptsTest(unittest.TestCase):
         self.assertEqual(self.docker_calls(), [])
 
     def test_invalid_tags_reject_entire_publication_before_push(self):
-        original = self.environment.copy()
-        for name in ("STANDARD_TAGS", "ASTRA_TAGS"):
-            for invalid in ("", "\n", "   ", "example/app:1.2.3\n\nexample/app:latest",
-                            "--all-tags", "example/app:bad tag"):
-                with self.subTest(name=name, tags=invalid):
-                    self.environment = {**original, name: invalid}
-                    result = self.run_tags(publish=True)
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertEqual(self.docker_calls(), [])
+        for invalid in ("", "\n", "   ", "example/app:1.2.3\n\nexample/app:latest",
+                        "--all-tags", "example/app:bad tag"):
+            with self.subTest(tags=invalid):
+                self.environment["STANDARD_TAGS"] = invalid
+                result = self.run_tags(publish=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.docker_calls(), [])
 
     def test_failed_push_stops_following_pushes(self):
+        self.environment["STANDARD_TAGS"] += "\nexample/app:1.2"
         self.environment["FAIL_TAG"] = "example/app:latest"
         result = self.run_tags(publish=True)
         self.assertEqual(result.returncode, 17, result.stderr)
