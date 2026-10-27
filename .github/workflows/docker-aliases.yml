@@ -38,7 +38,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Verify published source images against the release JAR
+      - name: Verify published source image against the release JAR
         id: source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,25 +48,16 @@ jobs:
           jars=(release-artifacts/*.jar)
           [[ ${#jars[@]} -eq 1 && -f "${jars[0]}" ]]
           standard=$(docker buildx imagetools inspect "$IMAGE:$RELEASE_VERSION" --format '{{.Manifest.Digest}}')
-          astra=$(docker buildx imagetools inspect "$IMAGE:astra-$RELEASE_VERSION" --format '{{.Manifest.Digest}}')
-          [[ "$standard" =~ ^sha256:[a-f0-9]{64}$ && "$astra" =~ ^sha256:[a-f0-9]{64}$ ]]
-          [[ "$standard" != "$astra" ]]
-          for digest in "$standard" "$astra"; do
-            docker pull "$IMAGE@$digest"
-            bash scripts/ci/smoke-docker.sh "$IMAGE@$digest" "${jars[0]}"
-          done
+          [[ "$standard" =~ ^sha256:[a-f0-9]{64}$ ]]
+          docker pull "$IMAGE@$standard"
+          bash scripts/ci/smoke-docker.sh "$IMAGE@$standard" "${jars[0]}"
           echo "standard=$standard" >> "$GITHUB_OUTPUT"
-          echo "astra=$astra" >> "$GITHUB_OUTPUT"
 
       - name: Restore and verify aliases without changing versioned tags
         env:
           STANDARD_DIGEST: ${{ steps.source.outputs.standard }}
-          ASTRA_DIGEST: ${{ steps.source.outputs.astra }}
         shell: bash
         run: |
           docker buildx imagetools create --prefer-index=false --tag "$IMAGE:latest" "$IMAGE@$STANDARD_DIGEST"
-          docker buildx imagetools create --prefer-index=false --tag "$IMAGE:astra-latest" "$IMAGE@$ASTRA_DIGEST"
           [[ $(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}') == "$STANDARD_DIGEST" ]]
-          [[ $(docker buildx imagetools inspect "$IMAGE:astra-latest" --format '{{.Manifest.Digest}}') == "$ASTRA_DIGEST" ]]
           [[ $(docker buildx imagetools inspect "$IMAGE:$RELEASE_VERSION" --format '{{.Manifest.Digest}}') == "$STANDARD_DIGEST" ]]
-          [[ $(docker buildx imagetools inspect "$IMAGE:astra-$RELEASE_VERSION" --format '{{.Manifest.Digest}}') == "$ASTRA_DIGEST" ]]

@@ -21,21 +21,19 @@ docker run -d \
 
 Open `http://localhost:8080/ui` in your browser. From the UI, you can connect to your Samba server using SSH credentials.
 
-### Experimental Astra Linux Special Edition variant
+## Image and target systems
 
-The existing experimental image includes a JVM-specific MPROTECT relaxation. Compatibility
-with Astra Linux SE 1.8 and Parsec has not been verified on a target system:
+Sambryx ships one standard image based on Alpine with JRE 21. Debian and Ubuntu are
+target server/host families; they do not have separate Sambryx images. The repository
+sandbox uses an Ubuntu 22.04 Samba node, and Production Compose Smoke uses Ubuntu 24.04.
+These container checks do not establish compatibility with every Debian/Ubuntu version
+or native host installation; Debian is not separately tested in the current CI.
 
-```bash
-docker run -d \
-  --name sambryx \
-  --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
-  -p 8080:8080 \
-  --restart unless-stopped \
-  andreyvorobevaqa/sambryx:astra-latest
-```
-
-The Astra image disables PaX MPROTECT only for the `java` executable inside the image. This permits the JVM JIT to start and reduces memory-execution protection for that Java process. The regular `latest` image keeps its existing runtime configuration. Versioned Astra images use the `astra-<version>` tag.
+The experimental Astra image has been removed from current builds and publication.
+Previously published `astra-*` tags are retained without further updates by this workflow.
+Astra Linux 1.8 compatibility remains unverified and is tracked in
+[issue #10](https://github.com/AndreyJVM/sambryx/issues/10) pending target-system access
+and Docker + SSH validation. The standard image keeps its existing JVM configuration.
 
 ## Features
 - Complete UI for managing Samba shares and permissions
