@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/sambryx/logo-full-light.svg" alt="Sambryx" height="64">
+  <img src="frontend/public/sambryx/logo-full-light.svg" alt="Sambryx" width="192" height="64">
 </p>
 
 <p align="center">
