@@ -186,9 +186,17 @@ tags. Старый retry не откатывает ни `latest`, ни `major.mi
 version digest; общей транзакции GitHub и registry нет, частичные состояния остаются возможными.
 
 Ручной workflow запускается только с master для уже публичного release с полным record и
-совпадающим version digest. Он повторяет checksum/archive/JAR smoke-проверки, не пересобирает
-образ, не публикует version tag и не создаёт release. Legacy releases без record, включая
-`v0.12.0`, намеренно не принимаются: автоматически приписывать им новое доказательство нельзя.
+совпадающим version digest. Единственное legacy-исключение — заранее проверенный baseline
+`v0.12.0` из `scripts/ci/release-v0.12.0.json`. Он повторяет checksum/archive/JAR smoke-проверки, не пересобирает
+образ, не публикует version tag и не создаёт release. Baseline фиксирует source SHA, release/asset ID, имя и checksum единственного release JAR,
+а также точный registry manifest digest. При repair проверяются актуальный source tag,
+CodeQL исходного commit, неизменность release/asset identity и скачанные байты JAR;
+образ скачивается по зафиксированному digest и проходит smoke с этим JAR.
+Архив для legacy не создаётся и assets опубликованного release не меняются.
+Baseline фиксирует проверенное опубликованное состояние; он не восстанавливает
+историческое доказательство воспроизводимости сборки. Любое несовпадение блокирует aliases.
+Это не общий путь миграции: остальные legacy versions без полного record запрещены,
+а автоматическая публикация не использует legacy-исключение.
 Для восстановления выбирайте самую новую stable version нужной линии. Emergency rollback —
 отдельная явно согласованная операция; у repair нет параметра обхода monotonicity.
 

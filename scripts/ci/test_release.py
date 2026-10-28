@@ -443,5 +443,86 @@ class ReleaseSummaryTest(unittest.TestCase):
                 os.chdir(original)
 
 
+class LegacyBaselineTest(unittest.TestCase):
+    def setUp(self):
+        import hashlib
+        from unittest.mock import patch
+        self.patch = patch
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.services = release.Services('owner/repo', self.directory, repair=True)
+        self.jar = b'legacy release JAR'
+        self.record = {'schema': 1, 'version': '0.12.0', 'source_sha': SHA, 'image': release.IMAGE,
+                       'image_digest': DIGEST, 'jar_sha256': hashlib.sha256(self.jar).hexdigest(),
+                       'legacy': True, 'release_id': 1, 'jar_asset_id': 2, 'jar_asset_name': 'legacy.jar'}
+        self.remote = {'id': 1, 'tag_name': 'v0.12.0', 'draft': False, 'prerelease': False, 'body': 'Legacy notes'}
+        self.asset = {'id': 2, 'name': 'legacy.jar', 'state': 'uploaded'}
+
+    def load(self):
+        with self.patch.object(self.services, 'releases', return_value=[self.remote]), self.patch.object(
+                self.services, 'assets', return_value=[self.asset]), self.patch.object(
+                self.services, 'download', return_value=self.jar), self.patch.object(
+                self.services, 'legacy_baseline', return_value=self.record):
+            return self.services.load('0.12.0', SHA, self.directory)
+
+    def test_approved_legacy_baseline_loads_exact_jar_without_remote_writes_or_archive(self):
+        with self.patch.object(self.services, 'command') as command:
+            self.assertEqual(self.load(), self.record)
+            command.assert_not_called()
+        self.assertEqual((self.directory / 'application.jar').read_bytes(), self.jar)
+        with self.patch.object(self.services, 'command') as command:
+            self.services.verify(self.record, self.directory)
+            command.assert_not_called()
+        self.assertFalse((self.directory / 'image.oci.tar').exists())
+
+    def test_legacy_source_asset_and_checksum_conflicts_fail_before_commands(self):
+        for field, value in (('source_sha', 'd' * 40), ('release_id', 9),
+                             ('jar_asset_id', 9), ('jar_sha256', 'd' * 64)):
+            original = self.record[field]
+            self.record[field] = value
+            with self.subTest(field=field), self.patch.object(self.services, 'command') as command:
+                with self.assertRaises(ValueError):
+                    self.load()
+                command.assert_not_called()
+            self.record[field] = original
+
+    def test_legacy_baseline_is_for_repair_only_and_not_generic_migration(self):
+        self.services.repair = False
+        with self.assertRaises(ValueError):
+            self.load()
+        self.services.repair = True
+        self.remote['tag_name'] = 'v0.11.0'
+        with self.patch.object(self.services, 'releases', return_value=[self.remote]), self.patch.object(
+                self.services, 'legacy_baseline') as baseline:
+            with self.assertRaises(ValueError):
+                self.services.load('0.11.0', SHA, self.directory)
+            baseline.assert_not_called()
+
+    def test_legacy_retry_preserves_newer_latest_and_verifies_remote_jar(self):
+        boundary = Boundary()
+        boundary.record = self.record
+        boundary.published = ['0.12.0', '0.13.0']
+        boundary.tags = {'0.12.0': DIGEST, '0.12': DIGEST, '0.13.0': OTHER, 'latest': OTHER}
+        release.coordinate(boundary, '0.12.0', SHA, self.directory, repair=True)
+        self.assertIn('remote-smoke', boundary.calls)
+        self.assertEqual(boundary.tags['latest'], OTHER)
+        self.assertEqual(boundary.tags['0.12'], DIGEST)
+        self.assertNotIn('version', boundary.calls)
+        self.assertNotIn('publish', boundary.calls)
+        self.assertNotIn('alias:latest', boundary.calls)
+
+    def test_baseline_digest_conflict_blocks_aliases_and_preserves_legacy_release(self):
+        boundary = Boundary()
+        boundary.record = self.record
+        boundary.published = ['0.12.0']
+        boundary.tags = {'0.12.0': OTHER}
+        with self.assertRaisesRegex(ValueError, 'conflict'):
+            release.coordinate(boundary, '0.12.0', SHA, self.directory, repair=True)
+        self.assertNotIn('version', boundary.calls)
+        self.assertNotIn('publish', boundary.calls)
+        self.assertNotIn('alias:latest', boundary.calls)
+
+
 if __name__ == '__main__':
     unittest.main()

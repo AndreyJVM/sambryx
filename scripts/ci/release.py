@@ -101,20 +101,24 @@ def checksum(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def validate_record(record, version, sha):
+def validate_record(record, version, sha, legacy=False):
     if record.get('schema') != 1 or record.get('version') != version or record.get('source_sha') != sha:
         raise ValueError('Recovery record version/source conflict')
     if record.get('image') != IMAGE or not DIGEST.fullmatch(record.get('image_digest', '')):
         raise ValueError('Invalid recovery image identity')
-    if any(not HEX.fullmatch(record.get(key, '')) for key in ('jar_sha256', 'archive_sha256')):
+    if record.get('legacy') and (not legacy or version != '0.12.0'):
+        raise ValueError('Legacy identity is permitted only for the approved v0.12.0 repair baseline')
+    keys = ('jar_sha256',) if legacy else ('jar_sha256', 'archive_sha256')
+    if any(not HEX.fullmatch(record.get(key, '')) for key in keys):
         raise ValueError('Invalid recovery asset checksum')
 
 
 class Services:
-    def __init__(self, repository, directory):
+    def __init__(self, repository, directory, repair=False):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
             raise ValueError('Invalid repository')
         self.repository = repository
+        self.repair = repair
         self.directory = directory
         self.registry_token = None
         self.remote = None
@@ -221,6 +225,24 @@ class Services:
                 if not item['draft'] and not item['prerelease'] and item['tag_name'].startswith('v')
                 and STABLE.fullmatch(item['tag_name'][1:])]
 
+    def legacy_baseline(self):
+        return json.loads(Path(__file__).with_name('release-v0.12.0.json').read_bytes())
+
+    def load_legacy(self, version, sha, directory):
+        record = self.legacy_baseline()
+        validate_record(record, version, sha, legacy=True)
+        if self.remote['id'] != record['release_id'] or self.remote['draft'] or self.remote['prerelease']:
+            raise ValueError('Legacy release identity conflict')
+        assets = self.assets(self.remote)
+        if len(assets) != 1 or assets[0]['id'] != record['jar_asset_id'] or assets[0]['name'] != record['jar_asset_name']:
+            raise ValueError('Legacy release asset identity conflict')
+        if assets[0]['state'] != 'uploaded':
+            raise ValueError('Legacy release asset is not complete')
+        (directory / 'release.json').write_bytes(encoded(record))
+        (directory / 'application.jar').write_bytes(self.download(assets[0]))
+        self.verify_files(record, directory)
+        return record
+
     def load(self, version, sha, directory):
         matches = [item for item in self.releases() if item['tag_name'] == 'v' + version]
         if not matches:
@@ -229,6 +251,8 @@ class Services:
             raise ValueError('Duplicate release conflict')
         self.remote = matches[0]
         body = self.remote.get('body', '') or ''
+        if self.repair and version == '0.12.0' and not body.startswith(BODY_PREFIX):
+            return self.load_legacy(version, sha, directory)
         if not body.startswith(BODY_PREFIX) or '\n```' not in body[len(BODY_PREFIX):]:
             raise ValueError('Existing release has no canonical recovery record; manual investigation required')
         record = json.loads(body[len(BODY_PREFIX):].split('\n```', 1)[0])
@@ -294,6 +318,8 @@ class Services:
 
     def persist(self, record, directory):
         self.verify_files(record, directory)
+        if record.get('legacy'):
+            raise ValueError('Legacy release assets must never be written')
         if self.remote is None:
             notes = directory / 'notes.md'
             generated = json.loads(self.command('gh', 'api', 'repos/' + self.repository + '/releases/generate-notes',
@@ -318,7 +344,10 @@ class Services:
         self.observed['stage'] = 'prepared draft and canonical assets persisted'
 
     def verify_files(self, record, directory):
-        for name, key in (('application.jar', 'jar_sha256'), ('image.oci.tar', 'archive_sha256')):
+        files = [('application.jar', 'jar_sha256')]
+        if not record.get('legacy'):
+            files.append(('image.oci.tar', 'archive_sha256'))
+        for name, key in files:
             if not (directory / name).is_file() or checksum(directory / name) != record[key]:
                 raise ValueError('Canonical asset checksum conflict: ' + name)
         if (directory / 'release.json').read_bytes() != encoded(record):
@@ -326,6 +355,10 @@ class Services:
 
     def verify(self, record, directory):
         self.verify_files(record, directory)
+        if record.get('legacy'):
+            if not self.repair or record['version'] != '0.12.0':
+                raise ValueError('Legacy verification requires the approved repair baseline')
+            return
         archive = 'oci-archive:' + str(directory / 'image.oci.tar')
         raw = self.command('skopeo', 'inspect', '--raw', archive)
         if 'sha256:' + hashlib.sha256(raw).hexdigest() != record['image_digest']:
@@ -392,7 +425,7 @@ def main():
     try:
         version = invocation(os.environ, arguments.operation, arguments.version)
         directory.mkdir(exist_ok=True)
-        services = Services(os.environ['GITHUB_REPOSITORY'], directory)
+        services = Services(os.environ['GITHUB_REPOSITORY'], directory, repair=arguments.operation == 'repair')
         sha = services.api('commits/v' + version)['sha']
         services.observed.update({'source_sha': sha, 'version': version})
         if arguments.operation == 'publish':
