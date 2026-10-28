@@ -38,3 +38,5 @@ function App() {
 }
 
 export default App;
+
+// CI frontend scope verification fixture.
