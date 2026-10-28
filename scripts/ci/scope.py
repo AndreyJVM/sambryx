@@ -17,6 +17,11 @@ BRANDING = {f"frontend/public/sambryx/{name}.svg" for name in
 def select(paths):
     selected = set()
     for path in paths:
+        if path == "frontend/tests/branding.mjs":
+            return set(FULL)
+        if path.startswith(tuple(f"src/main/java/mari/samba/{area}/" for area in
+                                 ("infra", "config", "auth", "session", "smbconfig", "fstec"))):
+            return set(FULL)
         if path in BRANDING:
             selected.update({"documents", "assets", "frontend", "package", "browser"})
         elif path == "README.md" or (path.endswith(".md") and path.startswith(("docs/", "docker/"))):

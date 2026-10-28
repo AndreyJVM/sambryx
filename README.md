@@ -116,3 +116,54 @@ Vite dev-сервер доступен на `http://localhost:5173/ui/` с ав�
 ## Лицензия
 
 Распространяется под лицензией MIT. Подробнее см. в файле [LICENSE](LICENSE).
+
+## Выбор проверок CI
+
+CI всегда запускает `Select Checks` и итоговый `Quality Gate`, включая изменения только
+документации. Выбор проверок применяется одинаково к PR и push в master:
+
+| Изменения | Проверки CI |
+|---|---|
+| `README.md`, Markdown в `docker/` | Локальные ссылки, изображения, якоря, UTF-8 |
+| Markdown в `docs/` | Те же проверки и `mkdocs build --strict` до merge |
+| Четыре SVG в `frontend/public/sambryx/` | Валидность пассивного SVG, браузерный рендер, frontend lint/unit/build/browser, упаковка UI в JAR |
+| Исходники и тесты frontend (`ts`, `tsx`, `js`, `mjs`, `css`) | Frontend lint/unit/build/browser, упаковка UI в JAR |
+| Java в `src/main/java/`, `src/test/java/` вне чувствительных пакетов | Spotless, backend tests/build, упаковка UI в JAR |
+| CI, scripts, Docker, SSH/delivery, конфигурация, общие зависимости и неизвестные пути | Полный набор, включая образ и Production Compose Smoke с TLS/SSH/SMB |
+| Тег релиза, ручной запуск, пустой или ненадёжный diff | Полный набор |
+
+При смешанных изменениях берётся объединение проверок. Разрешённые branding-файлы:
+`logo-full-dark.svg`, `logo-full-light.svg`, `logo-mark.svg`, `favicon.svg`.
+Другие файлы в public, entry HTML и конфигурация frontend требуют полного набора.
+Production Java-пакеты `infra`, `config`, `auth`, `session`, `smbconfig`, `fstec` также
+требуют полного набора: они отвечают за SSH, безопасность и конфигурацию Samba.
+
+Для PR сравнивается весь head с merge base указанного base SHA. Для push сравниваются
+реальные before/after SHA. Git diff читается полностью, с NUL-разделителями и обеими
+сторонами переименований, без API pagination или лимита файлов. Удаления учитываются.
+Нулевая/недоступная база, shallow history и неоднозначные статусы требуют полного набора.
+Git paths передаются как данные, без подстановки в shell.
+
+`Quality Gate` выполняется с `always()` и требует успеха каждой выбранной job.
+Failure, cancellation, неожиданный skip, отсутствие результата или ошибочная классификация
+завершают gate ошибкой. Для невыбранных jobs допустим только ожидаемый skip.
+Публикация релиза требует gate; настоящий tag не нужен для локальной проверки маршрутизации.
+
+Отдельный CodeQL продолжает выполнять три анализа на каждом PR и push в master, включая
+документацию. Его обязательные статусы и правило code scanning остаются самостоятельными
+требованиями ruleset: CI gate не выдаёт их за свои dependencies. Поэтому лёгкие изменения
+всё ещё ждут CodeQL (в том числе Java compile), но не backend tests, Docker или SSH smoke.
+
+Проверка документации не обращается ко всем внешним сайтам: она проверяет локальные ссылки,
+Markdown/HTML изображения и якоря. Strict MkDocs нужен для docs, а не для каждого SVG.
+Branding previews показывают светлую/тёмную тему на ширинах 320/1440; автоматическая проверка
+подтверждает загрузку и отсутствие overflow, но не оценивает дизайн. SVG с активным кодом
+или внешними ресурсами запрещены. Снимки доступны в artifact `branding-previews`.
+
+Локальные проверки инструментов CI:
+
+```bash
+python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
+python3 scripts/ci/documents.py
+python3 scripts/ci/documents.py assets
+```

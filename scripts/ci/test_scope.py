@@ -26,7 +26,12 @@ class SelectionTest(unittest.TestCase):
     def test_sensitive_unknown_and_empty_are_full(self):
         for files in ([], ["pom.xml"], ["frontend/package-lock.json"], [".github/workflows/ci.yml"],
                       ["scripts/helper.sh"], ["Dockerfile"], ["new-area/file"],
-                      ["frontend/public/worker.js"], ["src/main/resources/application.yml"]):
+                      ["frontend/public/worker.js"], ["frontend/tests/branding.mjs"], ["src/main/resources/application.yml"],
+                      ["src/main/java/mari/samba/infra/LinuxCommands.java"],
+                      ["src/main/java/mari/samba/config/SecurityConfig.java"],
+                      ["src/main/java/mari/samba/auth/AuthServiceImpl.java"],
+                      ["src/main/java/mari/samba/session/AdministratorSessionFilter.java"],
+                      ["src/main/java/mari/samba/smbconfig/SambaConfigService.java"]):
             with self.subTest(files=files):
                 self.assertEqual(scope.select(files), scope.FULL)
 
@@ -129,6 +134,26 @@ class RangeTest(unittest.TestCase):
             event["before"] = before
             with self.subTest(name=name, ref=ref, before=before), self.assertRaises((ValueError, __import__("subprocess").CalledProcessError)):
                 scope.changes(event, name, ref)
+
+    def test_shallow_history_is_not_trusted(self):
+        import os
+        import tempfile
+        original = os.getcwd()
+        with tempfile.TemporaryDirectory() as directory:
+            scope.git("clone", "--depth=1", "file://" + original, directory)
+            try:
+                os.chdir(directory)
+                with self.assertRaises(ValueError):
+                    scope.changes({"before": self.base, "after": self.base}, "push", "refs/heads/master")
+            finally:
+                os.chdir(original)
+
+    def test_paths_with_spaces_newlines_and_shell_text_remain_data(self):
+        path = "docs/space\n$(touch sentinel).md"
+        self.commit(path)
+        event = {"before": self.base, "after": self.git("rev-parse", "HEAD")}
+        self.assertEqual(scope.changes(event, "push", "refs/heads/master"), [path])
+        self.assertFalse(Path("sentinel").exists())
 
 
 class CommandTest(unittest.TestCase):
