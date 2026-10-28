@@ -275,6 +275,7 @@ class Services:
     def prepare(self, version, sha, directory):
         jar = self.command('bash', 'scripts/ci/select-jar.sh', 'target').decode().strip()
         shutil.copyfile(jar, directory / 'application.jar')
+        self.observed['jar_sha256'] = checksum(directory / 'application.jar')
         self.command('docker', 'build', '--label', 'org.opencontainers.image.version=' + version,
                      '--label', 'org.opencontainers.image.revision=' + sha,
                      '--label', 'org.opencontainers.image.source=https://github.com/' + self.repository,
@@ -386,11 +387,13 @@ def main():
     services = None
     directory = Path('release-work').resolve()
     status = 'failed'
+    failure = None
     try:
         version = invocation(os.environ, arguments.operation, arguments.version)
         directory.mkdir(exist_ok=True)
         services = Services(os.environ['GITHUB_REPOSITORY'], directory)
         sha = services.api('commits/v' + version)['sha']
+        services.observed.update({'source_sha': sha, 'version': version})
         if arguments.operation == 'publish':
             head = services.command('git', 'rev-parse', 'HEAD').decode().strip()
             if head != sha or os.environ.get('GITHUB_SHA') != sha:
@@ -400,11 +403,14 @@ def main():
         status = 'success'
         return 0
     except (ValueError, KeyError, TypeError, OSError) as error:
-        print('Release stopped: ' + str(error), file=sys.stderr)
+        failure = str(error)
+        print('Release stopped: ' + failure, file=sys.stderr)
         return 1
     finally:
         if services is not None:
             report = {'status': status, 'observed': services.observed}
+            if failure is not None:
+                report['failure'] = failure
             manifest = directory / 'release.json'
             if manifest.exists():
                 try:

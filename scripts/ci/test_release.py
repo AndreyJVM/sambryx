@@ -406,5 +406,33 @@ class SupersededAliasTest(unittest.TestCase):
         self.assertNotIn('alias:latest', boundary.calls)
 
 
+class ReleaseSummaryTest(unittest.TestCase):
+    def test_failure_before_preparation_reports_source_sha_and_reason(self):
+        import contextlib
+        import io
+        import os
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temporary:
+            original = Path.cwd()
+            try:
+                os.chdir(temporary)
+                summary = Path(temporary) / 'summary.md'
+                environment = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'AndreyJVM/sambryx',
+                               'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3', 'GITHUB_SHA': SHA,
+                               'RELEASE_NEEDS': json.dumps({'quality-gate': {'result': 'success'},
+                                                            'build-and-test': {'result': 'success'}}),
+                               'GITHUB_STEP_SUMMARY': str(summary)}
+                with patch.dict(os.environ, environment), patch.object(release.sys, 'argv', ['release.py', 'publish']), patch.object(
+                        release.Services, 'api', return_value={'sha': SHA}), patch.object(
+                        release.Services, 'command', return_value=SHA.encode()), patch.object(
+                        release.Services, 'check_codeql', side_effect=ValueError('CodeQL pending')), contextlib.redirect_stdout(
+                        io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(release.main(), 1)
+                self.assertIn(SHA, summary.read_text())
+                self.assertIn('CodeQL pending', summary.read_text())
+            finally:
+                os.chdir(original)
+
+
 if __name__ == '__main__':
     unittest.main()
