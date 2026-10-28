@@ -17,8 +17,124 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    name: Select Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.scope.outputs.plan }}
+      documents: ${{ steps.scope.outputs.documents }}
+      mkdocs: ${{ steps.scope.outputs.mkdocs }}
+      assets: ${{ steps.scope.outputs.assets }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      backend: ${{ steps.scope.outputs.backend }}
+      package: ${{ steps.scope.outputs.package }}
+      browser: ${{ steps.scope.outputs.browser }}
+      integration: ${{ steps.scope.outputs.integration }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select checks from complete event range
+        id: scope
+        run: python3 scripts/ci/scope.py classify
+
+  documents:
+    name: Documentation
+    needs: classify
+    if: needs.classify.outputs.documents == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local links, images, anchors and UTF-8
+        run: python3 scripts/ci/documents.py
+      - name: Install documentation builder
+        if: needs.classify.outputs.mkdocs == 'true'
+        run: pip install mkdocs-material==9.7.6
+      - name: Build documentation strictly before merge
+        if: needs.classify.outputs.mkdocs == 'true'
+        run: mkdocs build --strict
+
+  assets:
+    name: Branding Assets
+    needs: classify
+    if: needs.classify.outputs.assets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate passive SVG assets
+        run: python3 scripts/ci/documents.py assets
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.15.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Render branding at desktop and mobile sizes
+        run: node frontend/tests/branding.mjs
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: branding-previews
+          path: branding-previews/
+          retention-days: 7
+          if-no-files-found: error
+
+  frontend:
+    name: Frontend Checks
+    needs: classify
+    if: needs.classify.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.15.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    name: Backend Checks
+    needs: classify
+    if: needs.classify.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Check formatting and backend behavior
+        run: bash ./mvnw -B spotless:check verify -Dfrontend.skip=true -Dfrontend.copy.skip=true
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && !cancelled() }}
+        with:
+          name: backend-test-reports
+          path: |
+            target/surefire-reports/*.xml
+            target/surefire-reports/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
   build-and-test:
     name: Build & Test
+    needs: classify
+    if: needs.classify.outputs.package == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -45,40 +161,11 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Make Maven wrapper executable
-        run: chmod +x mvnw
+      - name: Package frontend in application JAR
+        run: bash ./mvnw -B clean package -DskipTests
 
-      - name: Verify Code Formatting (Spotless)
-        run: ./mvnw spotless:check
-
-      - name: Build and Test with Maven
-        run: ./mvnw -B clean package
-
-      - name: Lint frontend
-        working-directory: frontend
-        run: ./node/npm run lint
-
-      - name: Test frontend API client
-        working-directory: frontend
-        run: ./node/npm run test
-
-      - name: Build and smoke-test standard runtime image
-        shell: bash
-        run: |
-          jar=$(bash scripts/ci/select-jar.sh target)
-          docker build --build-arg "JAR_FILE=$jar" --tag sambryx-ci:standard .
-          bash scripts/ci/smoke-docker.sh sambryx-ci:standard "$jar"
-
-      - name: Upload backend failure reports
-        if: ${{ failure() && !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-test-reports
-          path: |
-            target/surefire-reports/*.xml
-            target/surefire-reports/*.txt
-          retention-days: 7
-          if-no-files-found: ignore
+      - name: Verify consumed frontend artifact
+        run: bash scripts/ci/select-jar.sh target
 
       - name: Upload Built JAR Artifact
         uses: actions/upload-artifact@v4
@@ -89,6 +176,8 @@ jobs:
 
   browser-smoke:
     name: Browser Smoke Tests
+    needs: classify
+    if: needs.classify.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -130,7 +219,8 @@ jobs:
   production-compose-smoke:
     name: Production Compose Smoke
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [classify, build-and-test]
+    if: needs.classify.outputs.integration == 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -142,8 +232,11 @@ jobs:
           name: sambryx-jar
           path: target
 
-      - name: Build application runtime
-        run: docker build --tag sambryx-ci:production .
+      - name: Build and smoke-test standard runtime image
+        run: |
+          jar=$(bash scripts/ci/select-jar.sh target)
+          docker build --build-arg "JAR_FILE=$jar" --tag sambryx-ci:production .
+          bash scripts/ci/smoke-docker.sh sambryx-ci:production "$jar"
 
       - name: Pull TLS proxy image
         run: docker pull nginx:1.30.6-alpine
@@ -154,13 +247,27 @@ jobs:
       - name: Verify TLS, SSH, SMB and persistence
         run: python3 scripts/ci/smoke-production.py sambryx-ci:production
 
+  quality-gate:
+    name: Quality Gate
+    if: ${{ always() }}
+    needs: [classify, documents, assets, frontend, backend, build-and-test, browser-smoke, production-compose-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require exactly the selected successful checks
+        env:
+          EXPECTED_PLAN: ${{ needs.classify.outputs.plan }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/scope.py gate
+
   github-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
-    needs: [build-and-test, production-compose-smoke, browser-smoke]
+    needs: [quality-gate, build-and-test]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -186,7 +293,7 @@ jobs:
     name: Build & Publish Docker Images
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    needs: [build-and-test, production-compose-smoke, browser-smoke]
+    needs: [quality-gate, build-and-test]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
