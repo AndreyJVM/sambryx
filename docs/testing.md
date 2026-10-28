@@ -239,3 +239,5 @@ python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
 python3 scripts/ci/documents.py
 python3 scripts/ci/documents.py assets
 ```
+
+[Temporary negative gate fixture](ci-negative-missing-target.md)
