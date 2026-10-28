@@ -45,3 +45,5 @@ class SambaPropertiesTest {
     @EnableConfigurationProperties(SambaProperties.class)
     static class TestConfiguration {}
 }
+
+// CI backend scope verification fixture.
