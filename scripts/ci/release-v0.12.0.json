@@ -1,0 +1,12 @@
+{
+  "image": "andreyvorobevaqa/sambryx",
+  "image_digest": "sha256:ed9bb3e8cebefa84394dca1d2bae9574568b5949cd953dd4123ecb983d651e3f",
+  "jar_asset_id": 673492582,
+  "jar_asset_name": "sambryx-0.0.1-SNAPSHOT.jar",
+  "jar_sha256": "e3f4a2dfa555685a91f02481c68c0fe1de61b6fa3940ec081a65eca507b50ba9",
+  "legacy": true,
+  "release_id": 423020124,
+  "schema": 1,
+  "source_sha": "19b64b4642e7f19da2e8696952648ba6e5bc3f7e",
+  "version": "0.12.0"
+}

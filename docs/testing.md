@@ -190,3 +190,21 @@ security filters и подменённой SSH-границей, а также `
 Для предупреждения сохраняются снимки RU/EN на desktop/mobile в обеих темах.
 Фикстуры браузера не доказывают серверный deadline; mock SSH не доказывает завершение
 настоящего удалённого процесса. Эти границы проверяются разными уровнями тестирования.
+
+
+## Проверки механизма выпуска
+
+Для изменений CI/release применяется полный план, включая настоящий стандартный Docker image
+и Production Compose Smoke. Release coordinator проверяется отдельно без внешней публикации:
+
+```bash
+python3 -B -m unittest discover -s scripts/ci -p 'test_release*.py' -v
+python3 -B -m unittest discover -s scripts/ci -p 'test_alias_repair.py' -v
+```
+
+Проверяются state transitions, частичные отказы и повтор, канонические assets, digest/checksum,
+registry errors, CodeQL exact source SHA, dependency cancellation/skips и числовая monotonicity
+обоих aliases. Subprocess doubles заменяют Docker/Skopeo/gh, HTTP doubles — registry;
+это не настоящий выпуск и не проверка GitHub concurrency scheduler.
+[Контракт и восстановление](distribution.md#release-recovery) описывают сохранённые байты,
+границы идемпотентности и случаи, требующие ручного расследования.
