@@ -223,6 +223,15 @@ class ExternalBoundaryTest(unittest.TestCase):
         with self.patch.object(release.urllib.request, 'urlopen', side_effect=error):
             self.assertIsNone(self.io.digest('1.2.3'))
 
+    def test_malformed_404_response_is_not_registry_absence(self):
+        import urllib.error
+        error = urllib.error.HTTPError('https://registry', 404, '', {}, self.response(b'not JSON'))
+        self.addCleanup(error.close)
+        self.io.registry_token = 'fixture'
+        with self.patch.object(release.urllib.request, 'urlopen', side_effect=error):
+            with self.assertRaisesRegex(ValueError, 'Registry'):
+                self.io.digest('1.2.3')
+
     def test_registry_hashes_exact_returned_manifest_bytes(self):
         import hashlib
         raw = b'{"schemaVersion":2,"config":{}}'

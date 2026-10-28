@@ -195,8 +195,9 @@ class Services:
                     if errors and all(item.get('code') == 'MANIFEST_UNKNOWN' for item in errors):
                         error.close()
                         return None
-                except (ValueError, AttributeError):
-                    pass
+                except (ValueError, AttributeError) as malformed:
+                    error.close()
+                    raise ValueError('Registry response was not a valid absence proof') from malformed
             error.close()
             raise ValueError('Registry request failed with HTTP ' + str(error.code)) from error
         except (OSError, TimeoutError, ValueError, KeyError) as error:
