@@ -167,3 +167,9 @@ python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
 python3 scripts/ci/documents.py
 python3 scripts/ci/documents.py assets
 ```
+
+Для проверки workflow при установленном actionlint выполните:
+
+```bash
+actionlint .github/workflows/*.yml
+```
