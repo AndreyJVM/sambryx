@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location("documents", Path(__file__).with_name("documents.py"))
+spec = importlib.util.spec_from_file_location("documents", Path(__file__).resolve().parents[1] / "checks/documents.py")
 documents = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(documents)
 

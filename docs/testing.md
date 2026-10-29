@@ -195,11 +195,26 @@ security filters и подменённой SSH-границей, а также `
 ## Проверки механизма выпуска
 
 Для изменений CI/release применяется полный план, включая настоящий стандартный Docker image
-и Production Compose Smoke. Release coordinator проверяется отдельно без внешней публикации:
+и Production Compose Smoke. Release coordinator проверяется отдельно без внешней публикации.
+
+Утилиты CI сгруппированы по назначению:
+
+- `scripts/ci/checks/` — выбор проверок и верификация документации, JAR и Docker Hub.
+- `scripts/ci/release/` — координатор release, Docker tags и выбор JAR; `data/` содержит legacy baseline.
+- `scripts/ci/smoke/` — проверки Docker image и Production Compose.
+- `scripts/ci/tests/` — все Python-тесты утилит, отдельно от исполняемых скриптов.
+
+Полный набор запускается из корня репозитория без установки Python-пакета проекта:
 
 ```bash
-python3 -B -m unittest discover -s scripts/ci -p 'test_release*.py' -v
-python3 -B -m unittest discover -s scripts/ci -p 'test_alias_repair.py' -v
+python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+```
+
+Для отдельных проверок release:
+
+```bash
+python3 -B -m unittest discover -s scripts/ci/tests -p 'test_release*.py' -v
+python3 -B -m unittest discover -s scripts/ci/tests -p 'test_alias_repair.py' -v
 ```
 
 Проверяются state transitions, частичные отказы и повтор, канонические assets, digest/checksum,

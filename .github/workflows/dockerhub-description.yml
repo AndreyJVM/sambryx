@@ -6,7 +6,7 @@ on:
     paths:
       - DOCKERHUB.md
       - .github/workflows/dockerhub-description.yml
-      - scripts/ci/verify-dockerhub.py
+      - scripts/ci/checks/verify-dockerhub.py
   workflow_dispatch:
 
 permissions:
@@ -35,4 +35,4 @@ jobs:
           readme-filepath: ./DOCKERHUB.md
 
       - name: Verify published README
-        run: python3 scripts/ci/verify-dockerhub.py andreyvorobevaqa/sambryx DOCKERHUB.md
+        run: python3 scripts/ci/checks/verify-dockerhub.py andreyvorobevaqa/sambryx DOCKERHUB.md

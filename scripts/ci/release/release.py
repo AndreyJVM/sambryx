@@ -226,7 +226,7 @@ class Services:
                 and STABLE.fullmatch(item['tag_name'][1:])]
 
     def legacy_baseline(self):
-        return json.loads(Path(__file__).with_name('release-v0.12.0.json').read_bytes())
+        return json.loads((Path(__file__).resolve().parent / 'data/release-v0.12.0.json').read_bytes())
 
     def load_legacy(self, version, sha, directory):
         record = self.legacy_baseline()
@@ -298,14 +298,14 @@ class Services:
                     shutil.copyfile(destination / name, directory / name)
 
     def prepare(self, version, sha, directory):
-        jar = self.command('bash', 'scripts/ci/select-jar.sh', 'target').decode().strip()
+        jar = self.command('bash', 'scripts/ci/release/select-jar.sh', 'target').decode().strip()
         shutil.copyfile(jar, directory / 'application.jar')
         self.observed['jar_sha256'] = checksum(directory / 'application.jar')
         self.command('docker', 'build', '--label', 'org.opencontainers.image.version=' + version,
                      '--label', 'org.opencontainers.image.revision=' + sha,
                      '--label', 'org.opencontainers.image.source=https://github.com/' + self.repository,
                      '--build-arg', 'JAR_FILE=' + jar, '--tag', 'sambryx-release:prepared', '.')
-        self.command('bash', 'scripts/ci/smoke-docker.sh', 'sambryx-release:prepared', str(directory / 'application.jar'))
+        self.command('bash', 'scripts/ci/smoke/smoke-docker.sh', 'sambryx-release:prepared', str(directory / 'application.jar'))
         archive = directory / 'image.oci.tar'
         self.command('skopeo', 'copy', 'docker-daemon:sambryx-release:prepared', 'oci-archive:' + str(archive))
         raw = self.command('skopeo', 'inspect', '--raw', 'oci-archive:' + str(archive))
@@ -364,7 +364,7 @@ class Services:
         if 'sha256:' + hashlib.sha256(raw).hexdigest() != record['image_digest']:
             raise ValueError('Archive manifest digest conflict')
         self.command('skopeo', 'copy', archive, 'docker-daemon:sambryx-release:verified')
-        self.command('bash', 'scripts/ci/smoke-docker.sh', 'sambryx-release:verified', str(directory / 'application.jar'))
+        self.command('bash', 'scripts/ci/smoke/smoke-docker.sh', 'sambryx-release:verified', str(directory / 'application.jar'))
 
     def copy_version(self, record, directory):
         self.command('skopeo', 'copy', '--all', '--preserve-digests',
@@ -374,7 +374,7 @@ class Services:
     def verify_published(self, record, directory):
         reference = IMAGE + '@' + record['image_digest']
         self.command('docker', 'pull', reference)
-        self.command('bash', 'scripts/ci/smoke-docker.sh', reference, str(directory / 'application.jar'))
+        self.command('bash', 'scripts/ci/smoke/smoke-docker.sh', reference, str(directory / 'application.jar'))
         self.observed['stage'] = 'version digest and pulled image smoke verified'
 
     def publish(self, record):

@@ -163,9 +163,9 @@ Branding previews показывают светлую/тёмную тему на
 Локальные проверки инструментов CI:
 
 ```bash
-python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
-python3 scripts/ci/documents.py
-python3 scripts/ci/documents.py assets
+python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+python3 scripts/ci/checks/documents.py
+python3 scripts/ci/checks/documents.py assets
 ```
 
 Для проверки workflow при установленном actionlint выполните:

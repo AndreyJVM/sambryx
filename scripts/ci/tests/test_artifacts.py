@@ -10,7 +10,7 @@ import zipfile
 
 
 spec = importlib.util.spec_from_file_location(
-    "verify_artifacts", Path(__file__).with_name("verify-artifacts.py")
+    "verify_artifacts", Path(__file__).resolve().parents[1] / "checks/verify-artifacts.py"
 )
 artifacts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifacts)

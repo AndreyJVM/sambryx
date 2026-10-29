@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 2 || ! -f "$2" ]]; then
-    echo "Usage: bash scripts/ci/smoke-docker.sh IMAGE JAR" >&2
+    echo "Usage: bash scripts/ci/smoke/smoke-docker.sh IMAGE JAR" >&2
     exit 1
 fi
 image=$1
@@ -50,5 +50,5 @@ if [[ "$ready" != true ]]; then
     echo "Smoke container did not become ready within the startup limit" >&2
     exit 1
 fi
-python3 "$script_dir/verify-artifacts.py" "$jar" --url "$base_url"
+python3 "$script_dir/../checks/verify-artifacts.py" "$jar" --url "$base_url"
 echo "Docker smoke check passed: non-root UID $uid, identical JAR, UI/assets and remote API"

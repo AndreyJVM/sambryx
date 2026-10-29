@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 import uuid
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def check(condition, message):
