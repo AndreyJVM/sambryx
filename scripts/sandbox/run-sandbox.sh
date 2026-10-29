@@ -168,7 +168,7 @@ build_docker_image() {
         echo "Error: target/ must contain exactly one application JAR." >&2
         return 1
     fi
-    if ! python3 "$PROJECT_ROOT/scripts/ci/verify-artifacts.py" "${jars[0]}"; then
+    if ! python3 "$PROJECT_ROOT/scripts/ci/checks/verify-artifacts.py" "${jars[0]}"; then
         echo "Error: the JAR does not contain the built frontend." >&2
         return 1
     fi

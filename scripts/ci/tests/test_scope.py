@@ -3,7 +3,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("scope", Path(__file__).with_name("scope.py"))
+spec = importlib.util.spec_from_file_location("scope", Path(__file__).resolve().parents[1] / "checks/scope.py")
 scope = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(scope)
 
@@ -25,7 +25,13 @@ class SelectionTest(unittest.TestCase):
 
     def test_sensitive_unknown_and_empty_are_full(self):
         for files in ([], ["pom.xml"], ["frontend/package-lock.json"], [".github/workflows/ci.yml"],
-                      ["scripts/helper.sh"], ["Dockerfile"], ["new-area/file"],
+                      ["scripts/helper.sh"], ["scripts/ci/checks/scope.py"],
+                      ["scripts/ci/checks/documents.py"], ["scripts/ci/checks/verify-artifacts.py"],
+                      ["scripts/ci/checks/verify-dockerhub.py"], ["scripts/ci/release/release.py"],
+                      ["scripts/ci/release/docker-tags.py"], ["scripts/ci/release/select-jar.sh"],
+                      ["scripts/ci/release/data/release-v0.12.0.json"],
+                      ["scripts/ci/smoke/smoke-docker.sh"], ["scripts/ci/smoke/smoke-production.py"],
+                      ["scripts/ci/tests/test_scope.py"], ["Dockerfile"], ["new-area/file"],
                       ["frontend/public/worker.js"], ["frontend/tests/branding.mjs"], ["src/main/resources/application.yml"],
                       ["src/main/java/mari/samba/infra/LinuxCommands.java"],
                       ["src/main/java/mari/samba/config/SecurityConfig.java"],

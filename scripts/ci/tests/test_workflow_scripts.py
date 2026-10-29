@@ -8,7 +8,7 @@ import tempfile
 import unittest
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class WorkflowScriptsTest(unittest.TestCase):
@@ -42,11 +42,11 @@ class WorkflowScriptsTest(unittest.TestCase):
         return path
 
     def run_jar(self):
-        return self.run_shell("bash scripts/ci/select-jar.sh target")
+        return self.run_shell("bash scripts/ci/release/select-jar.sh target")
 
     def run_tags(self, publish=False):
         operation = "push" if publish else "check"
-        return self.run_shell("python3 scripts/ci/docker-tags.py " + operation)
+        return self.run_shell("python3 scripts/ci/release/docker-tags.py " + operation)
 
     def run_shell(self, code):
         return subprocess.run(["bash", "-e", "-o", "pipefail", "-c", code],

@@ -11,5 +11,5 @@ if [[ ${#jars[@]} -ne 1 || ! -f "${jars[0]}" ]]; then
   exit 1
 fi
 script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-python3 "$script_directory/verify-artifacts.py" "${jars[0]}" >&2
+python3 "$script_directory/../checks/verify-artifacts.py" "${jars[0]}" >&2
 printf '%s\n' "${jars[0]}"

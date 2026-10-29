@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 import urllib.error
 
-SPEC = importlib.util.spec_from_file_location('release_commands', Path(__file__).with_name('release.py'))
+SPEC = importlib.util.spec_from_file_location('release_commands', Path(__file__).resolve().parents[1] / 'release/release.py')
 release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
 SHA = 'a' * 40

@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class ReleaseCommandGuardTest(unittest.TestCase):
@@ -27,7 +27,7 @@ class ReleaseCommandGuardTest(unittest.TestCase):
                     ('publish', '1.2.3', {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3',
                                          'RELEASE_NEEDS': json.dumps({'quality-gate': {'result': 'skipped'}})})):
                 with self.subTest(operation=operation, version=version, updates=updates):
-                    result = subprocess.run(['python3', str(ROOT / 'scripts/ci/release.py'), operation,
+                    result = subprocess.run(['python3', str(ROOT / 'scripts/ci/release/release.py'), operation,
                                              '--version', version], cwd=directory, env={
                         **os.environ, **valid, **updates, 'PATH': str(directory) + os.pathsep + os.environ['PATH'],
                         'CALLS': str(calls)}, capture_output=True, text=True)

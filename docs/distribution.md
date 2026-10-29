@@ -23,9 +23,9 @@ Backend и frontend собираются Maven один раз в Spring Boot JA
 ```bash
 ./mvnw clean package
 JAR_FILE=target/sambryx-0.0.1-SNAPSHOT.jar
-python3 scripts/ci/verify-artifacts.py "$JAR_FILE"
+python3 scripts/ci/checks/verify-artifacts.py "$JAR_FILE"
 docker build --build-arg "JAR_FILE=$JAR_FILE" --tag sambryx:local .
-bash scripts/ci/smoke-docker.sh sambryx:local "$JAR_FILE"
+bash scripts/ci/smoke/smoke-docker.sh sambryx:local "$JAR_FILE"
 ```
 
 Путь соответствует стандартной версии проекта. В `target` должен находиться ровно один `*.jar`.
@@ -104,7 +104,7 @@ registry credentials используются существующим Docker lo
 1. Tag run выбирает полный набор: frontend, backend, JAR, browser, стандартный image и
    настоящий Production Compose Smoke. Quality Gate должен завершиться успешно;
    skipped, failure и cancellation блокируют публикацию.
-2. Координатор `scripts/ci/release.py` требует успешный push-run `codeql.yml` из master/main
+2. Координатор `scripts/ci/release/release.py` требует успешный push-run `codeql.yml` из master/main
    для **точного source SHA**, с успешными тремя Analyze jobs. Между workflow нет `needs`:
    проверка выполняется через Actions API. Если run отсутствует или ещё не успешен,
    сначала дождитесь/повторите CodeQL для выбранного commit, затем tag run.
@@ -187,7 +187,7 @@ version digest; общей транзакции GitHub и registry нет, ча�
 
 Ручной workflow запускается только с master для уже публичного release с полным record и
 совпадающим version digest. Единственное legacy-исключение — заранее проверенный baseline
-`v0.12.0` из `scripts/ci/release-v0.12.0.json`. Он повторяет checksum/archive/JAR smoke-проверки, не пересобирает
+`v0.12.0` из `scripts/ci/release/data/release-v0.12.0.json`. Он повторяет checksum/archive/JAR smoke-проверки, не пересобирает
 образ, не публикует version tag и не создаёт release. Baseline фиксирует source SHA, release/asset ID, имя и checksum единственного release JAR,
 а также точный registry manifest digest. При repair проверяются актуальный source tag,
 CodeQL исходного commit, неизменность release/asset identity и скачанные байты JAR;
@@ -203,11 +203,11 @@ Baseline фиксирует проверенное опубликованное 
 ## Проверка механизма без выпуска
 
 ```bash
-python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
-bash -n scripts/ci/select-jar.sh
-jar=$(bash scripts/ci/select-jar.sh target)
+python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+bash -n scripts/ci/release/select-jar.sh
+jar=$(bash scripts/ci/release/select-jar.sh target)
 docker build --build-arg "JAR_FILE=$jar" --tag sambryx:local .
-bash scripts/ci/smoke-docker.sh sambryx:local "$jar"
+bash scripts/ci/smoke/smoke-docker.sh sambryx:local "$jar"
 ```
 
 Команды сборки требуют предварительного `./mvnw clean package`. `select-jar.sh DIRECTORY`

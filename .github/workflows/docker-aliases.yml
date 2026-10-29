@@ -34,4 +34,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.release_version }}
-        run: python3 scripts/ci/release.py repair --version "$RELEASE_VERSION"
+        run: python3 scripts/ci/release/release.py repair --version "$RELEASE_VERSION"

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("verify_dockerhub", Path(__file__).with_name("verify-dockerhub.py"))
+spec = importlib.util.spec_from_file_location("verify_dockerhub", Path(__file__).resolve().parents[1] / "checks/verify-dockerhub.py")
 verifier = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verifier)
 
