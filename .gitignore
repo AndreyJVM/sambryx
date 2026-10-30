@@ -36,6 +36,7 @@ build/
 .mvn/*
 # Local AI config
 GEMINI.md
+AGENTS.md
 .gemini/**
 
 ### Frontend ###
