@@ -1,0 +1,1224 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Современный веб-интерфейс для управления сервером Samba на Spring Boot и Linux">
+      
+      
+        <meta name="author" content="Andrey Vorobev">
+      
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../production/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Сборка и поставки - Sambryx</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#docker" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href=".." title="Sambryx" class="md-header__button md-logo" aria-label="Sambryx" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sambryx
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Сборка и поставки
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Включить тёмную тему"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Включить тёмную тему" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Включить светлую тему"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Включить светлую тему" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AndreyJVM/sambryx" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AndreyJVM/sambryx
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Sambryx" class="md-nav__button md-logo" aria-label="Sambryx" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sambryx
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AndreyJVM/sambryx" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AndreyJVM/sambryx
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    О проекте
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Быстрый старт
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../temporary-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Временный доступ к UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Подготовка сервера
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fstec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Рекомендации ФСТЭК
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../access-diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Проверка доступа к ресурсу
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sessions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Веб- и SSH-сессии
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Архитектура
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Сборка и поставки
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Сборка и поставки
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Образы
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Локальная сборка
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверки CI и выпуск
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ssh-туннель-к-панели" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SSH-туннель к панели
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обслуживание workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stable-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Порядок стабильного выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Источник истины и повтор
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aliases и конкурентность
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверка механизма без выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ssh-host-keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH-ключи серверов
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../renaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Переименование
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../static-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Статический анализ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Тестирование интерфейса
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Образы
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Локальная сборка
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверки CI и выпуск
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ssh-туннель-к-панели" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SSH-туннель к панели
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обслуживание workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stable-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Порядок стабильного выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Источник истины и повтор
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aliases и конкурентность
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверка механизма без выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="docker">Сборка и поставка Docker</h1>
+<p>Docker — поддерживаемый способ поставки Sambryx. Панель управляет Samba-серверами через SSH.
+JRE 21 входит в образ; Java на управляемом сервере не требуется.</p>
+<h2 id="_1">Образы</h2>
+<p>Поставляется один стандартный образ <code>andreyvorobevaqa/sambryx</code> на базе
+<code>eclipse-temurin:21-jre-alpine</code>. Отдельных образов для Debian и Ubuntu нет:
+это целевые семейства управляемого сервера и хоста Docker, а не база образа панели.</p>
+<p>Java запускается от UID/GID <code>10001:10001</code>. Samba в образ не устанавливается.
+Compose в корне проекта остаётся тестовым стендом с отдельным Samba-узлом на Ubuntu 22.04;
+Production Compose Smoke использует Samba/SSH-узел на Ubuntu 24.04.
+Эти контейнерные проверки не подтверждают все версии Debian/Ubuntu или работу на
+нативном хосте каждой из этих ОС. Отдельная проверка Debian в текущем CI не выполняется.</p>
+<h2 id="_2">Локальная сборка</h2>
+<p>Backend и frontend собираются Maven один раз в Spring Boot JAR. Dockerfile упаковывает
+готовый файл вместе с JRE 21, не запускает Maven или npm.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./mvnw<span class="w"> </span>clean<span class="w"> </span>package
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">JAR_FILE</span><span class="o">=</span>target/sambryx-0.0.1-SNAPSHOT.jar
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/ci/checks/verify-artifacts.py<span class="w"> </span><span class="s2">"</span><span class="nv">$JAR_FILE</span><span class="s2">"</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>docker<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="s2">"JAR_FILE=</span><span class="nv">$JAR_FILE</span><span class="s2">"</span><span class="w"> </span>--tag<span class="w"> </span>sambryx:local<span class="w"> </span>.
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>bash<span class="w"> </span>scripts/ci/smoke/smoke-docker.sh<span class="w"> </span>sambryx:local<span class="w"> </span><span class="s2">"</span><span class="nv">$JAR_FILE</span><span class="s2">"</span>
+</code></pre></div>
+<p>Путь соответствует стандартной версии проекта. В <code>target</code> должен находиться ровно один <code>*.jar</code>.
+Параметр Docker <code>JAR_FILE</code> задаёт путь относительно контекста сборки, по умолчанию <code>target/*.jar</code>.
+Без готового JAR сборка образа завершится ошибкой. В контекст передаются только JAR-файлы из
+<code>target</code>; исходники, зависимости npm и локальные настройки исключены.
+Target <code>local</code> сохранён для совместимости с sandbox-скриптом.</p>
+<h2 id="ci">Проверки CI и выпуск</h2>
+<p>Задание <code>Build &amp; Test</code> выполняет Maven-сборку с тестами, frontend lint/API-тесты и проверяет
+обычный Docker-образ. Проверка JAR требует <code>index.html</code> и подключённые JavaScript/CSS-ресурсы.</p>
+<p>Smoke-проверка запускает временный контейнер с read-only корневой файловой системой
+и временным <code>/tmp</code>, публикует случайный порт только на <code>127.0.0.1</code> и проверяет:</p>
+<ul>
+<li>процесс работает без root;</li>
+<li>SHA-256 JAR совпадает с исходным артефактом;</li>
+<li>UI и ресурсы совпадают с содержимым JAR;</li>
+<li>публичный API сообщает режим <code>remote</code>;</li>
+<li>анонимный запрос <code>/api/auth/me</code> получает HTTP 401.</li>
+</ul>
+<p>Контейнер удаляется после проверки, в том числе при ошибке. Smoke-проверка не подтверждает
+SSH-операции или совместимость с Astra.</p>
+<p>При выпуске по тегу <code>v*.*.*</code> Docker-задание получает проверенный JAR из GitHub Actions artifact.
+Стандартный образ упаковывается и проходит smoke-проверку на runner до push. Публикуется этот же
+локальный образ без повторной сборки. GitHub Release содержит JAR.</p>
+<p>Экспериментальный Astra-образ исключён из текущей сборки и публикации.
+Ранее опубликованные <code>astra-*</code> теги не удаляются и не обновляются этим workflow.
+Совместимость с Astra Linux 1.8 и Parsec не подтверждена; дальнейшая проверка Docker + SSH
+отслеживается в <a href="https://github.com/AndreyJVM/sambryx/issues/10">#10</a> и требует доступа к целевой ОС.
+Стандартный образ сохраняет прежние настройки JVM без ослабления MPROTECT.</p>
+<h2 id="ssh-туннель-к-панели">SSH-туннель к панели</h2>
+<p>Если HTTP-порт панели доступен на сервере по адресу <code>127.0.0.1:8080</code>, откройте туннель
+с рабочей машины:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ssh<span class="w"> </span>-N<span class="w"> </span>-L<span class="w"> </span><span class="m">127</span>.0.0.1:8080:127.0.0.1:8080<span class="w"> </span>administrator@panel-server
+</code></pre></div>
+<p>Затем откройте <code>http://127.0.0.1:8080/ui/</code>. Туннель защищает доступ браузера к панели;
+сама панель подключается к Samba-серверу по отдельному SSH-соединению.</p>
+<p>Production-конфигурация с HTTPS и дополнительным Samba/SSH-узлом описана в
+<a href="../production/">руководстве Docker Compose</a>.</p>
+<p>Перед первым подключением настройте <a href="../ssh-host-keys/">доверенные SSH-ключи сервера</a>.</p>
+<h2 id="workflow">Обслуживание workflow</h2>
+<p>Пять workflow разделены по назначению:</p>
+<table>
+<thead>
+<tr>
+<th>Файл</th>
+<th>Назначение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ci.yml</code></td>
+<td>Сборка, Python guards, frontend, Browser Smoke Tests, Production Compose Smoke и выпуск по тегу.</td>
+</tr>
+<tr>
+<td><code>codeql.yml</code></td>
+<td>Независимый анализ Java, JavaScript/TypeScript и Python.</td>
+</tr>
+<tr>
+<td><code>docs.yml</code></td>
+<td>Публикация документации из <code>master</code> в GitHub Pages.</td>
+</tr>
+<tr>
+<td><code>dockerhub-description.yml</code></td>
+<td>Синхронизация и проверка описания Docker Hub.</td>
+</tr>
+<tr>
+<td><code>docker-aliases.yml</code></td>
+<td>Ручное восстановление aliases уже выпущенных образов.</td>
+</tr>
+</tbody>
+</table>
+<p>В <code>ci.yml</code> права по умолчанию ограничены <code>contents: read</code>; запись разрешена только
+заданию Publish Verified Stable Release. Оно также получает <code>actions: read</code> для проверки
+CodeQL и чтения recovery artifacts. Repair получает только <code>contents: read</code> и <code>actions: read</code>;
+registry credentials используются существующим Docker login. CodeQL сохраняет
+<code>security-events: write</code>, а ruleset и обязательные проверки не ослабляются.</p>
+<h2 id="stable-release">Порядок стабильного выпуска</h2>
+<p>Поддерживаются только канонические теги <code>vX.Y.Z</code> без leading zero, prerelease и build metadata.
+Создание настоящего тега — отдельное решение оператора. Проверка механизма не требует выпуска.</p>
+<ol>
+<li>Tag run выбирает полный набор: frontend, backend, JAR, browser, стандартный image и
+   настоящий Production Compose Smoke. Quality Gate должен завершиться успешно;
+   skipped, failure и cancellation блокируют публикацию.</li>
+<li>Координатор <code>scripts/ci/release/release.py</code> требует успешный push-run <code>codeql.yml</code> из master/main
+   для <strong>точного source SHA</strong>, с успешными тремя Analyze jobs. Между workflow нет <code>needs</code>:
+   проверка выполняется через Actions API. Если run отсутствует или ещё не успешен,
+   сначала дождитесь/повторите CodeQL для выбранного commit, затем tag run.</li>
+<li>Проверенный JAR упаковывается в стандартный образ. Smoke подтверждает non-root runtime,
+   checksum <code>/app/app.jar</code>, frontend assets и API. Skopeo сохраняет точный OCI-архив.</li>
+<li>Draft release сохраняет recovery record в body, затем assets <code>image.oci.tar</code>,
+   <code>application.jar</code>, <code>release.json</code>. Пока запись не сохранена полностью, registry не меняется.</li>
+<li>Публикуется только versioned Docker tag без <code>v</code>, затем его manifest digest проверяется, образ скачивается по digest и проходит smoke с
+   каноническим JAR.
+   Уже существующий иной digest вызывает отказ. Совпадающий digest повторно не записывается.</li>
+<li>После проверки version image draft становится публичным GitHub Release. JAR и metadata
+   уже загружены; assets не заменяются и не дублируются. GitHub latest выбирается численно,
+   поэтому публикация старой версии не делает её последним release.</li>
+<li>Только теперь обновляются Docker aliases <code>latest</code> и <code>major.minor</code>, с проверкой каждого
+   конечного digest и повторной проверкой version tag.</li>
+</ol>
+<p>Draft — подготовительная запись, а не публичный выпуск. OCI archive остаётся release asset
+для восстановления точных байтов; он не содержит credentials и не является новой разновидностью
+поставки. Runtime остаётся одним стандартным Linux/amd64 Alpine JRE21 образом.
+Автоматические release notes сохраняются после recovery record в release body;
+описание изменений можно редактировать, сохраняя начальную JSON-секцию record без изменений.</p>
+<h2 id="release-recovery">Источник истины и повтор</h2>
+<p><code>release.json</code> связывает schema version, source SHA, stable version, image repository,
+manifest digest, SHA-256 JAR и всего OCI-архива, а также исходные Actions run ID/attempt.
+Та же JSON-запись хранится в draft/release body. Исходный source tag должен по-прежнему
+указывать на этот SHA. Совпадение revision/version labels не считается доказательством
+идентичности; заново собранный образ не обязан иметь тот же digest из-за base image и времени.</p>
+<p>Повтор загружает канонические assets, проверяет их checksum и archive manifest digest,
+загружает архив в локальный Docker и снова запускает smoke с каноническим JAR. Он не сравнивает
+их с новым JAR из повторной сборки. <code>skopeo copy --preserve-digests</code> отказывает, если transport
+не может сохранить manifest digest; registry digest рассчитывается из точных байтов ответа.
+Доступность registry проверяется отдельно: только структурированный <code>404 MANIFEST_UNKNOWN</code>
+означает отсутствие version/alias. 401, 429, timeout, token endpoint error и прочие ошибки
+останавливают процесс без предположения, что tag отсутствует.</p>
+<table>
+<thead>
+<tr>
+<th>Состояние после сбоя</th>
+<th>Продолжение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Нет draft и version image</td>
+<td>Повтор может подготовить новый image после полного gate.</td>
+</tr>
+<tr>
+<td>Draft и часть assets</td>
+<td>Повтор восстанавливает недостающие точные файлы из исходного Actions artifact и дополняет draft без замены существующих assets.</td>
+</tr>
+<tr>
+<td>Полный draft, version image отсутствует</td>
+<td>Повтор публикует сохранённый OCI-архив и проверяет digest.</td>
+</tr>
+<tr>
+<td>Version image есть, draft ещё не опубликован</td>
+<td>Повтор проверяет совпадение digest и публикует GitHub Release.</td>
+</tr>
+<tr>
+<td>GitHub Release публичный, один/оба aliases не обновлены</td>
+<td>Повтор проверяет record/version и завершает только необходимые aliases. Можно использовать ручной repair с master.</td>
+</tr>
+<tr>
+<td>Конфликт source, checksum, digest, asset name/state или неизвестная identity alias</td>
+<td>Автоматический отказ. Сохраните summary и исследуйте конфликт; не удаляйте/заменяйте данные автоматически.</td>
+</tr>
+</tbody>
+</table>
+<p>После release step, включая его обычный отказ, CI сохраняет только три канонических файла
+в <code>release-recovery-RUN_ID-ATTEMPT</code> на 90 дней. Если asset upload прервался, повтор использует
+именно artifact исходного run/attempt из record. При потере runner до сохранения artifact,
+его истечении/удалении или незавершённом GitHub asset со state, отличным от <code>uploaded</code>,
+автоматическое восстановление может быть невозможно. Нужны исходные байты и отдельное
+решение владельца по конфликту; пересборка и перезапись версии не являются восстановлением.
+Полностью загруженные release assets доступны независимо от retention Actions artifact.</p>
+<p>На странице исходного Actions run используйте <strong>Re-run failed jobs</strong> после устранения причины.
+<strong>Re-run all jobs</strong> также сохраняет канонический опубликованный/draft результат: новый JAR
+не заменяет recovery assets. Summary содержит source SHA, checksums, image digest,
+наблюдаемые version/alias digests и последний достигнутый этап. При жёсткой отмене/потере runner
+summary и artifact могут не успеть сохраниться; draft body остаётся удалённой записью состояния.
+Никогда не переустанавливайте существующий tag и не применяйте upload с заменой assets.</p>
+<h2 id="aliases">Aliases и конкурентность</h2>
+<p>Release и ручной Repair Docker Release Aliases используют общую job concurrency group
+<code>sambryx-release-mutation</code>, <code>cancel-in-progress: false</code>. Блокировка охватывает всю мутирующую
+фазу, включая проверку текущих pointers. Обычный post-push CI выполняется независимо.
+Tag workflow не отменяет уже публикующий run при повторном запуске. GitHub concurrency
+не обещает FIFO и может отменить заменённый pending run; такой run нужно повторить.
+Это не распределённая блокировка против ручных действий владельца registry вне Actions.
+Не запускайте исторические версии workflow до этого механизма для публикации/repair.</p>
+<p>Версии сравниваются как числовые тройки: <code>0.10.0 &gt; 0.9.9</code>. Для каждого alias отдельно
+учитываются публичные stable GitHub releases и identity текущего alias среди versioned registry
+tags. Старый retry не откатывает ни <code>latest</code>, ни <code>major.minor</code>; superseded pointers сохраняются.
+Для superseded alias проверяется digest более нового release. Если pointer отсутствует или
+не завершён, старый retry требует repair с указанной новой версией. Неизвестный текущий digest
+или pointer на ещё не опубликованный новый release требует расследования. Проверяются оба aliases, включая итоговый
+version digest; общей транзакции GitHub и registry нет, частичные состояния остаются возможными.</p>
+<p>Ручной workflow запускается только с master для уже публичного release с полным record и
+совпадающим version digest. Единственное legacy-исключение — заранее проверенный baseline
+<code>v0.12.0</code> из <code>scripts/ci/release/data/release-v0.12.0.json</code>. Он повторяет checksum/archive/JAR smoke-проверки, не пересобирает
+образ, не публикует version tag и не создаёт release. Baseline фиксирует source SHA, release/asset ID, имя и checksum единственного release JAR,
+а также точный registry manifest digest. При repair проверяются актуальный source tag,
+CodeQL исходного commit, неизменность release/asset identity и скачанные байты JAR;
+образ скачивается по зафиксированному digest и проходит smoke с этим JAR.
+Архив для legacy не создаётся и assets опубликованного release не меняются.
+Baseline фиксирует проверенное опубликованное состояние; он не восстанавливает
+историческое доказательство воспроизводимости сборки. Любое несовпадение блокирует aliases.
+Это не общий путь миграции: остальные legacy versions без полного record запрещены,
+а автоматическая публикация не использует legacy-исключение.
+Для восстановления выбирайте самую новую stable version нужной линии. Emergency rollback —
+отдельная явно согласованная операция; у repair нет параметра обхода monotonicity.</p>
+<h2 id="_3">Проверка механизма без выпуска</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python3<span class="w"> </span>-B<span class="w"> </span>-m<span class="w"> </span>unittest<span class="w"> </span>discover<span class="w"> </span>-s<span class="w"> </span>scripts/ci/tests<span class="w"> </span>-p<span class="w"> </span><span class="s1">'test_*.py'</span><span class="w"> </span>-v
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>bash<span class="w"> </span>-n<span class="w"> </span>scripts/ci/release/select-jar.sh
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">jar</span><span class="o">=</span><span class="k">$(</span>bash<span class="w"> </span>scripts/ci/release/select-jar.sh<span class="w"> </span>target<span class="k">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>docker<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="s2">"JAR_FILE=</span><span class="nv">$jar</span><span class="s2">"</span><span class="w"> </span>--tag<span class="w"> </span>sambryx:local<span class="w"> </span>.
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>bash<span class="w"> </span>scripts/ci/smoke/smoke-docker.sh<span class="w"> </span>sambryx:local<span class="w"> </span><span class="s2">"</span><span class="nv">$jar</span><span class="s2">"</span>
+</code></pre></div>
+<p>Команды сборки требуют предварительного <code>./mvnw clean package</code>. <code>select-jar.sh DIRECTORY</code>
+требует ровно один JAR и проверяет frontend через <code>verify-artifacts.py</code>.
+<code>docker-tags.py check/push</code> остаётся низкоуровневой утилитой проверки списка tags;
+release и repair больше не используют её push-loop для публикации pointers.</p>
+<p>Tests запускают координатор с state doubles и подменёнными subprocess CLI/HTTP boundaries:
+порядок, retry после upload/version/release/alias failure, отсутствие rebuild и duplicate assets,
+конфликты, недоступность registry, checksum/digest, numeric SemVer и dependency guards.
+Они не доказывают настоящую публикацию Docker Hub/GitHub и выполнение concurrency scheduler.
+Actionlint и проверка job graph дополняют эти тесты; полный CI проверяет реальный стандартный
+образ и Production Compose, не публикуя release на обычном master push.</p>
+<p>Build &amp; Test имеет timeout 30 минут, Browser Smoke Tests — 10, Production Compose Smoke — 20,
+Publish Verified Stable Release — 40, repair — 20, CodeQL — 30, документация — 15.
+Backend test reports сохраняются на 7 дней, браузерная диагностика — в <code>browser-smoke-report</code>.
+Полный workspace, credentials, Compose config с подставленными значениями и application logs
+в recovery artifact не включаются.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

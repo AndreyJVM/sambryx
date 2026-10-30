@@ -1,0 +1,1211 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Современный веб-интерфейс для управления сервером Samba на Spring Boot и Linux">
+      
+      
+        <meta name="author" content="Andrey Vorobev">
+      
+      
+      
+        <link rel="prev" href="../static-analysis/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Тестирование интерфейса - Sambryx</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href=".." title="Sambryx" class="md-header__button md-logo" aria-label="Sambryx" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sambryx
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Тестирование интерфейса
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Включить тёмную тему"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Включить тёмную тему" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Включить светлую тему"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Включить светлую тему" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AndreyJVM/sambryx" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AndreyJVM/sambryx
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Sambryx" class="md-nav__button md-logo" aria-label="Sambryx" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sambryx
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AndreyJVM/sambryx" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AndreyJVM/sambryx
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    О проекте
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Быстрый старт
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../temporary-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Временный доступ к UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Подготовка сервера
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fstec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Рекомендации ФСТЭК
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../access-diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Проверка доступа к ресурсу
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sessions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Веб- и SSH-сессии
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Архитектура
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../distribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Сборка и поставки
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ssh-host-keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH-ключи серверов
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../renaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Переименование
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../static-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Статический анализ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Тестирование интерфейса
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Тестирование интерфейса
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обычная задача
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Первый запуск
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Что проверяется
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Выборочная проверка и диагностика
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-ssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Восстановление конфигурации через Docker + SSH
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Коллизии имён резервных копий
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Аудит зависимостей frontend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Срок действия сессии
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверки механизма выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обычная задача
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Первый запуск
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Что проверяется
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Выборочная проверка и диагностика
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-ssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Восстановление конфигурации через Docker + SSH
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Коллизии имён резервных копий
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Аудит зависимостей frontend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Срок действия сессии
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проверки механизма выпуска
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">Тестирование интерфейса</h1>
+<p>Браузерные smoke-тесты проверяют собранный React-интерфейс Sambryx. Они запускают локальный
+Vite preview и подменяют API на границе HTTP. Java, Docker, учётные записи сервера и реальные
+SSH/Samba/AD-соединения для этого набора не нужны.</p>
+<h2 id="_2">Обычная задача</h2>
+<p>Основной порядок — issue с критериями, узкая локальная проверка, review diff, commit и
+прямой fast-forward push в master, затем один применимый облачный CI. PR и отдельный
+worktree необязательны. При изменении поведения сначала подтвердите ожидаемый Red
+значимым targeted test, затем Green. Для документации и визуальных правок проверяйте
+артефакт, без искусственного Red. Проверяйте diff, форматирование и синтаксис затронутых файлов.</p>
+<p>Команды ниже предназначены для работы с соответствующим набором; полный backend,
+браузеры и Docker/SSH не обязательны локально на каждую правку. CI выбирает область
+по области изменений (таблица в README репозитория); для CI/security/shared/unknown
+изменений и release полный набор выполняется в облаке. Параллельный CodeQL не задерживает
+завершение лёгкой задачи, но остаётся обязательным для точного source SHA перед release.</p>
+<h2 id="_3">Первый запуск</h2>
+<p>Нужны Node.js 20.15.0 или совместимая версия Node.js 20+ и npm. CI использует Node.js 20.15.0,
+как и текущая Maven-сборка frontend. Выполняйте команды из чистого checkout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>npm<span class="w"> </span>ci
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>npm<span class="w"> </span><span class="nb">test</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>npm<span class="w"> </span>run<span class="w"> </span>lint
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>npm<span class="w"> </span>run<span class="w"> </span>test:browser
+</code></pre></div>
+<p>На минимальной Linux-системе Chromium может потребовать системные библиотеки. Команда
+<code>npx playwright install --with-deps chromium</code> устанавливает и браузер, и системные зависимости;
+она может потребовать административные права. В CI она выполняется на одноразовом runner.</p>
+<p><code>test:browser</code> сначала собирает frontend, затем запускает Playwright. Тестовый preview слушает
+только <code>127.0.0.1:4177</code>; порт должен быть свободен. Существующий preview намеренно не используется,
+чтобы не проверить случайно другую версию приложения.</p>
+<p>Версия Playwright закреплена в <code>package.json</code>, дерево зависимостей — в <code>package-lock.json</code>.
+Обновляйте эти файлы вместе; после обновления Playwright установите соответствующий браузер снова.</p>
+<p>Для локальной диагностики с уже установленным Google Chrome допустим
+<code>PLAYWRIGHT_CHANNEL=chrome npm run test:browser</code>. Укажите этот выбор в отчёте: версия системного
+Chrome может отличаться от Chromium Playwright. CI использует закреплённый Chromium без этой переменной.</p>
+<h2 id="_4">Что проверяется</h2>
+<p>Набор <code>frontend/tests/browser/</code> запускается в Chromium в четырёх конфигурациях:</p>
+<table>
+<thead>
+<tr>
+<th>Конфигурация</th>
+<th>Размер</th>
+<th>Тема</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>desktop-light</td>
+<td>1440 × 1000</td>
+<td>Светлая</td>
+</tr>
+<tr>
+<td>desktop-dark</td>
+<td>1440 × 1000</td>
+<td>Тёмная</td>
+</tr>
+<tr>
+<td>mobile-light</td>
+<td>320 × 844</td>
+<td>Светлая</td>
+</tr>
+<tr>
+<td>mobile-dark</td>
+<td>320 × 844</td>
+<td>Тёмная</td>
+</tr>
+</tbody>
+</table>
+<p>Проверки охватывают парольный вход и вход с ключом, bootstrap CSRF-токена, предупреждение
+о смене SSH-ключа, навигацию, сохранение темы, поиск ресурсов, пустые результаты, ошибки
+загрузки и устаревшие данные, вложенные диалоги, отмену опасных действий и блокировку
+кнопок управления при недоступных данных Dashboard.</p>
+<p>Сценарии <code>backup-restore.spec.mjs</code> проверяют выбранный файл и последствия в подтверждении,
+Cancel/Escape без mutation, pending без повторной отправки и конфликтующего сохранения,
+успех с перечитыванием формы и списка копий, ошибку перечитывания после успешного restore,
+отказ проверки, ошибку restart и потерю ответа. Снимки подтверждения, pending и результата
+сохраняются в <code>frontend/test-results/</code> для каждой темы и размера экрана.</p>
+<p>Текущий restore API не различает отказ <code>testparm</code> и сбой последующих команд структурированным
+кодом: оба возвращают HTTP 500. Поэтому интерфейс сообщает, что восстановление не подтверждено,
+скрывает серверные детали и предлагает проверить конфигурацию и службу перед повтором.
+Это сообщение не обещает сохранность действующего файла при неизвестной ошибке. Успешный
+restore и неудачное последующее перечитывание отображаются отдельно.</p>
+<p>API-фикстуры используют только синтетические реквизиты и адреса. Незаданные API-запросы,
+неожиданные мутации, внешние обращения и необработанные ошибки JavaScript завершают проверку
+ошибкой. Новый endpoint нужно добавить в фикстуру явно; не заменяйте неизвестные ответы
+универсальным успешным результатом.</p>
+<p>Эти тесты не подтверждают серверную защиту CSRF, корректность проверки SSH-ключа библиотекой,
+работу настоящего Samba/AD или совместимость с Astra. Для этого сохраняются backend integration
+tests и отдельная Production Compose Smoke с реальными TLS/SSH/SMB.</p>
+<h2 id="_5">Выборочная проверка и диагностика</h2>
+<p>После сборки можно запустить один сценарий:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--project<span class="o">=</span>mobile-light<span class="w"> </span>--grep<span class="w"> </span><span class="s2">"nested dialogs"</span>
+</code></pre></div>
+<p>Команда запускается из <code>frontend/</code>. Полный набор ограничен общим таймаутом; автоматические
+повторные попытки отключены, чтобы нестабильные проверки не скрывались успешным повтором.
+Используйте ожидания Playwright по состоянию интерфейса вместо <code>sleep</code>.</p>
+<p>При сбое сохраняются screenshot и trace, HTML-отчёт содержит детали сценария:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>npm<span class="w"> </span>run<span class="w"> </span>test:browser:report
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npx<span class="w"> </span>playwright<span class="w"> </span>show-trace<span class="w"> </span>test-results/&lt;failed-test&gt;/trace.zip
+</code></pre></div>
+<p><code>&lt;failed-test&gt;</code> замените каталогом из <code>frontend/test-results/</code>. Отчёты и результаты не входят
+в Git. CI-job <strong>Browser Smoke Tests</strong> прикладывает артефакт <code>browser-smoke-report</code> с отчётом
+и диагностикой на семь дней. Для релиза этот job должен пройти вместе с остальными проверками.</p>
+<p>Добавляя сценарий, проверяйте наблюдаемый результат и необходимые побочные эффекты.
+Предпочитайте доступные роли и подписи элементов. При изменении поведения сначала добавьте
+регрессионный тест, который воспроизводит проблему, затем изменяйте реализацию.</p>
+<h2 id="docker-ssh">Восстановление конфигурации через Docker + SSH</h2>
+<p><a href="../production/#проверка-конфигурации-и-smoke-тест">Production Compose Smoke</a> выполняет
+публичные backup/restore-запросы через HTTPS и настоящий SSH. Успех подтверждается сравнением
+байтов <code>smb.conf</code>, чтением API и SMB; отказ повреждённой копии — сохранностью действующего
+файла и PID <code>smbd</code>, а также чтением SMB после ошибки. Этот тест запускается в CI в существующем
+job Production Compose Smoke и использует только одноразовый Compose-проект.</p>
+<p><code>ConfigWorkflowIntegrationTest</code> отдельно проверяет HTTP error mapping и отсутствие команд
+замены/restart при ошибке <code>testparm</code>; граница SSH там замокана, security filters отключены.
+Проверка настоящих filters, TLS, CSRF и host-key verification сохраняется в Compose smoke.
+Эти уровни не подтверждают восстановление пользователей, паролей, SID или всех данных из томов.</p>
+<h2 id="_6">Коллизии имён резервных копий</h2>
+<p><code>BackupCollisionTest</code> фиксирует время на границе форматирования даты и выполняет команды
+реального сервиса над временными файлами. Подменены только SSH executor, <code>sudo</code>, <code>testparm</code>
+и <code>systemctl</code>; Bash, <code>cp</code>, <code>mktemp</code>, <code>ln</code> и NUL-safe retention выполняются локально.
+Тесты подтверждают сохранность нескольких снимков в одну секунду, выбранной restore-копии,
+восстановление имени с суффиксом и остановку без замены/restart при отказе создания safety copy.
+Отдельно проверяются повторные совпадения, исчерпание имён, частичная запись, отказ публикации,
+каталоги, висячие ссылки и пути с пробелами/кавычками.</p>
+<p>Первое имя сохраняет формат <code>smb.conf.backup_yyyyMMdd_HHmmss</code>; при совпадении используются
+суффиксы <code>_1</code>–<code>_99</code>. После 100 занятых имён операция завершается ошибкой. Готовое содержимое
+публикуется hard link из скрытого временного файла в том же каталоге; существующая запись
+не заменяется. Временный файл имеет права <code>0600</code> и удаляется при штатном выходе команды.
+Нужны Bash, GNU-совместимый <code>ln -T</code>, поддержка hard link файловой системой и разрешение
+существующей SSH-учётной записи выполнять команду через <code>sudo bash</code>; проект не меняет sudoers.
+При отсутствии этих возможностей создание завершается ошибкой до restore/update.
+Лимит retention остаётся равным 10; старые имена поддерживаются.</p>
+<p>Эти проверки не доказывают общую конкурентность, атомарность restore, rollback, устойчивость
+к аварийному завершению хоста или защиту от изменения каталога другим привилегированным
+процессом. Compose smoke проверяет новую команду через настоящий SSH, но не фиксирует время
+и не гарантирует воспроизведение коллизии; детерминированные коллизии покрывает файловый тест.</p>
+<h2 id="frontend">Аудит зависимостей frontend</h2>
+<p>Проверка #28 от 25 октября 2026 года воспроизводится из <code>frontend/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>npm<span class="w"> </span>ci
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>npm<span class="w"> </span>audit
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>npm<span class="w"> </span>audit<span class="w"> </span>--omit<span class="o">=</span>dev
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>npm<span class="w"> </span>ls<span class="w"> </span>vite<span class="w"> </span>esbuild<span class="w"> </span>tailwindcss<span class="w"> </span>postcss-nested<span class="w"> </span>postcss-selector-parser<span class="w"> </span>react-router-dom<span class="w"> </span>react-router
+</code></pre></div>
+<p>Audit зависит от актуальной базы advisory: сохранённый lockfile фиксирует версии, но не будущий
+результат аудита. Ненулевой код выхода означает наличие findings; не скрывайте его в CI.
+<code>--omit=dev</code> помогает отделить runtime-зависимости, но сам по себе не доказывает применимость.</p>
+<p>Исходный lockfile на <code>0bb8456</code> давал 7 findings: 6 moderate и 1 high. Выбран ограниченный
+переход Vite 5.4.21 → 6.4.5 с esbuild 0.25.12. Vite 6 поддерживает существующий Node.js 20.15.0,
+а установленный React plugin 4.7.0 поддерживает Vite 6. Требования Node.js, React, Tailwind,
+маршрутизация, конфигурация сборки и Docker-поставка сохраняются. Используемые настройки не
+затрагивают изменения SSR, Sass, resolve conditions и экспериментальных API из
+<a href="https://v6.vite.dev/guide/migration">руководства миграции Vite 5 → 6</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Пакеты исходного отчёта</th>
+<th>Применимость и решение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vite (high)</td>
+<td>Dev-server: обход ограничений файловой системы, обработка source maps и launch-editor; часть advisory относится к Windows, часть — и к другим ОС. Обновлён до 6.4.5, выше всех затронутых диапазонов исходного отчёта. В runtime Docker находятся JRE и JAR со статическими ресурсами, Vite туда не включается.</td>
+</tr>
+<tr>
+<td>esbuild (moderate)</td>
+<td><a href="https://github.com/advisories/GHSA-67mh-4wv8-2f99">GHSA-67mh-4wv8-2f99</a>: доступ стороннего сайта к esbuild dev-server. Sambryx использует esbuild через Vite при сборке; зависимость обновляется вместе с Vite до исправленной версии 0.25.12.</td>
+</tr>
+<tr>
+<td>postcss-selector-parser, postcss-nested, tailwindcss (3 moderate)</td>
+<td><a href="https://github.com/advisories/GHSA-rj75-hqrm-r3gf">GHSA-rj75-hqrm-r3gf</a>: CPU exhaustion при разборе недоверенных CSS-селекторов. Это одна первичная уязвимость и два зависимых package findings. Парсер 6.1.4 остаётся в build tooling Tailwind 3.4.19/postcss-nested 6.2.0; вход — доверенные исходники репозитория, HTTP-запросы и пользовательские CSS сервером не компилируются. Сборка непроверенных PR всё равно исполняет недоверенный код и должна оставаться изолированной без секретов.</td>
+</tr>
+<tr>
+<td>react-router, react-router-dom (2 moderate)</td>
+<td>Поставляются в JS bundle, остаются 6.30.6. <a href="https://github.com/advisories/GHSA-wrjc-x8rr-h8h6">GHSA-wrjc-x8rr-h8h6</a> требует передачи контролируемого атакующим пути в Link/useNavigate. В Layout, DashboardPage и ActiveDirectoryPage назначения заданы константами; GlobalSearch строит назначения <code>/shares</code>, <code>/users</code>, <code>/groups</code>, а не берёт их из результатов API. <a href="https://github.com/advisories/GHSA-337j-9hxr-rhxg">GHSA-337j-9hxr-rhxg</a> касается SSR hydration: здесь BrowserRouter/Routes и createRoot, без SSR и deserializeErrors.</td>
+</tr>
+</tbody>
+</table>
+<p>После обновления получены <strong>5 moderate, 0 high</strong> в полном audit и <strong>2 moderate</strong> в
+<code>--omit=dev</code>. Это зарегистрированные остаточные findings, а не исправления Router или CSS parser.
+Решение ограничено текущими путями данных: не передавайте внешние URL, query-параметры или значения
+API в Link/useNavigate и не добавляйте серверную компиляцию пользовательского CSS без повторной
+оценки. При появлении SSR, динамических назначений навигации, недоверенных CSS или новых advisory
+пересмотрите исключения до публикации изменения. Повторяйте audit при обновлении lockfile.</p>
+<p>Исправления этих остаточных advisory доступны в Router &gt;=7.18.0 и parser &gt;=7.1.6.
+Переход Router 6 → 7 и Tailwind 3 → 4 либо принудительная замена parser за пределами диапазона
+postcss-nested — отдельные изменения совместимости; в #28 они не выполняются. Не используйте
+<code>npm audit fix --force</code> и не отключайте проверки ради нулевого отчёта.</p>
+<h2 id="_7">Срок действия сессии</h2>
+<p><a href="../sessions/">Контракт сессий</a> проверяют <code>AdministratorSessionIntegrationTest</code> с настоящими
+security filters и подменённой SSH-границей, а также <code>ExecutionSessionManagerTest</code>.
+Управляемый Clock позволяет проверить границы 15 минут и пяти минут ожидания без sleep.
+Реальный сервис restore продолжает цепочку команд после отзыва доступа; отдельная проверка
+подтверждает отказ новому запросу и отсутствие повторного disconnect.</p>
+<p><code>session.spec.mjs</code> проверяет предупреждение, явное продление, отказ просроченному продлению,
+возвращение из сна, несколько вкладок и отсутствие продления автоматическим переходом.
+Для предупреждения сохраняются снимки RU/EN на desktop/mobile в обеих темах.
+Фикстуры браузера не доказывают серверный deadline; mock SSH не доказывает завершение
+настоящего удалённого процесса. Эти границы проверяются разными уровнями тестирования.</p>
+<h2 id="_8">Проверки механизма выпуска</h2>
+<p>Для изменений CI/release в облаке применяется полный план, включая настоящий стандартный
+Docker image и Production Compose Smoke. Локально достаточно затронутых guards и быстрых checks.
+Release coordinator проверяется отдельно без внешней публикации.</p>
+<p>Утилиты CI сгруппированы по назначению:</p>
+<ul>
+<li><code>scripts/ci/checks/</code> — выбор проверок и верификация документации, JAR и Docker Hub.</li>
+<li><code>scripts/ci/release/</code> — координатор release, Docker tags и выбор JAR; <code>data/</code> содержит legacy baseline.</li>
+<li><code>scripts/ci/smoke/</code> — проверки Docker image и Production Compose.</li>
+<li><code>scripts/ci/tests/</code> — все Python-тесты утилит, отдельно от исполняемых скриптов.</li>
+</ul>
+<p>Полный набор запускается из корня репозитория без установки Python-пакета проекта:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python3<span class="w"> </span>-B<span class="w"> </span>-m<span class="w"> </span>unittest<span class="w"> </span>discover<span class="w"> </span>-s<span class="w"> </span>scripts/ci/tests<span class="w"> </span>-p<span class="w"> </span><span class="s1">'test_*.py'</span><span class="w"> </span>-v
+</code></pre></div>
+<p>Для отдельных проверок release:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>-B<span class="w"> </span>-m<span class="w"> </span>unittest<span class="w"> </span>discover<span class="w"> </span>-s<span class="w"> </span>scripts/ci/tests<span class="w"> </span>-p<span class="w"> </span><span class="s1">'test_release*.py'</span><span class="w"> </span>-v
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python3<span class="w"> </span>-B<span class="w"> </span>-m<span class="w"> </span>unittest<span class="w"> </span>discover<span class="w"> </span>-s<span class="w"> </span>scripts/ci/tests<span class="w"> </span>-p<span class="w"> </span><span class="s1">'test_alias_repair.py'</span><span class="w"> </span>-v
+</code></pre></div>
+<p>Проверяются state transitions, частичные отказы и повтор, канонические assets, digest/checksum,
+registry errors, CodeQL exact source SHA, dependency cancellation/skips и числовая monotonicity
+обоих aliases. Subprocess doubles заменяют Docker/Skopeo/gh, HTTP doubles — registry;
+это не настоящий выпуск и не проверка GitHub concurrency scheduler.
+<a href="../distribution/#release-recovery">Контракт и восстановление</a> описывают сохранённые байты,
+границы идемпотентности и случаи, требующие ручного расследования.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  К началу
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
