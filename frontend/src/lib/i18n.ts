@@ -4,6 +4,29 @@ export type Language = "ru" | "en";
 
 export const translations = {
   en: {
+    diagnostics: {
+      checks: { LOCAL_IDENTITY: "Local account", CONFIG: "Samba configuration", UNAVAILABLE: "Share availability", VALID_USERS: "valid users", INVALID_USERS: "invalid users", DIRECTORY: "Configured directory", NOT_DIRECTORY: "Configured directory", PATH: "Configured directory", LIMITS: "Report limits" },
+      title: "Check access", description: "For a visible share that refuses to open. Read-only checks.",
+      username: "Local username", identityHint: "Choose or enter the intended Samba user, not the SSH administrator. No password required. Local accounts only.",
+      run: "Run check", loading: "Checking…", error: "Unable to check access. Try again.",
+      partial: "Partial report. No blocker found does not guarantee access.",
+      BLOCKING: "Blocking finding", OBSERVED: "Observed fact", UNKNOWN: "Not checked",
+      localIdentityFound: "The selected account exists in the local account database.",
+      localIdentityUnknown: "The local account could not be verified. Lookup failure does not prove the account is missing.",
+      configUnknown: "Effective Samba settings could not be verified.", unavailable: "The checked Samba configuration marks this share as unavailable.",
+      restrictionUnknown: "This user restriction could not be evaluated: settings or identity are incomplete, or the expression is outside the supported literal local-user lists.",
+      noListedRestriction: "This effective user list is empty.", literalRestrictionPassed: "This literal user list does not block the selected identity.",
+      notInValidUsers: "The selected identity is absent from the effective literal valid users list.",
+      inInvalidUsers: "The selected identity is in the effective literal invalid users list.",
+      directoryFound: "The configured path resolves to a directory inside the allowed roots. This does not check the selected user's permissions.",
+      notDirectory: "The configured path resolves to a non-directory object.",
+      pathUnknown: "The configured directory could not be verified safely. The path may be unavailable, outside the allowed roots or unsupported; command failure does not prove it is missing.",
+      limits: "The configuration loaded by running Samba, SMB authentication, actual client identity, guest/forced identities, groups, POSIX traversal and read permissions, ACL, Windows/network and AD are not checked.",
+      reviewConfig: "Review the effective Samba configuration before making changes.", reviewIdentity: "Verify the intended local account and its Samba account mapping.",
+      reviewPath: "Verify the configured directory and the administrator's read-only inspection access.",
+      reviewPermissions: "Review path traversal, directory read permissions and ACL for the effective Samba identity.",
+      verifyClient: "Verify opening from the affected client with the intended identity."
+    },
     session: {
       warningTitle: "Session ending soon",
       warningDescription: "After 15 minutes of inactivity, access is locked and a new SSH connection is required.",
@@ -334,6 +357,29 @@ export const translations = {
     }
   },
   ru: {
+    diagnostics: {
+      checks: { LOCAL_IDENTITY: "Локальная учётная запись", CONFIG: "Конфигурация Samba", UNAVAILABLE: "Доступность ресурса", VALID_USERS: "valid users", INVALID_USERS: "invalid users", DIRECTORY: "Настроенный каталог", NOT_DIRECTORY: "Настроенный каталог", PATH: "Настроенный каталог", LIMITS: "Границы отчёта" },
+      title: "Проверить доступ", description: "Ресурс виден, но не открывается. Проверки без изменений.",
+      username: "Локальный пользователь", identityHint: "Выберите или введите пользователя Samba, которому нужен доступ, а не SSH-администратора. Пароль не нужен. Только локальные учётные записи.",
+      run: "Запустить проверку", loading: "Проверяем…", error: "Не удалось проверить доступ. Повторите попытку.",
+      partial: "Частичный отчёт. Отсутствие найденного запрета не гарантирует доступ.",
+      BLOCKING: "Найден запрет", OBSERVED: "Подтверждённый факт", UNKNOWN: "Не проверено",
+      localIdentityFound: "Выбранная учётная запись есть в локальной базе пользователей.",
+      localIdentityUnknown: "Не удалось подтвердить локальную учётную запись. Ошибка поиска не доказывает её отсутствие.",
+      configUnknown: "Не удалось подтвердить эффективные настройки Samba.", unavailable: "В проверенной конфигурации Samba ресурс помечен как недоступный.",
+      restrictionUnknown: "Ограничение пользователей не удалось оценить: данные о настройках или учётной записи неполны либо выражение выходит за рамки простых списков локальных имён.",
+      noListedRestriction: "Этот эффективный список пользователей пуст.", literalRestrictionPassed: "Этот список имён не блокирует выбранную учётную запись.",
+      notInValidUsers: "Выбранной учётной записи нет в эффективном списке имён valid users.",
+      inInvalidUsers: "Выбранная учётная запись есть в эффективном списке имён invalid users.",
+      directoryFound: "Настроенный путь ведёт к каталогу внутри разрешённых корней. Права выбранного пользователя этим не проверяются.",
+      notDirectory: "Настроенный путь ведёт к объекту, который не является каталогом.",
+      pathUnknown: "Не удалось безопасно проверить каталог. Путь может быть недоступен, находиться вне разрешённых корней или не поддерживаться; ошибка команды не доказывает его отсутствие.",
+      limits: "Не проверены загруженная работающей Samba конфигурация, SMB-аутентификация, фактический пользователь клиента, гостевая и принудительная учётные записи, группы, POSIX-права прохода и чтения, ACL, Windows, сеть и AD.",
+      reviewConfig: "Проверьте эффективную конфигурацию Samba перед изменениями.", reviewIdentity: "Проверьте нужную локальную учётную запись и её сопоставление с учётной записью Samba.",
+      reviewPath: "Проверьте настроенный каталог и возможность его просмотра администратором без изменений.",
+      reviewPermissions: "Проверьте проход по пути, чтение каталога и ACL для фактической учётной записи Samba.",
+      verifyClient: "Проверьте открытие с затронутого клиента под нужной учётной записью."
+    },
     session: {
       warningTitle: "Сессия скоро завершится",
       warningDescription: "После 15 минут бездействия доступ блокируется. Потребуется повторное SSH-подключение.",

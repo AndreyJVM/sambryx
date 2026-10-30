@@ -48,6 +48,7 @@ nav:
   - Временный доступ к UI: temporary-access.md
   - Подготовка сервера: server-setup.md
   - Рекомендации ФСТЭК: fstec.md
+  - Проверка доступа к ресурсу: access-diagnostics.md
   - Веб- и SSH-сессии: sessions.md
   - Архитектура: architecture.md
   - Сборка и поставки: distribution.md

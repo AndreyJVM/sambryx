@@ -1,3 +1,4 @@
+import { ShareAccessDialog } from "./ShareAccessDialog";
 import { getErrorMessage } from "../../lib/errors";
 import { useEffect, useState, useCallback } from "react";
 import { FolderKanban, HardDrive, Plus, Trash2, Settings2, ChevronDown, ChevronUp, Search, RefreshCw, AlertTriangle } from "lucide-react";
@@ -42,6 +43,7 @@ interface User { username: string; }
 interface Group { name: string; }
 
 export default function SharesPage() {
+  const [diagnosticShare, setDiagnosticShare] = useState<string | null>(null);
   const [shares, setShares] = useState<Share[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [systemUsers, setSystemUsers] = useState<string[]>([]);
@@ -294,6 +296,9 @@ export default function SharesPage() {
                   </td>
                   <td data-label={t("common.actions")} className="shares-actions py-4 px-5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => setDiagnosticShare(share.name)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md border border-border/60" aria-label={`${t("diagnostics.title")}: ${share.name}`}>
+                        {t("diagnostics.title")}
+                      </button>
                       <button onClick={() => openEditor(share)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors border border-border/60 hover:border-border" title={t("shares.configure")} aria-label={`${t("shares.configure")}: ${share.name}`}>
                         <Settings2 className="w-4 h-4" />
                       </button>
@@ -308,6 +313,8 @@ export default function SharesPage() {
           </table>
         </div>
       ) : null}
+
+      {diagnosticShare !== null && <ShareAccessDialog key={diagnosticShare} share={diagnosticShare} usernames={usernames} onClose={() => setDiagnosticShare(null)} />}
 
       {currentShare && (
         <Modal 
