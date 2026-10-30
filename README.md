@@ -120,12 +120,14 @@ Vite dev-сервер доступен на `http://localhost:5173/ui/` с ав�
 ## Выбор проверок CI
 
 CI всегда запускает `Select Checks` и итоговый `Quality Gate`, включая изменения только
-документации. Выбор проверок применяется одинаково к PR и push в master:
+документации. Основной путь — прямой fast-forward push в `master`, затем один
+применимый цикл CI. PR и remote feature branch не обязательны; workflows CI и CodeQL
+не запускаются на PR. Для больших работ можно использовать локальную ветку или worktree.
 
 | Изменения | Проверки CI |
 |---|---|
 | `README.md`, Markdown в `docker/` | Локальные ссылки, изображения, якоря, UTF-8 |
-| Markdown в `docs/` | Те же проверки и `mkdocs build --strict` до merge |
+| Markdown в `docs/` | Те же проверки и `mkdocs build --strict` |
 | Четыре SVG в `frontend/public/sambryx/` | Валидность пассивного SVG, браузерный рендер, frontend lint/unit/build/browser, упаковка UI в JAR |
 | Исходники и тесты frontend (`ts`, `tsx`, `js`, `mjs`, `css`) | Frontend lint/unit/build/browser, упаковка UI в JAR |
 | Java в `src/main/java/`, `src/test/java/` вне чувствительных пакетов | Spotless, backend tests/build, упаковка UI в JAR |
@@ -138,8 +140,8 @@ CI всегда запускает `Select Checks` и итоговый `Quality 
 Production Java-пакеты `infra`, `config`, `auth`, `session`, `smbconfig`, `fstec` также
 требуют полного набора: они отвечают за SSH, безопасность и конфигурацию Samba.
 
-Для PR сравнивается весь head с merge base указанного base SHA. Для push сравниваются
-реальные before/after SHA. Git diff читается полностью, с NUL-разделителями и обеими
+Для push сравниваются реальные before/after SHA, включая все коммиты отправленного диапазона.
+Git diff читается полностью, с NUL-разделителями и обеими
 сторонами переименований, без API pagination или лимита файлов. Удаления учитываются.
 Нулевая/недоступная база, shallow history и неоднозначные статусы требуют полного набора.
 Git paths передаются как данные, без подстановки в shell.
@@ -149,10 +151,29 @@ Failure, cancellation, неожиданный skip, отсутствие рез�
 завершают gate ошибкой. Для невыбранных jobs допустим только ожидаемый skip.
 Публикация релиза требует gate; настоящий tag не нужен для локальной проверки маршрутизации.
 
-Отдельный CodeQL продолжает выполнять три анализа на каждом PR и push в master, включая
-документацию. Его обязательные статусы и правило code scanning остаются самостоятельными
-требованиями ruleset: CI gate не выдаёт их за свои dependencies. Поэтому лёгкие изменения
-всё ещё ждут CodeQL (в том числе Java compile), но не backend tests, Docker или SSH smoke.
+Отдельный CodeQL параллельно выполняет три анализа на push в master, включая документацию.
+«Один цикл CI» означает отсутствие дублирования PR/master, а не единственный workflow.
+Quality Gate, CodeQL statuses и code scanning больше не являются предварительными
+условиями push: ошибочный коммит может попасть в master и исправляется следующим коммитом.
+Ruleset сохраняет запрет force-push/non-fast-forward и удаления master, без bypass actors.
+Для завершения обычной задачи достаточно выбранного основного CI; background CodeQL
+не задерживает публикацию коммита или завершение лёгкой задачи.
+
+Перед публикацией релиза по-прежнему обязательны полный Quality Gate, tests, image и
+Production Compose Smoke. Release guard требует успешный CodeQL push-run master/main
+для **точного source SHA** и успех всех трёх Analyze; старый или чужой SHA не подходит.
+Устаревшие master runs отменяются, publishing runs не отменяются посреди операции.
+Push в master не выполняет deployment приложения и не публикует release/image.
+Существующие workflows публикации документации и Docker Hub README работают отдельно.
+
+Обычный порядок работы: issue с критериями → реализация и узкая локальная проверка →
+review diff → commit и fast-forward push master → выбранный CI → закрытие issue.
+Полный backend, браузерный набор и Docker/SSH smoke локально на каждую задачу не нужны:
+при изменении поведения сначала запустите meaningful targeted test с Red → Green;
+для docs/visual правок проверьте соответствующий артефакт. Дополнительно проверьте
+`git diff --check`, форматирование/синтаксис затронутых файлов и необходимые быстрые guards.
+Полный набор для CI/security/shared/unknown изменений и релиза выполняется в облаке.
+При ошибке CI исправьте её следующим проверенным коммитом; не используйте force-push.
 
 Проверка документации не обращается ко всем внешним сайтам: она проверяет локальные ссылки,
 Markdown/HTML изображения и якоря. Strict MkDocs нужен для docs, а не для каждого SVG.

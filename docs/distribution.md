@@ -96,7 +96,7 @@ CodeQL и чтения recovery artifacts. Repair получает только 
 registry credentials используются существующим Docker login. CodeQL сохраняет
 `security-events: write`, а ruleset и обязательные проверки не ослабляются.
 
-## Порядок стабильного выпуска
+## Порядок стабильного выпуска {#stable-release}
 
 Поддерживаются только канонические теги `vX.Y.Z` без leading zero, prerelease и build metadata.
 Создание настоящего тега — отдельное решение оператора. Проверка механизма не требует выпуска.
@@ -171,7 +171,7 @@ summary и artifact могут не успеть сохраниться; draft b
 
 Release и ручной Repair Docker Release Aliases используют общую job concurrency group
 `sambryx-release-mutation`, `cancel-in-progress: false`. Блокировка охватывает всю мутирующую
-фазу, включая проверку текущих pointers. Обычные PR tests выполняются независимо.
+фазу, включая проверку текущих pointers. Обычный post-push CI выполняется независимо.
 Tag workflow не отменяет уже публикующий run при повторном запуске. GitHub concurrency
 не обещает FIFO и может отменить заменённый pending run; такой run нужно повторить.
 Это не распределённая блокировка против ручных действий владельца registry вне Actions.
@@ -220,7 +220,7 @@ Tests запускают координатор с state doubles и подмен
 конфликты, недоступность registry, checksum/digest, numeric SemVer и dependency guards.
 Они не доказывают настоящую публикацию Docker Hub/GitHub и выполнение concurrency scheduler.
 Actionlint и проверка job graph дополняют эти тесты; полный CI проверяет реальный стандартный
-образ и Production Compose, не публикуя release на PR/master.
+образ и Production Compose, не публикуя release на обычном master push.
 
 Build & Test имеет timeout 30 минут, Browser Smoke Tests — 10, Production Compose Smoke — 20,
 Publish Verified Stable Release — 40, repair — 20, CodeQL — 30, документация — 15.

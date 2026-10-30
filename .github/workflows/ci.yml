@@ -5,8 +5,6 @@ on:
     branches: [ "master", "main" ]
     tags:
       - 'v*.*.*'
-  pull_request:
-    branches: [ "master", "main" ]
   workflow_dispatch:
 
 concurrency:
@@ -52,7 +50,7 @@ jobs:
       - name: Install documentation builder
         if: needs.classify.outputs.mkdocs == 'true'
         run: pip install mkdocs-material==9.7.6
-      - name: Build documentation strictly before merge
+      - name: Build documentation strictly
         if: needs.classify.outputs.mkdocs == 'true'
         run: mkdocs build --strict
 
