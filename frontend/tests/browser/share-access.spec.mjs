@@ -58,3 +58,49 @@ test('share access error allows explicit retry without mutating requests', async
   await expect.poll(() => calls).toBe(2);
   expect(app.requests.filter(r => !['GET', 'HEAD'].includes(r.method) && !(r.method === 'POST' && r.path === '/api/auth/activity'))).toEqual([]);
 });
+
+for (const language of ['ru', 'en']) {
+  test.describe(`share action layout ${language}`, () => {
+    test.use({ appLanguage: language });
+    test('actions fit their cells across viewport widths', async ({ page }, testInfo) => {
+      for (const width of [1440, 1200, 1101, 360, 320]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto('/ui/shares');
+        const label = language === 'ru' ? 'Проверить доступ' : 'Check access';
+        const trigger = page.getByRole('button', { name: `${label}: team`, exact: true });
+        await expect(trigger).toBeVisible();
+        const geometry = await trigger.locator('..').locator('..').evaluate(cell => {
+          const bounds = cell.getBoundingClientRect();
+          return [...cell.querySelectorAll('button')].map(button => {
+            const rect = button.getBoundingClientRect();
+            const range = document.createRange();
+            range.selectNodeContents(button);
+            const content = range.getBoundingClientRect();
+            return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom,
+              width: rect.width, height: rect.height,
+              contained: rect.left >= bounds.left && rect.right <= bounds.right,
+              contentFits: content.left >= rect.left && content.right <= rect.right };
+          });
+        });
+        expect(geometry).toHaveLength(3);
+        for (const button of geometry) {
+          expect(button.contained).toBe(true);
+          expect(button.contentFits).toBe(true);
+          expect(button.width).toBeGreaterThanOrEqual(40);
+          expect(button.height).toBeGreaterThanOrEqual(40);
+        }
+        for (let i = 0; i < geometry.length; i++) {
+          for (const other of geometry.slice(i + 1)) {
+            const button = geometry[i];
+            expect(button.right <= other.x || other.right <= button.x || button.bottom <= other.y || other.bottom <= button.y).toBe(true);
+          }
+        }
+        await page.screenshot({ path: testInfo.outputPath(`${language}-${width}.png`), fullPage: true });
+        await trigger.click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(trigger).toBeFocused();
+      }
+    });
+  });
+}

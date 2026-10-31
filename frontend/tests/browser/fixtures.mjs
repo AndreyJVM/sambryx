@@ -6,7 +6,8 @@ const users = [
 ];
 
 export const test = base.extend({
-  app: [async ({ context, page, baseURL }, use, testInfo) => {
+  appLanguage: ['en', { option: true }],
+  app: [async ({ context, page, baseURL, appLanguage }, use, testInfo) => {
     const origin = new URL(baseURL).origin;
     const state = {
       authenticated: true,
@@ -29,10 +30,10 @@ export const test = base.extend({
     const browserErrors = [];
     const onPageError = error => browserErrors.push(error.message);
     page.on('pageerror', onPageError);
-    await context.addInitScript(({ theme }) => {
-      localStorage.setItem('samba_lang', 'en');
+    await context.addInitScript(({ theme, language }) => {
+      localStorage.setItem('samba_lang', language);
       if (!localStorage.getItem('theme')) localStorage.setItem('theme', theme);
-    }, { theme: testInfo.project.use.colorScheme });
+    }, { theme: testInfo.project.use.colorScheme, language: appLanguage });
 
     await context.route('**/*', async route => {
       const request = route.request();

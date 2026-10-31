@@ -1,7 +1,7 @@
 import { ShareAccessDialog } from "./ShareAccessDialog";
 import { getErrorMessage } from "../../lib/errors";
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, HardDrive, Plus, Trash2, Settings2, ChevronDown, ChevronUp, Search, RefreshCw, AlertTriangle } from "lucide-react";
+import { FolderKanban, HardDrive, Plus, Trash2, Settings2, ChevronDown, ChevronUp, Search, RefreshCw, AlertTriangle, ShieldCheck } from "lucide-react";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/ui/toast";
 import { useConfirm } from "../../components/ui/confirm";
@@ -295,9 +295,9 @@ export default function SharesPage() {
                     </div>
                   </td>
                   <td data-label={t("common.actions")} className="shares-actions py-4 px-5 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => setDiagnosticShare(share.name)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md border border-border/60" aria-label={`${t("diagnostics.title")}: ${share.name}`}>
-                        {t("diagnostics.title")}
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <button onClick={() => setDiagnosticShare(share.name)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md border border-border/60" title={t("diagnostics.title")} aria-label={`${t("diagnostics.title")}: ${share.name}`}>
+                        <ShieldCheck className="w-4 h-4" />
                       </button>
                       <button onClick={() => openEditor(share)} className="p-2 text-text-muted hover:text-foreground hover:bg-surface-2 rounded-md transition-colors border border-border/60 hover:border-border" title={t("shares.configure")} aria-label={`${t("shares.configure")}: ${share.name}`}>
                         <Settings2 className="w-4 h-4" />
