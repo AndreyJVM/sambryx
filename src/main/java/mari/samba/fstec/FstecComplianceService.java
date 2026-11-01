@@ -40,13 +40,7 @@ public class FstecComplianceService {
         this.evaluator = evaluator;
     }
 
-    /**
-     * Executes effective configuration audit on the remote server and produces a compliance report.
-     *
-     * @param sessionId active SSH session identifier
-     * @return full compliance report
-     * @throws SambaCommandException if testparm fails or cannot be executed
-     */
+    /** Executes effective configuration audit on the remote server and produces a compliance report. */
     public FstecReportDto check(@NonNull String sessionId) throws SambaCommandException {
         String dump = commandExecutor.execute(sessionId, LinuxCommands.testparmDump());
         if (dump == null || dump.isBlank()) {
@@ -57,12 +51,7 @@ public class FstecComplianceService {
         return evaluateConfig(effectiveConfig);
     }
 
-    /**
-     * Evaluates parsed effective configuration against all loaded FSTEC rules.
-     *
-     * @param effectiveConfig map of section names to key-value configuration pairs
-     * @return full compliance report
-     */
+    /** Evaluates parsed effective configuration against all loaded FSTEC rules. */
     public FstecReportDto evaluateConfig(Map<String, Map<String, String>> effectiveConfig) {
         Map<String, String> globalSection = effectiveConfig.getOrDefault("global", Map.of());
         String serverRole = globalSection.getOrDefault("server role", "").toLowerCase(Locale.ROOT);

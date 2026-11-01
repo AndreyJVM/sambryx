@@ -23,28 +23,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class SambaConfigService {
 
-    /** Logger for this service. */
     private static final Logger log = LoggerFactory.getLogger(SambaConfigService.class);
 
-    /** Executor used for dispatching bash commands to the remote server via SSH. */
     private final CommandExecutor commandExecutor;
-
-    /** Utility parser for reading and modifying {@code smb.conf} content in memory. */
     private final SmbConfParser smbConfParser;
-
-    /** The absolute path to the main Samba configuration file on the remote server. */
     private final String configPath;
-
-    /** The absolute directory path where configuration backups are stored on the remote server. */
     private final String backupDir;
 
-    /**
-     * Constructs a new {@code SambaConfigService} with the required dependencies and properties.
-     *
-     * @param commandExecutor the command executor for handling remote Linux command execution
-     * @param smbConfParser the utility used to parse and build sections of the configuration
-     * @param properties the application properties containing paths for configuration and backups
-     */
     public SambaConfigService(
             CommandExecutor commandExecutor, SmbConfParser smbConfParser, SambaProperties properties) {
         this.commandExecutor = commandExecutor;
@@ -53,54 +38,23 @@ public class SambaConfigService {
         this.backupDir = properties.paths().backups();
     }
 
-    /**
-     * Retrieves the raw content of the Samba configuration file from the remote server.
-     *
-     * @param sessionId the active SSH session identifier
-     * @return the raw string content of the configuration file
-     */
     public String getSmbConfContent(@NonNull String sessionId) {
         return commandExecutor.execute(sessionId, LinuxCommands.cat(configPath));
     }
 
-    /**
-     * Parses the raw content of the configuration file to extract a list of defined Samba shares.
-     *
-     * @param content the raw string content of the configuration file
-     * @return a list of {@link SambaShare} objects representing the parsed shares
-     */
     public List<SambaShare> parseShares(@NonNull String content) {
         return smbConfParser.parseShares(content);
     }
 
-    /**
-     * Builds a string representing a new share section formatted for {@code smb.conf} based on the
-     * provided creation data.
-     *
-     * @param dto the data transfer object containing the details of the share to create
-     * @return a properly formatted string section for the new share
-     */
     public String buildShareSection(@NonNull SambaShareCreateDto dto) {
         return smbConfParser.buildShareSection(dto);
     }
 
-    /**
-     * Removes a specific share section from the provided raw configuration content.
-     *
-     * @param content the current raw string content of the configuration file
-     * @param shareName the name of the share section to remove
-     * @return the updated configuration string with the specified share section removed
-     */
     public String removeShareSection(@NonNull String content, @NonNull String shareName) {
         return smbConfParser.removeSection(content, shareName);
     }
 
-    /**
-     * Creates a backup of the current Samba configuration file on the remote server. The backup file
-     * includes a timestamp, and old backups (beyond a limit of 10) are automatically cleaned up.
-     *
-     * @param sessionId the active SSH session identifier
-     */
+    /** Creates a backup of smb.conf and retains up to 10 latest backups. */
     public void createBackup(@NonNull String sessionId) {
         commandExecutor.execute(sessionId, LinuxCommands.mkdir(backupDir));
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
@@ -111,12 +65,6 @@ public class SambaConfigService {
         log.info("Created configuration backup");
     }
 
-    /**
-     * Lists all available configuration backups on the remote server.
-     *
-     * @param sessionId the active SSH session identifier
-     * @return a list of {@link SambaBackupDto} objects detailing each available backup
-     */
     public List<SambaBackupDto> listBackups(@NonNull String sessionId) {
         List<SambaBackupDto> backups = new ArrayList<>();
         try {
@@ -145,14 +93,8 @@ public class SambaConfigService {
     }
 
     /**
-     * Restores the Samba configuration from a specific backup file. This action also creates a safety
-     * backup of the current state and restarts the {@code smbd} service. The selected backup must
-     * pass {@code testparm} validation before any configuration replacement or service restart.
-     *
-     * @param sessionId the active SSH session identifier
-     * @param filename the exact name of the backup file to restore
-     * @throws IllegalArgumentException if the provided backup filename does not match the expected
-     *     format
+     * Restores the Samba configuration from a specific backup file.
+     * The backup must pass {@code testparm} validation before replacing configuration and restarting {@code smbd}.
      */
     public void restoreBackup(@NonNull String sessionId, @NonNull String filename) {
         if (!filename.matches("^smb\\.conf\\.backup_\\d{8}_\\d{6}(?:_[1-9][0-9]?)?$")) {
@@ -169,12 +111,8 @@ public class SambaConfigService {
     }
 
     /**
-     * Replaces the current configuration file with new content. The new content is first written to a
-     * temporary file and checked for syntax errors using {@code testparm}. If valid, it overwrites
-     * the main configuration and restarts the {@code smbd} service.
-     *
-     * @param sessionId the active SSH session identifier
-     * @param content the new raw configuration content to apply
+     * Replaces the current configuration file with new content.
+     * Syntax is checked with {@code testparm} before overwriting configuration and restarting {@code smbd}.
      */
     public void updateSmbConf(@NonNull String sessionId, @NonNull String content) {
         String tempFile = "/tmp/smb.conf.tmp";
@@ -187,24 +125,11 @@ public class SambaConfigService {
         log.info("Updated {} and restarted smbd", configPath);
     }
 
-    /**
-     * Retrieves the global configuration settings from the current Samba configuration.
-     *
-     * @param sessionId the active SSH session identifier
-     * @return a {@link SambaGlobalConfigDto} object containing the parsed global settings
-     */
     public SambaGlobalConfigDto getGlobalConfig(@NonNull String sessionId) {
         String content = getSmbConfContent(sessionId);
         return smbConfParser.parseGlobalConfig(content);
     }
 
-    /**
-     * Updates the global configuration section with new settings. Merges the provided global
-     * configuration into the existing content and applies it to the remote server.
-     *
-     * @param sessionId the active SSH session identifier
-     * @param dto the data transfer object containing the new global configuration settings
-     */
     public void updateGlobalConfig(@NonNull String sessionId, @NonNull SambaGlobalConfigDto dto) {
         String currentContent = getSmbConfContent(sessionId);
         String updatedContent = smbConfParser.updateGlobalSection(currentContent, dto);

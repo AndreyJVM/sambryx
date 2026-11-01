@@ -19,13 +19,6 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Controller handling authentication and session management.
- *
- * <p>Provides endpoints to authenticate users (via SSH), retrieve current session details, and
- * perform logout operations. Incorporates Spring Security session contexts and basic protection
- * against brute-force attacks via injected services.
- */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthApiController {
@@ -33,18 +26,7 @@ public class AuthApiController {
     private final AuthService authService;
     private final AdministratorSessions administratorSessions;
 
-    /**
-     * Constructs a new {@link AuthApiController}.
-     *
-     * <p>Provides a fallback default implementation of {@link AuthService} (i.e., {@link
-     * AuthServiceImpl}) if no such bean is provided by the Spring context, which is primarily useful
-     * for targeted slice-tests.
-     *
-     * @param sessionManager manages SSH execution sessions
-     * @param bruteForceService provides tracking and limiting for login attempts
-     * @param authService the overarching authentication service (optional)
-     * @param administratorSessions owns the administrator activity deadline
-     */
+    // Fallback default AuthService implementation for slice tests if none provided in context.
     public AuthApiController(
             ExecutionSessionManager sessionManager,
             BruteForceProtectionService bruteForceService,
@@ -59,27 +41,11 @@ public class AuthApiController {
         return ApiResponse.ok(new AuthEnvironmentDto("remote"));
     }
 
-    /**
-     * Uses the servlet client address. Forwarded headers must be handled by a trusted proxy
-     * configuration in the container, never by parsing client-supplied headers here.
-     *
-     * @param request the HTTP request
-     * @return the resolved client IP address
-     */
+    // Uses the servlet client address; forwarded headers must be handled by a trusted reverse proxy.
     private String getClientIp(@NonNull HttpServletRequest request) {
         return request.getRemoteAddr();
     }
 
-    /**
-     * Authenticates a user and establishes a remote secure session.
-     *
-     * <p>Upon successful authentication, the authenticated user is populated into the {@link
-     * SecurityContextHolder} and appropriate session attributes are created.
-     *
-     * @param request the connection credentials DTO
-     * @param httpRequest the raw external HTTP request for determining IP and session
-     * @return a {@link ResponseEntity} with an {@link ApiResponse} wrapping the authentication status
-     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> connect(
             @Valid @RequestBody ConnectionRequestDto request, @NonNull HttpServletRequest httpRequest) {
@@ -152,16 +118,6 @@ public class AuthApiController {
         return session;
     }
 
-    /**
-     * Retrieves information about the currently authenticated user session.
-     *
-     * <p>Normally this forces the creation/validation of a CSRF token. If a user is missing
-     * credentials in the session context, it responds with an UNAUTHORIZED status.
-     *
-     * @param request the HTTP request used for CSRF token retrieval
-     * @param httpSession the user's HTTP session holding session keys
-     * @return an {@link ApiResponse} with a map containing current user properties
-     */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Map<String, String>>> getCurrentUser(
             @NonNull HttpServletRequest request, @Nullable HttpSession httpSession) {
@@ -186,12 +142,6 @@ public class AuthApiController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
-    /**
-     * Logs out the current user, unbinds the remote connections, and invalidates the session.
-     *
-     * @param session the user's current HTTP session bound for invalidation
-     * @return a 200 OK {@link ResponseEntity} indicating successful logout
-     */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@Nullable HttpSession session) {
         if (session != null) {

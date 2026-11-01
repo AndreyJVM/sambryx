@@ -2,20 +2,7 @@ package mari.samba.fstec;
 
 import java.util.List;
 
-/**
- * Result of evaluating a specific FSTEC compliance rule.
- *
- * @param id unique identifier of the rule (e.g. "2.1-guest-ok")
- * @param section section / clause number in FSTEC recommendations (e.g. "2.1")
- * @param title human-readable rule summary
- * @param severity rule severity: HIGH, MEDIUM, LOW
- * @param status compliance status: OK, FAILED, NOT_APPLICABLE, MANUAL
- * @param currentValue actual value detected on server
- * @param expectedValue expected value recommended by FSTEC
- * @param howToFix remediation instructions / smb.conf directives
- * @param consequences warning about potential side-effects or impacts
- * @param shareResults per-share results if this rule evaluates shares
- */
+/** Result of evaluating a specific FSTEC compliance rule. */
 public record FstecRuleResult(
         String id,
         String section,

@@ -19,19 +19,11 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-/**
- * Main Spring Security configuration class for Sambryx.
- * Configures authentication, authorization rules, CSRF protection, and static resource access.
- */
 @Configuration
 @EnableWebSecurity
 @EnableScheduling
 public class SecurityConfig {
 
-    /**
-     * An array of URL matchers defining paths that are publicly accessible without authentication.
-     * Includes frontend assets, index pages, and the login/logout API endpoints.
-     */
     private static final String[] PUBLIC_MATCHERS = {
         "/",
         "/ui/**",
@@ -66,10 +58,6 @@ public class SecurityConfig {
      * <li>Sets the default authentication entry point to return an HTTP 401 Unauthorized instead of redirecting to a login page.</li>
      * <li>Permits framing from the same origin.</li>
      * </ul>
-     *
-     * @param http the {@link HttpSecurity} to modify
-     * @return the fully configured {@link SecurityFilterChain}
-     * @throws Exception if an error occurs during configuration
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, AdministratorSessions sessions) throws Exception {

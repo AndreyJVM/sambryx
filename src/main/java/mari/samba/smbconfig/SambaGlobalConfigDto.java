@@ -6,27 +6,6 @@ import jakarta.validation.constraints.Pattern;
 
 /**
  * Data Transfer Object representing the {@code [global]} configuration section in {@code smb.conf}.
- * Encapsulates system-wide Samba settings including networking, security, identity mapping, and
- * protocols.
- *
- * @param workgroup the Windows Workgroup or Active Directory domain name
- * @param serverString a descriptive string for the server
- * @param netbiosName the NetBIOS name of the server
- * @param security the security mode (e.g., "user", "ads")
- * @param mapToGuest how to handle guest logins (e.g., "Bad User")
- * @param interfaces the network interfaces Samba should bind to
- * @param bindInterfacesOnly if true, Samba only binds to the specified interfaces
- * @param loadPrinters if true, automatically load system printers
- * @param disableNetbios if true, disables NetBIOS support entirely
- * @param serverMinProtocol the minimum supported SMB protocol version
- * @param serverMaxProtocol the maximum supported SMB protocol version
- * @param realm the Active Directory realm (if configured)
- * @param winbindUseDefaultDomain if true, allows authenticating without prefixing the domain name
- * @param idmapDefaultBackend the backend used for the default ID map
- * @param idmapDefaultRange the UID/GID range for the default ID map
- * @param idmapDomainBackend the backend used for the domain ID map
- * @param idmapDomainRange the UID/GID range for the domain ID map
- * @param templateShell the default shell assigned to users when mapping AD accounts
  */
 public record SambaGlobalConfigDto(
         @NotBlank(message = "Workgroup name cannot be blank")
@@ -148,11 +127,6 @@ public record SambaGlobalConfigDto(
                 "/bin/bash");
     }
 
-    /**
-     * Creates a new instance of {@link Builder} to construct a {@code SambaGlobalConfigDto}.
-     *
-     * @return a new builder instance initialized with default values
-     */
     public static Builder builder() {
         return new Builder();
     }
@@ -234,10 +208,6 @@ public record SambaGlobalConfigDto(
         return templateShell;
     }
 
-    /**
-     * Builder for creating instances of {@link SambaGlobalConfigDto}. Pre-initialized with standard
-     * default values matching typical Samba configurations.
-     */
     public static class Builder {
         private String workgroup = "WORKGROUP";
         private String serverString = "Samba Server";
@@ -348,12 +318,6 @@ public record SambaGlobalConfigDto(
             return this;
         }
 
-        /**
-         * Builds and returns a new {@link SambaGlobalConfigDto} instance containing the configured
-         * settings.
-         *
-         * @return a new data transfer object
-         */
         public SambaGlobalConfigDto build() {
             return new SambaGlobalConfigDto(
                     workgroup,

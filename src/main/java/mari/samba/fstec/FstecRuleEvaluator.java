@@ -12,14 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class FstecRuleEvaluator {
 
-    /**
-     * Evaluates a value against an expected value using the specified operator.
-     *
-     * @param operator rule operator name
-     * @param current current value from configuration
-     * @param expected expected value definition
-     * @return true if the condition is satisfied (OK), false otherwise (FAILED)
-     */
+    /** Evaluates a value against an expected value using the specified operator. */
     public boolean evaluate(String operator, String current, String expected) {
         if (operator == null) {
             return false;
