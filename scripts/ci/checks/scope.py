@@ -17,7 +17,7 @@ BRANDING = {f"frontend/public/sambryx/{name}.svg" for name in
 def select(paths):
     selected = set()
     for path in paths:
-        if path == "frontend/tests/branding.mjs":
+        if path.startswith("tools/browser/"):
             return set(FULL)
         if path.startswith(tuple(f"src/main/java/mari/samba/{area}/" for area in
                                  ("infra", "config", "auth", "session", "smbconfig", "fstec"))):

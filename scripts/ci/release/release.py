@@ -131,7 +131,8 @@ def publish(services, version, sha, directory):
                      '--label', 'org.opencontainers.image.revision=' + sha,
                      '--label', 'org.opencontainers.image.source=https://github.com/' + services.repository,
                      '--build-arg', 'JAR_FILE=' + jar, '--tag', reference, '.')
-    services.command('bash', 'scripts/ci/smoke/smoke-docker.sh', reference, str(application))
+    services.command('bash', './mvnw', '-B', '-f', 'tools/smoke/pom.xml', '-Pdocker-smoke', 'verify',
+                     '-Dsmoke.image=' + reference, '-Dsmoke.jar=' + str(application))
     services.command('gh', 'release', 'create', 'v' + version, '--repo', services.repository,
                      '--verify-tag', '--draft', '--target', sha, '--title', 'Release v' + version,
                      '--generate-notes')
@@ -140,7 +141,8 @@ def publish(services, version, sha, directory):
     if not digest or not re.fullmatch(r'sha256:[a-f0-9]{64}', digest):
         raise ValueError('Published image digest is missing or invalid')
     services.command('docker', 'pull', IMAGE + '@' + digest)
-    services.command('bash', 'scripts/ci/smoke/smoke-docker.sh', IMAGE + '@' + digest, str(application))
+    services.command('bash', './mvnw', '-B', '-f', 'tools/smoke/pom.xml', '-Pdocker-smoke', 'verify',
+                     '-Dsmoke.image=' + IMAGE + '@' + digest, '-Dsmoke.jar=' + str(application))
     if services.digest(version) != digest:
         raise ValueError('Version digest changed during publication')
     record = {'version': version, 'source_sha': sha, 'image': IMAGE,

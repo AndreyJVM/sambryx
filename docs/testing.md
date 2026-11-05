@@ -1,8 +1,8 @@
 # Тестирование интерфейса
 
 Браузерные smoke-тесты проверяют собранный React-интерфейс Sambryx. Они запускают локальный
-Vite preview и подменяют API на границе HTTP. Java, Docker, учётные записи сервера и реальные
-SSH/Samba/AD-соединения для этого набора не нужны.
+локальный Java HTTP-сервер и подменяют API на границе HTTP. Нужен JDK 21; Docker, учётные
+записи сервера и настоящие SSH/Samba/AD-соединения для этого набора не нужны.
 
 ## Обычная задача
 
@@ -20,36 +20,39 @@ worktree необязательны. При изменении поведени�
 
 ## Первый запуск
 
-Нужны Node.js 20.15.0 или совместимая версия Node.js 20+ и npm. CI использует Node.js 20.15.0,
-как и текущая Maven-сборка frontend. Выполняйте команды из чистого checkout:
+Нужны JDK 21, Node.js 20+ и npm. Node.js используется для сборки приложения,
+браузерные сценарии написаны на Java/JUnit с Playwright. Из корня проекта:
 
 ```bash
 cd frontend
 npm ci
-npx playwright install chromium
 npm test
 npm run lint
-npm run test:browser
+npm run build
+cd ..
+./mvnw -B -f tools/browser/pom.xml exec:java \
+  -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test \
+  "-Dexec.args=install chromium"
+./mvnw -B -f tools/browser/pom.xml verify
 ```
 
-На минимальной Linux-системе Chromium может потребовать системные библиотеки. Команда
-`npx playwright install --with-deps chromium` устанавливает и браузер, и системные зависимости;
-она может потребовать административные права. В CI она выполняется на одноразовом runner.
+На минимальном Linux вместо `install chromium` используйте `install --with-deps chromium`.
+Установка системных библиотек может потребовать административные права; в CI она выполняется
+на одноразовом runner. Версия Playwright закреплена в `tools/browser/pom.xml`.
+После её изменения установите соответствующий Chromium снова.
 
-`test:browser` сначала собирает frontend, затем запускает Playwright. Тестовый preview слушает
-только `127.0.0.1:4177`; порт должен быть свободен. Существующий preview намеренно не используется,
-чтобы не проверить случайно другую версию приложения.
+Из `frontend/` доступны обёртки `npm run test:browser:install` и `npm run test:browser`.
+Вторая сначала собирает UI, затем запускает Java-тесты. Сборка приложения и Spring-контекст
+в самом тестовом Maven-проекте не запускаются.
 
-Версия Playwright закреплена в `package.json`, дерево зависимостей — в `package-lock.json`.
-Обновляйте эти файлы вместе; после обновления Playwright установите соответствующий браузер снова.
-
-Для локальной диагностики с уже установленным Google Chrome допустим
-`PLAYWRIGHT_CHANNEL=chrome npm run test:browser`. Укажите этот выбор в отчёте: версия системного
-Chrome может отличаться от Chromium Playwright. CI использует закреплённый Chromium без этой переменной.
+Собранный `frontend/dist` обслуживается только на `127.0.0.1` со случайным свободным портом.
+Чужой preview-сервер не используется. Нет npm-зависимости от `@playwright/test`.
+Для локальной диагностики допустим `PLAYWRIGHT_CHANNEL=chrome` перед командой Maven;
+этот выбор нужно указать в отчёте, поскольку системный Chrome отличается от закреплённого Chromium.
 
 ## Что проверяется
 
-Набор `frontend/tests/browser/` запускается в Chromium в четырёх конфигурациях:
+Набор `tools/browser/src/test/java/sambryx/browser/` запускается в Chromium в четырёх конфигурациях:
 
 | Конфигурация | Размер | Тема |
 |---|---|---|
@@ -86,26 +89,31 @@ tests и отдельная Production Compose Smoke с реальными TLS/S
 
 ## Выборочная проверка и диагностика
 
-После сборки можно запустить один сценарий:
+После сборки можно запустить только одну группу, например backup/restore:
 
 ```bash
-npx playwright test --project=mobile-light --grep "nested dialogs"
+./mvnw -B -f tools/browser/pom.xml verify '-Dit.test=BrowserSuiteIT#backups'
 ```
 
-Команда запускается из `frontend/`. Полный набор ограничен общим таймаутом; автоматические
-повторные попытки отключены, чтобы нестабильные проверки не скрывались успешным повтором.
+Группы `workspace`, `sessions`, `backups` и `access` выполняют свои сценарии во всех четырёх
+конфигурациях. Только проверка логотипов: `-Dit.test=BrandingIT`.
+Полный набор ограничен таймаутом JVM в пять минут; автоматических retry нет.
 Используйте ожидания Playwright по состоянию интерфейса вместо `sleep`.
 
-При сбое сохраняются screenshot и trace, HTML-отчёт содержит детали сценария:
+JUnit-результаты сохраняются в `tools/browser/target/failsafe-reports/`.
+Screenshots и failure traces находятся в `tools/browser/target/browser-artifacts/`.
+Открыть конкретный trace из корня проекта:
 
 ```bash
-npm run test:browser:report
-npx playwright show-trace test-results/<failed-test>/trace.zip
+./mvnw -B -f tools/browser/pom.xml exec:java \
+  -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test \
+  "-Dexec.args=show-trace tools/browser/target/browser-artifacts/CASE/trace.zip"
 ```
 
-`<failed-test>` замените каталогом из `frontend/test-results/`. Отчёты и результаты не входят
-в Git. CI-job **Browser Smoke Tests** прикладывает артефакт `browser-smoke-report` с отчётом
-и диагностикой на семь дней. Для релиза этот job должен пройти вместе с остальными проверками.
+Замените `CASE` именем каталога неудачного сценария. Отчёты не входят в Git.
+CI-job **Browser Smoke Tests** прикладывает JUnit-результаты, screenshots и traces
+в артефакте `browser-smoke-report` на семь дней. Логотипы проверяются отдельно в job
+**Branding Assets**; для этого не требуется Node.js или сборка frontend.
 
 Добавляя сценарий, проверяйте наблюдаемый результат и необходимые побочные эффекты.
 Предпочитайте доступные роли и подписи элементов. При изменении поведения сначала добавьте
@@ -216,7 +224,7 @@ Release coordinator проверяется отдельно без внешне�
 
 - `scripts/ci/checks/` — выбор проверок и верификация документации, JAR и Docker Hub.
 - `scripts/ci/release/` — последовательная публикация новой версии и выбор JAR.
-- `scripts/ci/smoke/` — проверки Docker image и Production Compose.
+- `tools/smoke/` — отдельные Java/JUnit-проверки Docker image и Production Compose, без Spring-контекста и сборки приложения.
 - `scripts/ci/tests/` — все Python-тесты утилит, отдельно от исполняемых скриптов.
 
 Полный набор запускается из корня репозитория без установки Python-пакета проекта:
@@ -235,3 +243,60 @@ python3 -B -m unittest discover -s scripts/ci/tests -p 'test_release*.py' -v
 registry errors, CodeQL exact source SHA, dependency cancellation/skips и SHA-256 JAR.
 Внешние команды и HTTP подменены; это не настоящий выпуск и не проверка GitHub concurrency scheduler.
 [Порядок выпуска и ручное восстановление](distribution.md#release-recovery) описывают действия после сбоя.
+
+## Java Docker image smoke
+
+Нужен JDK 21. Быстрые тесты не используют Docker:
+
+```bash
+./mvnw -B -f tools/smoke/pom.xml test
+```
+
+Реальный image проверяется отдельно, без пересборки приложения:
+
+```bash
+./mvnw -B -f tools/smoke/pom.xml -Pdocker-smoke verify \
+  -Dsmoke.image=sambryx:local "-Dsmoke.jar=$(realpath target/sambryx-0.0.1-SNAPSHOT.jar)"
+```
+
+Укажите уже собранный образ и соответствующий JAR. Проверяются non-root UID, идентичность JAR,
+точные байты UI/assets, remote mode и HTTP 401 для анонимного запроса. Контейнер запускается
+с read-only filesystem и временным `/tmp`, порт публикуется только на loopback. Проверка
+удаляет только свой контейнер при успехе и отказе; принудительное завершение JVM через SIGKILL
+не позволяет выполнить cleanup. Обычный backend `test` эти проверки не запускает.
+
+JUnit-тесты вспомогательной логики используют временные JAR, настоящий локальный HTTP-сервер
+и подменённую Docker CLI-границу. Профиль `docker-smoke` проверяет настоящий Docker image,
+но не устанавливает SSH-соединение и не проверяет SMB: это остаётся задачей Production Compose Smoke.
+
+## Java Production Compose smoke
+
+После подготовки образов из [инструкции развёртывания](production.md):
+
+```bash
+./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify \
+  -Dsmoke.image=sambryx-ci:production
+```
+
+Профили `docker-smoke` и `production-smoke` запускайте отдельно. Второму не нужен `smoke.jar`.
+Он использует настоящий nginx, SSH, Samba и SMB-клиент в отдельном Compose-проекте:
+проверяет доверие TLS, SSH host identity, вход по ключу, CSRF и secure/HttpOnly cookie,
+сохранность UID, host keys, пароля, shares и SMB-файла после пересоздания. Проверяются
+успешный backup/restore и отказ testparm для повреждённой копии без изменения активного
+конфига, PID Samba и доступности SMB. Данные рабочих серверов не используются.
+
+Compose запускается с `--env-file /dev/null`, уникальным project name и случайными loopback-портами.
+Cleanup удаляет только volumes и контейнеры этого проекта. Приватные ключи создаются
+во временном каталоге, SMB-реквизиты передаются через stdin во временный файл с правами 600.
+Нет Python-кода внутри тестового Samba-контейнера. Application logs и реквизиты в отчёт не включаются.
+SIGKILL и авария Docker-хоста могут помешать очистке; оставшийся тестовый проект нужно
+проверить отдельно перед удалением.
+
+Быстрые JUnit-тесты проверяют HTTP/CSRF, передачу stdin и изоляцию проекта. Они не
+подтверждают настоящий SSH/SMB: это делает только явно запущенный `production-smoke`.
+Пять проверок rendered Compose model находятся в `ComposeModelIT` и входят в `production-smoke`.
+Отдельно, без запуска контейнеров:
+
+```bash
+./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify -Dit.test=ComposeModelIT
+```

@@ -25,7 +25,8 @@ Backend и frontend собираются Maven один раз в Spring Boot JA
 JAR_FILE=target/sambryx-0.0.1-SNAPSHOT.jar
 python3 scripts/ci/checks/verify-artifacts.py "$JAR_FILE"
 docker build --build-arg "JAR_FILE=$JAR_FILE" --tag sambryx:local .
-bash scripts/ci/smoke/smoke-docker.sh sambryx:local "$JAR_FILE"
+./mvnw -B -f tools/smoke/pom.xml -Pdocker-smoke verify \
+  -Dsmoke.image=sambryx:local "-Dsmoke.jar=$(realpath "$JAR_FILE")"
 ```
 
 Путь соответствует стандартной версии проекта. В `target` должен находиться ровно один `*.jar`.
@@ -150,7 +151,8 @@ python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
 bash -n scripts/ci/release/select-jar.sh
 jar=$(bash scripts/ci/release/select-jar.sh target)
 docker build --build-arg "JAR_FILE=$jar" --tag sambryx:local .
-bash scripts/ci/smoke/smoke-docker.sh sambryx:local "$jar"
+./mvnw -B -f tools/smoke/pom.xml -Pdocker-smoke verify \
+  -Dsmoke.image=sambryx:local "-Dsmoke.jar=$(realpath "$jar")"
 ```
 
 Команды сборки требуют предварительного `./mvnw clean package`.

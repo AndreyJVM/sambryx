@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "npm run build && playwright test",
-    "test:browser:report": "playwright show-report",
+    "test:browser": "npm run build && ../mvnw -B -f ../tools/browser/pom.xml verify",
+    "test:browser:install": "../mvnw -B -f ../tools/browser/pom.xml exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test \"-Dexec.args=install chromium\"",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -24,7 +24,6 @@
     "@radix-ui/react-label": "^2.1.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.15.0",

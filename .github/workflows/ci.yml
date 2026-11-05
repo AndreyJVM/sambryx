@@ -64,22 +64,25 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate passive SVG assets
         run: python3 scripts/ci/checks/documents.py assets
-      - uses: actions/setup-node@v4
+      - name: Set up JDK 21 for browser checks
+        uses: actions/setup-java@v4
         with:
-          node-version: '20.15.0'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-        working-directory: frontend
-      - run: npx playwright install --with-deps chromium
-        working-directory: frontend
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: tools/browser/pom.xml
+      - name: Install Chromium and runner dependencies
+        run: >-
+          bash ./mvnw -B -f tools/browser/pom.xml exec:java
+          -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test
+          "-Dexec.args=install --with-deps chromium"
       - name: Render branding at desktop and mobile sizes
-        run: node frontend/tests/branding.mjs
+        run: bash ./mvnw -B -f tools/browser/pom.xml verify -Dit.test=BrandingIT
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: branding-previews
-          path: branding-previews/
+          path: tools/browser/target/browser-artifacts/branding/
           retention-days: 7
           if-no-files-found: error
 
@@ -180,37 +183,44 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      - name: Set up JDK 21 for browser checks
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: tools/browser/pom.xml
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.15.0'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install locked frontend dependencies
         run: npm ci
-
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
       - name: Install Chromium and runner dependencies
-        run: npx playwright install --with-deps chromium
-
+        run: >-
+          bash ./mvnw -B -f tools/browser/pom.xml exec:java
+          -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test
+          "-Dexec.args=install --with-deps chromium"
       - name: Run isolated browser smoke tests
-        run: npm run test:browser
-
+        run: bash ./mvnw -B -f tools/browser/pom.xml verify -Dit.test=BrowserSuiteIT
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: browser-smoke-report
           path: |
-            frontend/playwright-report/
-            frontend/test-results/
+            tools/browser/target/browser-artifacts/
+            tools/browser/target/failsafe-reports/
+            tools/browser/target/surefire-reports/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -224,6 +234,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up JDK 21 for Java smoke tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: tools/smoke/pom.xml
+
       - name: Download tested application JAR
         uses: actions/download-artifact@v4
         with:
@@ -234,7 +252,8 @@ jobs:
         run: |
           jar=$(bash scripts/ci/release/select-jar.sh target)
           docker build --build-arg "JAR_FILE=$jar" --tag sambryx-ci:production .
-          bash scripts/ci/smoke/smoke-docker.sh sambryx-ci:production "$jar"
+          bash ./mvnw -B -f tools/smoke/pom.xml -Pdocker-smoke verify \
+            -Dsmoke.image=sambryx-ci:production "-Dsmoke.jar=$(realpath "$jar")"
 
       - name: Pull TLS proxy image
         run: docker pull nginx:1.30.6-alpine
@@ -243,7 +262,9 @@ jobs:
         run: docker build --tag sambryx-samba-node:ubuntu24.04 deploy/production/samba
 
       - name: Verify TLS, SSH, SMB and persistence
-        run: python3 scripts/ci/smoke/smoke-production.py sambryx-ci:production
+        run: >-
+          bash ./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify
+          -Dsmoke.image=sambryx-ci:production
 
   quality-gate:
     name: Quality Gate
@@ -276,6 +297,15 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 for Java smoke tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: tools/smoke/pom.xml
+
       - uses: actions/download-artifact@v4
         with:
           name: sambryx-jar

@@ -87,14 +87,14 @@ class SimpleReleaseTest(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_failures_never_make_the_release_public_or_continue_to_later_steps(self):
-        smoke = ('bash', 'scripts/ci/smoke/smoke-docker.sh')
+        smoke = ('bash', './mvnw', '-B', '-f', 'tools/smoke/pom.xml', '-Pdocker-smoke', 'verify')
         stages = {
             'build': ('docker', 'build'),
-            'local-smoke': (*smoke, release.IMAGE + ':1.2.3'),
+            'local-smoke': (*smoke, '-Dsmoke.image=' + release.IMAGE + ':1.2.3'),
             'draft': ('gh', 'release', 'create'),
             'push': ('docker', 'push'),
             'pull': ('docker', 'pull'),
-            'remote-smoke': (*smoke, release.IMAGE + '@' + DIGEST),
+            'remote-smoke': (*smoke, '-Dsmoke.image=' + release.IMAGE + '@' + DIGEST),
             'upload': ('gh', 'release', 'upload'),
         }
         for stage, prefix in stages.items():

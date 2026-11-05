@@ -262,18 +262,19 @@ docker compose --env-file deploy/production/.env \
 ## Проверка конфигурации и smoke-тест {#проверка-конфигурации-и-smoke-тест}
 
 ```bash
-python3 -B -m unittest discover -s scripts/ci/tests -p 'test_production.py' -v
+./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify -Dit.test=ComposeModelIT
 ```
 
 Проверки модели используют Docker Compose CLI без запуска контейнеров. Сквозной тест требует
-Python 3, OpenSSL, ssh-keygen, Docker и локально подготовленные образы:
+JDK 21, OpenSSL, ssh-keygen, Docker и локально подготовленные образы:
 
 ```bash
 ./mvnw clean package
 docker build -t sambryx-ci:production .
 docker pull nginx:1.30.6-alpine
 docker build -t sambryx-samba-node:ubuntu24.04 deploy/production/samba
-python3 scripts/ci/smoke/smoke-production.py sambryx-ci:production
+./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify \
+  -Dsmoke.image=sambryx-ci:production
 ```
 
 Тест создаёт уникальный Compose-проект с временными ключами и случайными loopback-портами.
