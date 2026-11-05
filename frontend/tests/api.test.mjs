@@ -9,7 +9,8 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } },
 ).outputText;
 
-function harness(cookie, fetchResponse) {
+function harness(cookie, fetchResponse, pathname = "/ui/login") {
+  const location = { pathname, href: "" };
   const document = { cookie };
   const calls = [];
   const exports = {};
@@ -18,13 +19,13 @@ function harness(cookie, fetchResponse) {
     document,
     Headers,
     Event,
-    window: { dispatchEvent: () => {}, location: { pathname: "/ui/login", href: "" } },
+    window: { dispatchEvent: () => {}, location },
     fetch: async (url, options) => {
       calls.push({ url, ...options });
       return fetchResponse(url, options, document);
     },
   });
-  return { api: exports.api, calls };
+  return { api: exports.api, calls, location };
 }
 
 function response(status = 200) {
@@ -105,4 +106,25 @@ test("host key failures retain their structured details without retrying login",
     return true;
   });
   assert.equal(calls.length, 1);
+});
+
+for (const pathname of ["/ui/login", "/ui/shares"]) {
+  test(`login rejection preserves the server message without redirecting from ${pathname}`, async () => {
+    const { api, calls, location } = harness("XSRF-TOKEN=fixture", () => response(401), pathname);
+
+    await assert.rejects(api.post("/api/auth/login", { username: "fixture" }), {
+      name: "ApiError", status: 401, message: "Rejected",
+    });
+
+    assert.equal(location.href, "");
+    assert.equal(calls.length, 1);
+  });
+}
+
+test("unauthorized protected requests still redirect to login", async () => {
+  const { api, location } = harness("", () => response(401), "/ui/shares");
+
+  await assert.rejects(api.get("/api/shares"), { status: 401 });
+
+  assert.equal(location.href, "/ui/login");
 });

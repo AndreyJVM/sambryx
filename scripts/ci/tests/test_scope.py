@@ -28,7 +28,7 @@ class SelectionTest(unittest.TestCase):
                       ["scripts/helper.sh"], ["scripts/ci/checks/scope.py"],
                       ["scripts/ci/checks/documents.py"], ["scripts/ci/checks/verify-artifacts.py"],
                       ["scripts/ci/checks/verify-dockerhub.py"], ["scripts/ci/release/release.py"],
-                      ["scripts/ci/release/docker-tags.py"], ["scripts/ci/release/select-jar.sh"],
+                      ["scripts/ci/release/select-jar.sh"],
                       ["scripts/ci/release/data/release-v0.12.0.json"],
                       ["scripts/ci/smoke/smoke-docker.sh"], ["scripts/ci/smoke/smoke-production.py"],
                       ["scripts/ci/tests/test_scope.py"], ["Dockerfile"], ["new-area/file"],

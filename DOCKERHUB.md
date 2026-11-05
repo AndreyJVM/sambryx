@@ -8,7 +8,9 @@ Before connecting, provision an OpenSSH known_hosts file with public host keys v
 
 ## Quick Start
 
-Run the container using Docker:
+Choose a published version from [GitHub Releases](https://github.com/AndreyJVM/sambryx/releases)
+and replace `REPLACE_WITH_RELEASE_TAG` below. Docker aliases such as `latest` are no longer
+updated automatically. Run the container using Docker:
 
 ```bash
 docker run -d \
@@ -16,7 +18,7 @@ docker run -d \
   --mount type=bind,src="$PWD/.local/ssh/known_hosts",dst=/etc/sambryx/known_hosts,readonly \
   -p 8080:8080 \
   --restart unless-stopped \
-  andreyvorobevaqa/sambryx:latest
+  andreyvorobevaqa/sambryx:REPLACE_WITH_RELEASE_TAG
 ```
 
 Open `http://localhost:8080/ui` in your browser. From the UI, you can connect to your Samba server using SSH credentials.

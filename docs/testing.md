@@ -215,7 +215,7 @@ Release coordinator проверяется отдельно без внешне�
 Утилиты CI сгруппированы по назначению:
 
 - `scripts/ci/checks/` — выбор проверок и верификация документации, JAR и Docker Hub.
-- `scripts/ci/release/` — координатор release, Docker tags и выбор JAR; `data/` содержит legacy baseline.
+- `scripts/ci/release/` — последовательная публикация новой версии и выбор JAR.
 - `scripts/ci/smoke/` — проверки Docker image и Production Compose.
 - `scripts/ci/tests/` — все Python-тесты утилит, отдельно от исполняемых скриптов.
 
@@ -229,12 +229,9 @@ python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
 
 ```bash
 python3 -B -m unittest discover -s scripts/ci/tests -p 'test_release*.py' -v
-python3 -B -m unittest discover -s scripts/ci/tests -p 'test_alias_repair.py' -v
 ```
 
-Проверяются state transitions, частичные отказы и повтор, канонические assets, digest/checksum,
-registry errors, CodeQL exact source SHA, dependency cancellation/skips и числовая monotonicity
-обоих aliases. Subprocess doubles заменяют Docker/Skopeo/gh, HTTP doubles — registry;
-это не настоящий выпуск и не проверка GitHub concurrency scheduler.
-[Контракт и восстановление](distribution.md#release-recovery) описывают сохранённые байты,
-границы идемпотентности и случаи, требующие ручного расследования.
+Проверяются порядок публикации, отказы внешних операций, запрет перезаписи версий,
+registry errors, CodeQL exact source SHA, dependency cancellation/skips и SHA-256 JAR.
+Внешние команды и HTTP подменены; это не настоящий выпуск и не проверка GitHub concurrency scheduler.
+[Порядок выпуска и ручное восстановление](distribution.md#release-recovery) описывают действия после сбоя.

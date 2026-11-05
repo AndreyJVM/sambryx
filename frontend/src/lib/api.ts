@@ -37,8 +37,8 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {
     const res = await fetch(url, { ...options, headers });
     
-    // Some endpoints might return 401
-    if (res.status === 401) {
+    // Login failures are handled by the response parser below.
+    if (res.status === 401 && url !== "/api/auth/login") {
       if (window.location.pathname !== "/ui/login") {
         window.location.href = "/ui/login";
       }

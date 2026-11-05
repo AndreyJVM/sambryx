@@ -14,6 +14,7 @@ export const test = base.extend({
       sessionRemaining: 15 * 60_000,
       renewalDenied: false,
       loginFailure: false,
+      loginRejected: false,
       failShares: false,
       failDashboard: false,
       failConfig: false,
@@ -54,6 +55,7 @@ export const test = base.extend({
         return reply({}, 200, '', { 'set-cookie': 'XSRF-TOKEN=browser-fixture; Path=/; SameSite=Lax' });
       }
       if (path === '/api/auth/login' && method === 'POST') {
+        if (state.loginRejected) return reply(null, 401, 'Authentication failed: SSH connection failed. Check the connection details and credentials.');
         if (state.loginFailure) return reply({ code: 'SSH_HOST_KEY_CHANGED', fingerprint: 'SHA256:synthetic-browser-fixture' }, 409, 'Server identity changed');
         state.authenticated = true;
         return reply(null);

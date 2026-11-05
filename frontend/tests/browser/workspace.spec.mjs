@@ -141,3 +141,31 @@ test('unavailable dashboard disables service actions', async ({ page, app }) => 
   await expect(page.locator('main').getByRole('button', { name: 'Stop', exact: true })).toBeDisabled();
   await expect(page.locator('main').getByRole('button', { name: 'Restart', exact: true })).toBeDisabled();
 });
+
+for (const authType of ['password', 'key']) {
+  test(`rejected ${authType} login shows authentication failure and allows another attempt`, async ({ page, app }) => {
+    app.authenticated = false;
+    app.loginRejected = true;
+    await page.goto('/ui/login');
+    await page.locator('#login-host').fill('files.example.test');
+    await page.locator('#login-username').fill('operator');
+    if (authType === 'key') {
+      await page.getByRole('button', { name: 'SSH-ключ', exact: true }).click();
+      await page.locator('textarea').fill('synthetic-rejected-key');
+    } else await page.locator('#login-password').fill('synthetic-rejected-password');
+    await page.getByRole('button', { name: 'Подключиться', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Authentication failed: SSH connection failed.');
+    await expect(page.getByRole('alert')).not.toContainText('Сессия истекла');
+    await expect(page).toHaveURL(/\/ui\/login$/);
+    expect(app.authenticated).toBe(false);
+    expect(app.requests.filter(request => request.path === '/api/auth/login')).toHaveLength(1);
+
+    app.loginRejected = false;
+    if (authType === 'key') await page.locator('textarea').fill('synthetic-accepted-key');
+    else await page.locator('#login-password').fill('synthetic-accepted-password');
+    await page.getByRole('button', { name: 'Подключиться', exact: true }).click();
+    await expect(page).toHaveURL(/\/ui\/shares$/);
+    await expect(page.locator('main h1')).toBeVisible();
+    expect(app.requests.filter(request => request.path === '/api/auth/login')).toHaveLength(2);
+  });
+}
