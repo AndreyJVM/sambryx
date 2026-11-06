@@ -1,6 +1,6 @@
 # Настройка целевого сервера Linux
 
-Sambryx обращается с сервером по SSH от имени специального пользователя, которому выданы права `sudo`.
+Sambryx обращается к серверу по SSH от имени специального пользователя, которому выданы права `sudo`.
 
 ---
 
@@ -10,9 +10,11 @@ Sambryx обращается с сервером по SSH от имени спе
 
 ```bash
 sudo apt update
-sudo apt install -y samba winbind krb5-user
+sudo apt install -y samba
 ```
-*(Примечание: пакеты `winbind` и `krb5-user` требуются, если вы планируете использовать интеграцию с Active Directory)*
+Пакеты `winbind` и `krb5-user` относятся к доменному сценарию. Для базового управления
+локальным Samba-сервером они не обязательны. Реальная интеграция AD ещё проверяется
+в [#64](https://github.com/AndreyJVM/sambryx/issues/64).
 
 Для очистки резервных копий на SSH-сервере нужны Bash, GNU findutils (`find`, `xargs`)
 и GNU coreutils (`mktemp`, `sort`, `tail`, `cut`, `rm`) с поддержкой NUL-разделителей.
@@ -29,8 +31,11 @@ sudo apt install -y samba winbind krb5-user
 ```shell
 sudo useradd -m -s /bin/bash samba-admin
 sudo passwd samba-admin
-sudo smbpasswd -a samba-admin
 ```
+
+SSH-пользователю не требуется учётная запись Samba для входа в панель.
+`sudo smbpasswd -a samba-admin` нужен только если этот пользователь также должен
+подключаться к файловым ресурсам по SMB. SSH-пароль и Samba-пароль — разные реквизиты.
 
 ## 3. Настройка `sudoers`
 Добавьте права для `samba-admin` на выполнение требуемых команд без ввода пароля `sudo`:
@@ -39,7 +44,13 @@ sudo smbpasswd -a samba-admin
 sudo visudo -f /etc/sudoers.d/sambryx
 ```
 
-Вставьте следующую строку (всё в одну линию):
+Ниже широкий пример разрешений для полного набора операций, а не минимальный
+production-профиль. Неограниченные аргументы `tee`, `cp`, `chmod`, `chown` и других
+команд позволяют менять произвольные системные файлы с повышенными правами.
+Перед использованием согласуйте набор команд, путей и аргументов с администратором
+сервера; ограничение операций и аудит sudo policy остаются отдельной задачей.
+
+Пример записывается в одну строку:
 
 ```shell
 samba-admin ALL=(ALL) NOPASSWD: /usr/sbin/useradd, /sbin/useradd, /usr/sbin/userdel, /sbin/userdel, /usr/sbin/chpasswd, /usr/bin/chpasswd, /usr/sbin/groupadd, /sbin/groupadd, /usr/sbin/groupdel, /sbin/groupdel, /usr/bin/gpasswd, /usr/bin/smbpasswd, /usr/bin/pdbedit, /bin/systemctl, /usr/bin/systemctl, /bin/cat, /usr/bin/cat, /bin/mv, /usr/bin/mv, /bin/cp, /usr/bin/cp, /bin/rm, /usr/bin/rm, /bin/mkdir, /usr/bin/mkdir, /bin/chmod, /usr/bin/chmod, /bin/chown, /usr/bin/chown, /usr/bin/smbstatus, /usr/bin/du, /usr/bin/df, /usr/bin/find, /usr/bin/tail, /bin/kill, /usr/bin/kill, /usr/bin/net, /usr/bin/tee, /usr/bin/testparm
@@ -52,7 +63,7 @@ samba-admin ALL=(ALL) NOPASSWD: /usr/sbin/useradd, /sbin/useradd, /usr/sbin/user
 sudo chmod 0440 /etc/sudoers.d/sambryx
 ```
 
-## Проверка готовности после входа
+## Проверка готовности после входа {#server-readiness}
 
 На странице **Обзор** нажмите **Проверить готовность**. Успешный вход по SSH сам по себе
 не подтверждает готовность Samba. Отчёт запускается вручную, отдельно от показателей Dashboard;

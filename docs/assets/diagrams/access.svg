@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 470" role="img" aria-labelledby="title desc">
+  <title id="title">Access control layers</title>
+  <desc id="desc">Simplified access path: SMB identity, Samba share rules, and Linux identity, path permissions and ACL. A successful check of one layer does not prove access.</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#44634a"/></marker></defs>
+  <rect width="460" height="470" rx="16" fill="#f7faf5"/>
+  <g fill="#fff" stroke="#9db299" stroke-width="1.5"><rect x="30" y="20" width="400" height="84" rx="10"/><rect x="30" y="152" width="400" height="84" rx="10"/><rect x="30" y="284" width="400" height="108" rx="10"/></g>
+  <g stroke="#44634a" stroke-width="2" marker-end="url(#arrow)"><path d="M230 104 V152"/><path d="M230 236 V284"/></g>
+  <g font-family="Arial, sans-serif" text-anchor="middle" fill="#243b2a">
+    <g font-size="20" font-weight="bold"><text x="230" y="55">SMB identity</text><text x="230" y="187">Samba share rules</text><text x="230" y="320">Linux permissions</text></g>
+    <g font-size="16"><text x="230" y="83">Which account did the client use?</text><text x="230" y="215">valid users / read only / write list</text><text x="230" y="350">Effective user + groups</text><text x="230" y="376">Parent paths / mode bits / ACL</text><text x="230" y="430">Simplified model.</text><text x="230" y="455">No single layer proves access.</text></g>
+  </g>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 530" role="img" aria-labelledby="title desc">
+  <title id="title">Sambryx connections</title>
+  <desc id="desc">The browser connects to Nginx and Sambryx over HTTPS. Sambryx manages the Samba server over SSH. A file client connects directly to Samba over SMB.</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#44634a"/></marker></defs>
+  <rect width="480" height="530" rx="16" fill="#f7faf5"/>
+  <g fill="#ffffff" stroke="#9db299" stroke-width="1.5">
+    <rect x="18" y="20" width="200" height="68" rx="10"/>
+    <rect x="260" y="20" width="200" height="68" rx="10"/>
+    <rect x="18" y="174" width="200" height="126" rx="10"/>
+    <rect x="18" y="390" width="442" height="86" rx="10"/>
+  </g>
+  <g fill="none" stroke="#44634a" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M118 88 V174"/><path d="M118 300 V390"/><path d="M360 88 V390"/>
+  </g>
+  <g font-family="Arial, sans-serif" fill="#243b2a" text-anchor="middle">
+    <g font-size="19" font-weight="bold"><text x="118" y="61">Browser</text><text x="360" y="61">File client</text><text x="118" y="209">Nginx</text><text x="118" y="257">Sambryx</text><text x="239" y="424">Samba server</text></g>
+    <g font-size="16"><text x="118" y="281">API + SPA</text><text x="239" y="453">smb.conf / users / shared files</text><text x="162" y="138">HTTPS</text><text x="147" y="350">SSH</text><text x="390" y="240">SMB</text><text x="240" y="508">Shared files stay on the Samba server.</text></g>
+  </g>
+  <path d="M43 228 H193" stroke="#d5e0d1"/>
+</svg>

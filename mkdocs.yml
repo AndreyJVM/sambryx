@@ -1,5 +1,6 @@
 site_name: Sambryx
-site_description: Современный веб-интерфейс для управления сервером Samba на Spring Boot и Linux
+site_url: https://AndreyJVM.github.io/sambryx/
+site_description: Установка, эксплуатация и разработка веб-панели управления Samba через SSH
 site_author: Andrey Vorobev
 repo_url: https://github.com/AndreyJVM/sambryx
 repo_name: AndreyJVM/sambryx
@@ -8,7 +9,7 @@ theme:
   name: material
   language: ru
   palette:
-    # Переключатель светлая/тёмная тема
+    # Light and dark theme switch
     - scheme: default
       primary: black
       accent: light green
@@ -44,17 +45,26 @@ markdown_extensions:
 
 nav:
   - О проекте: index.md
-  - Быстрый старт: quickstart.md
-  - Временный доступ к UI: temporary-access.md
-  - Подготовка сервера: server-setup.md
-  - Рекомендации ФСТЭК: fstec.md
-  - Проверка доступа к ресурсу: access-diagnostics.md
-  - Резервные копии конфигурации: configuration-backups.md
-  - Веб- и SSH-сессии: sessions.md
-  - Архитектура: architecture.md
-  - Сборка и поставки: distribution.md
-  - Production Compose: production.md
-  - SSH-ключи серверов: ssh-host-keys.md
-  - Переименование: renaming.md
-  - Статический анализ: static-analysis.md
-  - Тестирование интерфейса: testing.md
+  - Установка:
+      - Быстрый старт: quickstart.md
+      - Подготовка сервера: server-setup.md
+      - Доверенные SSH-ключи: ssh-host-keys.md
+      - Production Compose: production.md
+      - Справочник настроек: settings.md
+      - Переход с ShareGuard: renaming.md
+  - Эксплуатация:
+      - Общие папки: shares.md
+      - Пользователи и группы: users-groups.md
+      - Права доступа: permissions.md
+      - Типовые проблемы: troubleshooting.md
+      - Проверка доступа к ресурсу: access-diagnostics.md
+      - Резервные копии конфигурации: configuration-backups.md
+      - Веб- и SSH-сессии: sessions.md
+      - Анализ правил ФСТЭК: fstec.md
+      - Временный доступ к UI: temporary-access.md
+  - Разработка:
+      - Сборка и запуск: development.md
+      - Архитектура: architecture.md
+      - Тестирование: testing.md
+      - Поставка и релизы: distribution.md
+      - Статический анализ: static-analysis.md

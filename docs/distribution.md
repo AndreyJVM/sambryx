@@ -37,8 +37,12 @@ Target `local` сохранён для совместимости с sandbox-с�
 
 ## Проверки CI и выпуск
 
-Задание `Build & Test` выполняет Maven-сборку с тестами, frontend lint/API-тесты и проверяет
-обычный Docker-образ. Проверка JAR требует `index.html` и подключённые JavaScript/CSS-ресурсы.
+Проверки разделены на jobs: `Backend Checks` выполняет backend-тесты и Spotless,
+`Frontend Checks` — lint, unit-тесты и сборку UI, `Browser Smoke Tests` — Java/Playwright.
+`Build & Test` проверяет CI-утилиты и упаковывает frontend в JAR без повторного запуска
+backend-тестов. Проверка JAR требует `index.html` и подключённые JavaScript/CSS-ресурсы.
+`Production Compose Smoke` получает этот JAR, собирает Docker-образ и проверяет его,
+затем выполняет сквозные TLS/SSH/SMB-сценарии.
 
 Smoke-проверка запускает временный контейнер с read-only корневой файловой системой
 и временным `/tmp`, публикует случайный порт только на `127.0.0.1` и проверяет:
