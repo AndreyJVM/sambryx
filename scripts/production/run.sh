@@ -17,10 +17,15 @@ if [[ $# -ne 0 ]]; then
     exit 1
 fi
 "${compose[@]}" config --quiet
+images=$("${compose[@]}" config --images)
+if [[ -z "${images//[[:space:]]/}" ]]; then
+    echo "Compose did not resolve any images. Containers were not started." >&2
+    exit 1
+fi
 while IFS= read -r image; do
     if [[ "$image" == *REPLACE* || "$image" == *:latest || ( "$image" != *@sha256:* && "${image##*/}" != *:* ) ]]; then
         echo "Select a versioned image tag or digest instead of latest or a placeholder." >&2
         exit 1
     fi
-done < <("${compose[@]}" config --images)
+done <<< "$images"
 "${compose[@]}" up --detach --wait --wait-timeout 180 --build
