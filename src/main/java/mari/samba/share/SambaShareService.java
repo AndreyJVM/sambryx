@@ -49,7 +49,7 @@ class SambaShareService {
             throw new IllegalArgumentException("Share already exists: " + dto.getName());
         }
 
-        ensureDirectoryExists(sessionId, dto);
+        prepareShareDirectory(sessionId, dto);
 
         String shareSection = configService.buildShareSection(dto);
         String currentContent = configService.getSmbConfContent(sessionId);
@@ -63,7 +63,7 @@ class SambaShareService {
         SambaShareCreateDto effectiveDto =
                 dto.getName() == null || !dto.getName().equalsIgnoreCase(name) ? dto.withName(name) : dto;
 
-        ensureDirectoryExists(sessionId, effectiveDto);
+        prepareShareDirectory(sessionId, effectiveDto);
 
         String content = configService.getSmbConfContent(sessionId);
         String updatedContent = configService.removeShareSection(content, name);
@@ -125,7 +125,7 @@ class SambaShareService {
         log.info("Deleted Samba share: {}", name);
     }
 
-    private void ensureDirectoryExists(String sessionId, SambaShareCreateDto dto) {
+    private void prepareShareDirectory(String sessionId, SambaShareCreateDto dto) {
         String path = dto.getPath().trim();
         if (!path.startsWith("/")) {
             throw new IllegalArgumentException("Path must be absolute: " + path);
@@ -135,45 +135,10 @@ class SambaShareService {
 
         commandExecutor.execute(sessionId, LinuxCommands.mkdir(path));
 
-        String permissions = resolveDirectoryPermissions(dto);
+        String permissions = ShareDirectoryPolicy.permissions(dto);
         commandExecutor.execute(sessionId, LinuxCommands.chmod(permissions, path));
 
-        String owner = resolveOwner(dto);
-        if (owner != null && !owner.isBlank()) {
-            commandExecutor.execute(sessionId, LinuxCommands.chownRecursive(owner, path));
-        }
-    }
-
-    private String resolveDirectoryPermissions(SambaShareCreateDto dto) {
-        if (dto.getDirectoryMask() != null && !dto.getDirectoryMask().isBlank()) {
-            return dto.getDirectoryMask().trim();
-        }
-        if (dto.isGuestOk() && !dto.isReadOnly()) {
-            return "0777";
-        }
-        return dto.isReadOnly() ? "0755" : "0775";
-    }
-
-    private String resolveOwner(SambaShareCreateDto dto) {
-        String user = (dto.getForceUser() != null && !dto.getForceUser().isBlank())
-                ? dto.getForceUser().trim()
-                : null;
-        String group = (dto.getForceGroup() != null && !dto.getForceGroup().isBlank())
-                ? dto.getForceGroup().trim()
-                : null;
-
-        if (user == null && dto.getValidUsers() != null && !dto.getValidUsers().isBlank()) {
-            String firstUser = dto.getValidUsers().split(",")[0].trim();
-            if (!firstUser.startsWith("@")) {
-                user = firstUser;
-            } else if (group == null) {
-                group = firstUser.substring(1);
-            }
-        }
-
-        if (user != null && group != null) return user + ":" + group;
-        if (user != null) return user;
-        if (group != null) return ":" + group;
-        return null;
+        ShareDirectoryPolicy.owner(dto)
+                .ifPresent(owner -> commandExecutor.execute(sessionId, LinuxCommands.chownRecursive(owner, path)));
     }
 }
