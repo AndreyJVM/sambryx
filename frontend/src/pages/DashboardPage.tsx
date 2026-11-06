@@ -25,6 +25,7 @@ import { api } from "../lib/api";
 import { useToast } from "../components/ui/toast";
 import { useConfirm } from "../components/ui/confirm";
 import { useTranslation } from "../lib/i18n";
+import { ServerReadiness } from "../components/ServerReadiness";
 import { FileManager } from "../components/FileManager";
 
 interface DashboardData {
@@ -226,6 +227,8 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      <ServerReadiness />
 
       {dashboardError && (
         <div

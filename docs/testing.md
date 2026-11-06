@@ -302,3 +302,28 @@ SIGKILL и авария Docker-хоста могут помешать очист
 ```bash
 ./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify -Dit.test=ComposeModelIT
 ```
+
+## Ограниченный отчёт готовности сервера
+
+`ServerReadinessServiceTest` подменяет только `CommandExecutor`: проверяет успешные read-only
+вызовы без заявления полной готовности, отказы команд, отсутствие exit status и остановку
+после транспортного сбоя. Проверяются отсутствие чувствительного вывода и ограниченный
+набор команд. `ServerReadinessIntegrationTest` использует настоящий сервис и security filters
+с подменённым `SshSessionManager`: проверяются HTTP 401 и отчёт после успешного SSH-входа
+при отказе удалённых проверок.
+
+```bash
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B -Dfrontend.skip=true \
+  -Dtest=ServerReadinessServiceTest,ServerReadinessIntegrationTest test
+npm --prefix frontend run build
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B -f tools/browser/pom.xml \
+  verify -Dit.test=ServerReadinessIT
+```
+
+Браузерные JUnit/Playwright-сценарии подменяют HTTP API: проверяют отказ проверки после входа,
+следующее действие, недоступный/повреждённый отчёт, очистку старого результата и отсутствие
+изменений на сервере. Проверены ожидание и защита от двойного запуска; успешные проверки
+чтения сохраняют частичный статус. RU/EN-отчёты сохраняются в browser-artifacts на
+desktop/mobile в обеих темах. Mock SSH/API не доказывает работу настоящего
+Samba, sudoers или SMB. Рабочие серверы и реальные секреты для этих тестов не используются.
+Границы отчёта описаны в [настройке сервера](server-setup.md#проверка-готовности-после-входа).

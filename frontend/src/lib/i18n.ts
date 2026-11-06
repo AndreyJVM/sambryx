@@ -4,6 +4,23 @@ export type Language = "ru" | "en";
 
 export const translations = {
   en: {
+    readiness: {
+      title: "Server readiness", description: "SSH login does not confirm Samba readiness.",
+      run: "Check readiness", loading: "Checking readiness…",
+      error: "Readiness report unavailable. Retry; if it persists, check the SSH session and server access.",
+      partial: "Full readiness is not confirmed.",
+      PASSED: "Confirmed", FAILED: "Probe failed", UNKNOWN: "Not established",
+      checks: { tools: "Read-check utilities in SSH PATH", configRead: "Read configured smb.conf with sudo", configValidation: "Validate configured smb.conf as SSH user", accountsRead: "Read default Samba account database with sudo", administration: "Configuration writes, backups and service control" },
+      confirmed: "This read-only probe completed successfully. It does not confirm other operations.",
+      rejected: "The probe returned a failure. Missing tools, access restrictions or configuration errors cannot be distinguished here.",
+      unavailable: "No usable result was obtained. Remaining remote probes stop after a transport failure.",
+      unverified: "Read-only probes cannot establish permission to perform administrative changes. No changes were attempted.",
+      reviewTools: "Verify sudo, testparm, pdbedit and cat in the SSH account's PATH and sudo environment.",
+      reviewConfigRead: "Verify the configured file exists and the administrator can read it through non-interactive sudo.",
+      reviewConfig: "Have the server administrator check the configured file with testparm and review file and include access.",
+      reviewAccounts: "Verify non-interactive sudo access to pdbedit -L and the intended Samba account database.",
+      reviewAdministration: "Review sudo policy and operation prerequisites with the server administrator. Write, backup and service-control permissions remain unverified."
+    },
     diagnostics: {
       checks: { LOCAL_IDENTITY: "Local account", CONFIG: "Samba configuration", UNAVAILABLE: "Share availability", VALID_USERS: "valid users", INVALID_USERS: "invalid users", DIRECTORY: "Configured directory", NOT_DIRECTORY: "Configured directory", PATH: "Configured directory", LIMITS: "Report limits" },
       title: "Check access", description: "For a visible share that refuses to open. Read-only checks.",
@@ -362,6 +379,23 @@ export const translations = {
     }
   },
   ru: {
+    readiness: {
+      title: "Готовность сервера", description: "Вход по SSH не подтверждает готовность Samba.",
+      run: "Проверить готовность", loading: "Проверка готовности…",
+      error: "Отчёт готовности недоступен. Повторите проверку; при повторном отказе проверьте SSH-сессию и доступ к серверу.",
+      partial: "Полная готовность не подтверждена.",
+      PASSED: "Подтверждено", FAILED: "Проверка завершилась отказом", UNKNOWN: "Не установлено",
+      checks: { tools: "Утилиты проверки чтения в SSH PATH", configRead: "Чтение настроенного smb.conf через sudo", configValidation: "Проверка настроенного smb.conf от имени SSH-пользователя", accountsRead: "Чтение стандартной базы пользователей Samba через sudo", administration: "Запись конфигурации, backup и управление службами" },
+      confirmed: "Эта проверка чтения выполнена успешно. Другие операции этим не подтверждаются.",
+      rejected: "Команда проверки вернула отказ. Здесь нельзя различить отсутствие утилит, ограничение доступа и ошибку конфигурации.",
+      unavailable: "Пригодный результат не получен. После транспортного сбоя остальные удалённые проверки прекращаются.",
+      unverified: "Проверки чтения не подтверждают права на административные изменения. Попыток изменения не было.",
+      reviewTools: "Проверьте sudo, testparm, pdbedit и cat в PATH SSH-пользователя и окружении sudo.",
+      reviewConfigRead: "Проверьте наличие настроенного файла и право администратора читать его через sudo без интерактивного пароля.",
+      reviewConfig: "Попросите администратора сервера проверить настроенный файл через testparm и доступ к файлу и include.",
+      reviewAccounts: "Проверьте право выполнять pdbedit -L через sudo без интерактивного пароля и выбор базы пользователей Samba.",
+      reviewAdministration: "Сверьте sudo policy и требования нужных операций с администратором сервера. Права на запись, backup и управление службами остаются непроверенными."
+    },
     diagnostics: {
       checks: { LOCAL_IDENTITY: "Локальная учётная запись", CONFIG: "Конфигурация Samba", UNAVAILABLE: "Доступность ресурса", VALID_USERS: "valid users", INVALID_USERS: "invalid users", DIRECTORY: "Настроенный каталог", NOT_DIRECTORY: "Настроенный каталог", PATH: "Настроенный каталог", LIMITS: "Границы отчёта" },
       title: "Проверить доступ", description: "Ресурс виден, но не открывается. Проверки без изменений.",

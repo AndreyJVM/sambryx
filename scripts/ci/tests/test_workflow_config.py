@@ -47,3 +47,11 @@ class WorkflowConfigTest(unittest.TestCase):
         self.assertIn('tools/browser/target/browser-artifacts/', workflow)
         self.assertNotIn('npx playwright', workflow)
         self.assertNotIn('node frontend/tests/branding.mjs', workflow)
+
+    def test_browser_job_includes_every_non_branding_integration_class(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        block = re.search(r'\n  browser-smoke:\n(.*?)(?=\n  [a-z][a-z-]*:\n|\Z)', workflow, re.S).group(1)
+        selected = set(re.search(r'-Dit.test=([A-Za-z0-9_,]+)', block).group(1).split(','))
+        expected = {path.stem for path in (ROOT / 'tools/browser/src/test/java').rglob('*IT.java')}
+        expected.discard('BrandingIT')
+        self.assertEqual(selected, expected)
