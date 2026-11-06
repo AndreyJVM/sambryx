@@ -211,7 +211,7 @@ jobs:
           -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.classpathScope=test
           "-Dexec.args=install --with-deps chromium"
       - name: Run isolated browser smoke tests
-        run: bash ./mvnw -B -f tools/browser/pom.xml verify -Dit.test=BrowserSuiteIT
+        run: bash ./mvnw -B -f tools/browser/pom.xml verify -Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

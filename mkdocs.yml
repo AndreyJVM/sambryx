@@ -49,6 +49,7 @@ nav:
   - Подготовка сервера: server-setup.md
   - Рекомендации ФСТЭК: fstec.md
   - Проверка доступа к ресурсу: access-diagnostics.md
+  - Резервные копии конфигурации: configuration-backups.md
   - Веб- и SSH-сессии: sessions.md
   - Архитектура: architecture.md
   - Сборка и поставки: distribution.md

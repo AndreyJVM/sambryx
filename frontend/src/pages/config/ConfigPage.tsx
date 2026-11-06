@@ -42,8 +42,12 @@ export default function ConfigPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const backupCreationLock = useRef(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [backupCreationResult, setBackupCreationResult] = useState<boolean | null>(null);
   const restoreLock = useRef(false);
   const restoreResultRef = useRef<HTMLDivElement>(null);
+  const restoreProgressRef = useRef<HTMLParagraphElement>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<{ filename: string; success: boolean } | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -76,9 +80,13 @@ export default function ConfigPage() {
     if (!loading && restoreResult) restoreResultRef.current?.scrollIntoView({ block: "center" });
   }, [loading, restoreResult]);
 
+  useEffect(() => {
+    if (restoring) restoreProgressRef.current?.scrollIntoView({ block: "center" });
+  }, [restoring]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!config || restoreLock.current) return;
+    if (!config || restoreLock.current || backupCreationLock.current) return;
 
     try {
       setSaving(true);
@@ -94,7 +102,7 @@ export default function ConfigPage() {
   };
 
   const handleReset = async () => {
-    if (restoreLock.current) return;
+    if (restoreLock.current || backupCreationLock.current) return;
     const ok = await confirm({
       title: t("config.defaults"),
       message: t("config.resetWarning"),
@@ -129,8 +137,34 @@ export default function ConfigPage() {
     success("Restored", "Default values set. Save to apply.");
   };
 
+  const handleCreateBackup = async () => {
+    if (backupCreationLock.current || restoreLock.current || saving) return;
+    backupCreationLock.current = true;
+    setCreatingBackup(true);
+    setBackupCreationResult(null);
+    try {
+      try {
+        await api.post("/api/config/backups");
+      } catch {
+        setBackupCreationResult(false);
+        return;
+      }
+      setBackupCreationResult(true);
+      try {
+        const currentBackups = await api.get<Backup[]>("/api/config/backups");
+        setBackups(currentBackups || []);
+        setBackupError(false);
+      } catch {
+        setBackupError(true);
+      }
+    } finally {
+      setCreatingBackup(false);
+      backupCreationLock.current = false;
+    }
+  };
+
   const handleRestoreBackup = async (filename: string) => {
-    if (restoreLock.current || saving) return;
+    if (restoreLock.current || backupCreationLock.current || saving) return;
     restoreLock.current = true;
     try {
       const ok = await confirm({
@@ -178,13 +212,12 @@ export default function ConfigPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
         <div><div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-text-muted"><Settings2 className="h-3.5 w-3.5" />smb.conf</div><h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("config.title")}</h1><p className="mt-2 text-sm text-text-muted">{t("config.subtitle")}</p></div>
         <div className="flex gap-2">
-          <button onClick={handleReset} disabled={!!restoring || saving} type="button" className="disabled:opacity-50 text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
+          <button onClick={handleReset} disabled={!!restoring || saving || creatingBackup} type="button" className="disabled:opacity-50 text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
             <RotateCcw className="w-4 h-4" /> {t("config.defaults")}
           </button>
         </div>
       </div>
       {loadError && <div role="alert" className="shares-error"><AlertTriangle className="h-5 w-5 shrink-0" /><div><p>{t("config.staleData")}</p><p className="mt-1 text-sm text-text-muted">{loadError}</p></div></div>}
-      {backupError && <p role="status" className="config-note">{t("config.backupError")}</p>}
 
       <form onSubmit={handleSave} className="config-form space-y-8">
         
@@ -355,7 +388,7 @@ export default function ConfigPage() {
         )}
 
         {restoring && (
-          <p role="status" aria-live="polite" aria-busy="true" className="config-note break-words">
+          <p ref={restoreProgressRef} role="status" aria-live="polite" aria-busy="true" className="config-note break-words">
             {t("config.restoring").replace("{filename}", restoring)}
           </p>
         )}
@@ -366,13 +399,24 @@ export default function ConfigPage() {
             <p className="text-sm text-text-muted mt-2">{t(restoreResult.success ? "config.restoreSuccessDetail" : "config.restoreErrorDetail")}</p>
           </div>
         )}
-        {backups.length > 0 && (
-          <div className="bg-surface rounded-lg border border-border overflow-hidden">
-             <div className="bg-surface-2 px-5 py-3 border-b border-border flex items-center gap-2">
-               <h2 className="text-[13px] font-semibold tracking-wide uppercase text-text-muted">{t("config.backups")}</h2>
+        <section aria-labelledby="config-backups-title" className="bg-surface rounded-lg border border-border overflow-hidden">
+             <div className="bg-surface-2 px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
+               <h2 id="config-backups-title" className="text-[13px] font-semibold tracking-wide uppercase text-text-muted">{t("config.backups")}</h2>
+               <button type="button" onClick={() => void handleCreateBackup()} disabled={creatingBackup || !!restoring || saving}
+                 className="text-sm font-medium bg-surface border border-border-strong px-4 py-2 rounded-md disabled:opacity-50">
+                 {t(creatingBackup ? "config.creatingBackup" : "config.createBackup")}
+               </button>
              </div>
              <div className="p-5">
                 <p className="text-sm text-text-muted mb-4">{t("config.backupsDesc")}</p>
+                <p className="text-sm text-text-muted mb-4">{t("config.backupScope")}</p>
+                {backupCreationResult !== null && (
+                  <p role={backupCreationResult ? "status" : "alert"} className="config-note mb-4" aria-live="polite">
+                    {t(backupCreationResult ? "config.backupCreated" : "config.backupCreationFailed")}
+                  </p>
+                )}
+                {backupError && <p role="status" className="config-note mb-4">{t("config.backupError")}</p>}
+                {!backupError && backups.length === 0 && <p className="text-sm text-text-muted">{t("config.noBackups")}</p>}
                 <div className="grid grid-cols-1 gap-3 select-none">
                   {backups.map((bkp) => (
                     <div key={bkp.filename} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-border rounded-md bg-surface-2 hover:border-border-strong transition-colors group">
@@ -387,7 +431,7 @@ export default function ConfigPage() {
                       </div>
                       <button 
                         type="button"
-                        disabled={!!restoring || saving}
+                        disabled={!!restoring || saving || creatingBackup}
                         onClick={() => handleRestoreBackup(bkp.filename)}
                         aria-label={`${t("config.restore")}: ${bkp.filename}`}
                         className="disabled:opacity-50 text-xs font-medium bg-surface text-foreground hover:bg-surface-2 py-1.5 px-3 rounded-md transition-colors border border-border-strong flex gap-1.5 items-center shrink-0"
@@ -399,14 +443,13 @@ export default function ConfigPage() {
                   ))}
                 </div>
              </div>
-          </div>
-        )}
+        </section>
 
         <div className="config-save-bar flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-border">
           <p className="text-xs text-text-muted">{t("config.saveHint")}</p>
           <button 
             type="submit" 
-            disabled={saving || !!restoring}
+            disabled={saving || !!restoring || creatingBackup}
             className="text-sm font-medium text-on-accent bg-accent px-6 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {saving ? t("config.saving") : t("config.applyConfig")}

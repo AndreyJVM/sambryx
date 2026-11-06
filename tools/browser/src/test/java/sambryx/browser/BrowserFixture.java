@@ -2,33 +2,30 @@ package sambryx.browser;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.microsoft.playwright.*;
-import com.microsoft.playwright.options.*;
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Tracing;
+import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.ColorScheme;
+import com.microsoft.playwright.options.ServiceWorkerPolicy;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 final class BrowserFixture implements AutoCloseable {
-    record Variant(String theme, boolean mobile) {
-        String label() {
-            return (mobile ? "mobile-" : "desktop-") + theme;
-        }
-    }
-
     final BrowserContext context;
     final Page page;
     final BrowserState app;
-    final Variant variant;
+    final BrowserVariant variant;
     final Path output;
     boolean failed;
 
-    BrowserFixture(Browser browser, String origin, Variant variant, BrowserCase scenario) {
+    BrowserFixture(Browser browser, String origin, BrowserVariant variant, String name, String language) {
         this.variant = variant;
-        output = Path.of(
-                "target",
-                "browser-artifacts",
-                scenario.name().replaceAll("[^a-zA-Z0-9-]", "-") + "-" + variant.label());
+        output = Path.of("target", "browser-artifacts", name.replaceAll("[^a-zA-Z0-9-]", "-") + "-" + variant.label());
         try {
             Files.createDirectories(output);
         } catch (IOException error) {
@@ -47,7 +44,7 @@ final class BrowserFixture implements AutoCloseable {
         app = new BrowserState(origin);
         context.onPage(p -> p.onPageError(app.browserErrors::add));
         context.addInitScript("if (location.origin === '" + origin + "') { localStorage.setItem('samba_lang','"
-                + scenario.language() + "'); if(!localStorage.getItem('theme')) localStorage.setItem('theme','"
+                + language + "'); if(!localStorage.getItem('theme')) localStorage.setItem('theme','"
                 + variant.theme() + "'); }");
         context.route("**/*", app::route);
         context.tracing()

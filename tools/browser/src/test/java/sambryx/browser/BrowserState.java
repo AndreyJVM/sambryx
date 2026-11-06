@@ -15,7 +15,13 @@ final class BrowserState {
     record Call(String method, String path, URI url, JsonNode body, Map<String, String> headers) {}
 
     static final ObjectMapper JSON = new ObjectMapper();
-    boolean authenticated = true, renewalDenied, loginFailure, loginRejected, failShares, failDashboard, failConfig;
+    boolean authenticated = true;
+    boolean renewalDenied;
+    boolean loginFailure;
+    boolean loginRejected;
+    boolean failShares;
+    boolean failDashboard;
+    boolean failConfig;
     long sessionRemaining = 15 * 60_000;
     String workgroup = "TEAM";
     final List<Call> requests = new ArrayList<>();
@@ -261,9 +267,8 @@ final class BrowserState {
         }
         workgroup = "RESTORED";
         ((com.fasterxml.jackson.databind.node.ArrayNode) backups)
-                .add(
-                        json(
-                                "{\"filename\":\"smb.conf.backup_20261025_140000\",\"createdAt\":\"2026-10-25 14:00:00\",\"size\":\"2 KB\"}"));
+                .add(JSON.valueToTree(
+                        new BackupEntry("smb.conf.backup_20261025_140000", "2026-10-25 14:00:00", "2 KB")));
         reply(route, null);
     }
 

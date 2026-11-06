@@ -66,7 +66,7 @@ cd ..
 загрузки и устаревшие данные, вложенные диалоги, отмену опасных действий и блокировку
 кнопок управления при недоступных данных Dashboard.
 
-Сценарии `backup-restore.spec.mjs` проверяют выбранный файл и последствия в подтверждении,
+Сценарии `ConfigurationBackupIT` проверяют выбранный файл и последствия в подтверждении,
 Cancel/Escape без mutation, pending без повторной отправки и конфликтующего сохранения,
 успех с перечитыванием формы и списка копий, ошибку перечитывания после успешного restore,
 отказ проверки, ошибку restart и потерю ответа. Снимки подтверждения, pending и результата
@@ -92,11 +92,13 @@ tests и отдельная Production Compose Smoke с реальными TLS/S
 После сборки можно запустить только одну группу, например backup/restore:
 
 ```bash
-./mvnw -B -f tools/browser/pom.xml verify '-Dit.test=BrowserSuiteIT#backups'
+./mvnw -B -f tools/browser/pom.xml verify '-Dit.test=ConfigurationBackupIT,BackupCreationIT'
 ```
 
-Группы `workspace`, `sessions`, `backups` и `access` выполняют свои сценарии во всех четырёх
-конфигурациях. Только проверка логотипов: `-Dit.test=BrandingIT`.
+JUnit-классы `WorkspaceIT`, `AdministratorSessionIT`, `ConfigurationBackupIT`,
+`BackupCreationIT` и `ShareAccessIT` содержат обычные параметризованные тесты
+с вариантами из `BrowserVariant`. Каждый тест получает отдельный browser context;
+общий `BrowserTestRuntime` отвечает только за запуск, диагностику и освобождение ресурсов. Только проверка логотипов: `-Dit.test=BrandingIT`.
 Полный набор ограничен таймаутом JVM в пять минут; автоматических retry нет.
 Используйте ожидания Playwright по состоянию интерфейса вместо `sleep`.
 

@@ -42,7 +42,7 @@ class WorkflowConfigTest(unittest.TestCase):
 
     def test_browser_jobs_run_java_playwright_and_publish_java_diagnostics(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        self.assertIn('-Dit.test=BrowserSuiteIT', workflow)
+        self.assertIn('-Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT', workflow)
         self.assertIn('-Dit.test=BrandingIT', workflow)
         self.assertIn('tools/browser/target/browser-artifacts/', workflow)
         self.assertNotIn('npx playwright', workflow)
