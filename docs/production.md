@@ -63,7 +63,7 @@ id -g
 
 Поместите сертификат и ключ в выбранные файлы и отредактируйте `.env`.
 Список опубликованных версий есть в [Releases](https://github.com/AndreyJVM/sambryx/releases);
-например, для версии `v0.12.0` тег образа — `andreyvorobevaqa/sambryx:0.12.0`.
+например, для версии `v0.15.0` тег образа — `andreyvorobevaqa/sambryx:0.15.0`.
 Не оставляйте `REPLACE_WITH_RELEASE_TAG` и не используйте `latest`.
 Подготовьте `SSH_KNOWN_HOSTS_FILE` по [инструкции доверия](ssh-host-keys.md#obtain-trusted-key)
 до запуска: файл должен существовать и читаться UID 10001.
