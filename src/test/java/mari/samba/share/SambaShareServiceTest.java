@@ -37,7 +37,7 @@ class SambaShareServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"0700", "0755", "0770", "0777"})
-    void explicitDirectoryPresetIsUsedForChmodWithoutUsingFileMask(String directoryMask) {
+    void directoryMaskIsOnlyUsedInSambaConfiguration(String directoryMask) {
         SambaShareCreateDto dto = SambaShareCreateDto.builder()
                 .name("team")
                 .path("/srv/team")
@@ -50,12 +50,12 @@ class SambaShareServiceTest {
 
         shareService.createShare(SESSION_ID, dto);
 
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.chmod(directoryMask, "/srv/team"));
-        verify(commandExecutor, never()).execute(SESSION_ID, LinuxCommands.chmod("0644", "/srv/team"));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.mkdir("/srv/team"));
+        verifyNoMoreInteractions(commandExecutor);
     }
 
     @Test
-    void createShare_ShouldCreateDirectoryAndSetPermissions() throws Exception {
+    void createShareEnsuresDirectoryWithoutChangingPermissions() throws Exception {
         // Arrange
         SambaShareCreateDto dto = SambaShareCreateDto.builder()
                 .name("testShare")
@@ -78,8 +78,7 @@ class SambaShareServiceTest {
         // Assert
         verify(fileSystemService).requireAllowedPath("/srv/samba/test");
         verify(commandExecutor).execute(SESSION_ID, LinuxCommands.mkdir("/srv/samba/test"));
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.chmod("0775", "/srv/samba/test"));
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.chownRecursive("samba-admin", "/srv/samba/test"));
+        verifyNoMoreInteractions(commandExecutor);
 
         verify(configService).updateSmbConf(SESSION_ID, "\n[testShare]\n  path = /srv/samba/test\n");
     }

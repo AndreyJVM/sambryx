@@ -3,11 +3,15 @@ package mari.samba.share;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Map;
 import mari.samba.core.SambaCommandException;
 import mari.samba.filesystem.FileSystemService;
 import mari.samba.infra.CommandExecutor;
@@ -16,12 +20,10 @@ import mari.samba.smbconfig.SambaConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -47,42 +49,14 @@ class ShareDirectoryBehaviorTest {
     }
 
     @ParameterizedTest
-    @CsvSource(
-            value = {
-                "true,false,NULL,0755",
-                "true,true,NULL,0755",
-                "false,false,NULL,0775",
-                "false,true,NULL,0777",
-                "false,true,' 0770 ',0770",
-                "true,false,'',0755"
-            },
-            nullValues = "NULL")
-    void preservesPermissionSelectionAndPersistsConfiguration(
-            boolean readOnly, boolean guest, String mask, String expected) {
+    @CsvSource({"alice,smb_team,bob", ",smb_team,@other", ",,@smb_team", ",,bob", ",,"})
+    void editingSambaOptionsDoesNotChangeFilesystemPermissions(
+            String forcedUser, String forcedGroup, String validUsers) {
         var request = SambaShareCreateDto.builder()
-                .name("team")
-                .path(PATH)
-                .readOnly(readOnly)
-                .guestOk(guest)
-                .directoryMask(mask)
-                .createMask("0600")
-                .build();
-        prepareConfigurationUpdate();
-
-        service.updateShare(SESSION, "team", request);
-
-        verify(commands).execute(SESSION, LinuxCommands.chmod(expected, PATH));
-        verify(config).updateSmbConf(SESSION, "remaining\n[team]");
-    }
-
-    @ParameterizedTest
-    @MethodSource("ownershipCases")
-    void preservesOwnerPrecedenceAndRecursiveOwnership(
-            String forcedUser, String forcedGroup, String validUsers, String expectedOwner) {
-        var request = SambaShareCreateDto.builder()
-                .name("team")
-                .path(PATH)
-                .readOnly(false)
+                .name("different")
+                .path(" " + PATH + " ")
+                .comment("Updated comment")
+                .directoryMask("0770")
                 .forceUser(forcedUser)
                 .forceGroup(forcedGroup)
                 .validUsers(validUsers)
@@ -91,120 +65,108 @@ class ShareDirectoryBehaviorTest {
 
         service.updateShare(SESSION, "team", request);
 
-        var executed = ArgumentCaptor.forClass(String.class);
-        verify(commands, times(expectedOwner == null ? 2 : 3)).execute(eq(SESSION), executed.capture());
-        var expectedCommands =
-                new java.util.ArrayList<>(List.of(LinuxCommands.mkdir(PATH), LinuxCommands.chmod("0775", PATH)));
-        if (expectedOwner != null) expectedCommands.add(LinuxCommands.chownRecursive(expectedOwner, PATH));
-        assertThat(executed.getAllValues()).containsExactlyElementsOf(expectedCommands);
-        verify(config).updateSmbConf(SESSION, "remaining\n[team]");
-    }
-
-    static Stream<Arguments> ownershipCases() {
-        return Stream.of(
-                Arguments.of(" alice ", " smb_team ", "bob", "alice:smb_team"),
-                Arguments.of("alice", null, "@smb_team", "alice"),
-                Arguments.of(null, "smb_team", "bob, alice", "bob:smb_team"),
-                Arguments.of(null, "smb_team", "@other", ":smb_team"),
-                Arguments.of(null, null, "@smb_team, alice", ":smb_team"),
-                Arguments.of(null, null, " bob , alice", "bob"),
-                Arguments.of(" ", " ", " ", null),
-                Arguments.of(null, "smb_team", null, ":smb_team"),
-                Arguments.of(null, null, null, null));
-    }
-
-    @Test
-    void preparesDirectoryBeforeChangingConfigurationAndKeepsTheExistingShareName() {
-        var request = SambaShareCreateDto.builder()
-                .name("different")
-                .path(" " + PATH + " ")
-                .directoryMask("0770")
-                .forceUser("alice")
-                .readOnly(false)
-                .build();
-        prepareConfigurationUpdate();
-
-        service.updateShare(SESSION, "team", request);
-
         var order = inOrder(filesystem, commands, config);
         order.verify(filesystem).requireAllowedPath(PATH);
         order.verify(commands).execute(SESSION, LinuxCommands.mkdir(PATH));
-        order.verify(commands).execute(SESSION, LinuxCommands.chmod("0770", PATH));
-        order.verify(commands).execute(SESSION, LinuxCommands.chownRecursive("alice", PATH));
         order.verify(config).getSmbConfContent(SESSION);
         order.verify(config).removeShareSection("current", "team");
         order.verify(config).buildShareSection(request.withName("team"));
         order.verify(config).updateSmbConf(SESSION, "remaining\n[team]");
-    }
-
-    enum Failure {
-        PATH,
-        MKDIR,
-        CHMOD,
-        CHOWN
+        verifyNoMoreInteractions(commands);
     }
 
     @ParameterizedTest
-    @EnumSource(Failure.class)
-    void directoryFailureStopsLaterCommandsAndConfigurationUpdate(Failure step) {
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void preparationFailureStopsConfigurationChanges(boolean deniedPath, boolean createShare) {
         var failure = new SambaCommandException("Synthetic directory failure");
+        var request = SambaShareCreateDto.builder().name("team").path(PATH).build();
+        if (deniedPath) doThrow(failure).when(filesystem).requireAllowedPath(PATH);
+        else when(commands.execute(SESSION, LinuxCommands.mkdir(PATH))).thenThrow(failure);
+
+        assertThatThrownBy(() -> {
+                    if (createShare) service.createShare(SESSION, request);
+                    else service.updateShare(SESSION, "team", request);
+                })
+                .isSameAs(failure);
+
+        if (deniedPath) verifyNoInteractions(commands);
+        else {
+            verify(commands).execute(SESSION, LinuxCommands.mkdir(PATH));
+            verifyNoMoreInteractions(commands);
+        }
+        if (createShare) {
+            verify(config).getSmbConfContent(SESSION);
+            verify(config).parseShares(null);
+            verifyNoMoreInteractions(config);
+        } else verifyNoInteractions(config);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void savingExistingTreePreservesContentsModesAndOwners(boolean createShare, @TempDir Path temporary)
+            throws Exception {
+        var target = Files.createDirectory(temporary.resolve("other-existing"));
+        var child = Files.createDirectory(target.resolve("nested"));
+        var file = Files.writeString(child.resolve("document"), "Original content");
+        Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rwx------"));
+        var before = new HashMap<Path, Map<String, Object>>();
+        for (var path : List.of(target, child, file)) {
+            before.put(path, Files.readAttributes(path, "unix:mode,uid,gid"));
+        }
         var request = SambaShareCreateDto.builder()
                 .name("team")
-                .path(PATH)
+                .path(target.toString())
+                .comment("Updated comment")
+                .directoryMask("0777")
                 .forceUser("alice")
-                .readOnly(false)
+                .forceGroup("smb_team")
+                .validUsers("bob")
                 .build();
-        if (step == Failure.PATH) doThrow(failure).when(filesystem).requireAllowedPath(PATH);
+        when(commands.execute(eq(SESSION), anyString())).thenAnswer(call -> {
+            String command = call.getArgument(1);
+            assertThat(command).isEqualTo(LinuxCommands.mkdir(target.toString()));
+            var process = new ProcessBuilder("/bin/sh", "-c", command.substring("sudo ".length()))
+                    .redirectErrorStream(true)
+                    .start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(process.waitFor()).as(output).isZero();
+            return output;
+        });
+        when(config.getSmbConfContent(SESSION)).thenReturn("current");
+        when(config.buildShareSection(any())).thenReturn("[team]");
+        if (createShare) service.createShare(SESSION, request);
         else {
-            String rejectedCommand =
-                    switch (step) {
-                        case MKDIR -> LinuxCommands.mkdir(PATH);
-                        case CHMOD -> LinuxCommands.chmod("0775", PATH);
-                        case CHOWN -> LinuxCommands.chownRecursive("alice", PATH);
-                        default -> throw new AssertionError("Unexpected stage");
-                    };
-            when(commands.execute(eq(SESSION), anyString())).thenAnswer(call -> {
-                if (rejectedCommand.equals(call.getArgument(1))) throw failure;
-                return "";
-            });
+            when(config.removeShareSection("current", "team")).thenReturn("remaining");
+            service.updateShare(SESSION, "team", request);
         }
 
-        assertThatThrownBy(() -> service.updateShare(SESSION, "team", request)).isSameAs(failure);
-
-        var executed = ArgumentCaptor.forClass(String.class);
-        int count =
-                switch (step) {
-                    case PATH -> 0;
-                    case MKDIR -> 1;
-                    case CHMOD -> 2;
-                    case CHOWN -> 3;
-                };
-        if (count == 0) verifyNoInteractions(commands);
-        else {
-            verify(commands, times(count)).execute(eq(SESSION), executed.capture());
-            assertThat(executed.getAllValues())
-                    .containsExactlyElementsOf(List.of(
-                                    LinuxCommands.mkdir(PATH),
-                                    LinuxCommands.chmod("0775", PATH),
-                                    LinuxCommands.chownRecursive("alice", PATH))
-                            .subList(0, count));
+        assertThat(Files.readString(file)).isEqualTo("Original content");
+        for (var path : before.keySet()) {
+            assertThat(Files.readAttributes(path, "unix:mode,uid,gid")).isEqualTo(before.get(path));
         }
-        verifyNoInteractions(config);
+        verify(commands).execute(SESSION, LinuxCommands.mkdir(target.toString()));
+        verifyNoMoreInteractions(commands);
     }
 
     @Test
-    void invalidMaskStillFailsAfterMkdirWithoutPersistingConfiguration() {
+    void selectingMissingPathCreatesDirectoryWithoutPermissionCommands(@TempDir Path temporary) throws Exception {
+        var target = temporary.resolve("new-parent/new-share");
         var request = SambaShareCreateDto.builder()
                 .name("team")
-                .path(PATH)
-                .directoryMask("invalid")
+                .path(target.toString())
                 .build();
+        prepareConfigurationUpdate();
+        when(commands.execute(SESSION, LinuxCommands.mkdir(target.toString()))).thenAnswer(call -> {
+            var process = new ProcessBuilder("mkdir", "-p", "--", target.toString()).start();
+            assertThat(process.waitFor()).isZero();
+            return "";
+        });
 
-        assertThatThrownBy(() -> service.updateShare(SESSION, "team", request)).isInstanceOf(SecurityException.class);
+        service.updateShare(SESSION, "team", request);
 
-        verify(commands).execute(SESSION, LinuxCommands.mkdir(PATH));
+        assertThat(target).isDirectory();
+        verify(commands).execute(SESSION, LinuxCommands.mkdir(target.toString()));
         verifyNoMoreInteractions(commands);
-        verifyNoInteractions(config);
     }
 
     private void prepareConfigurationUpdate() {

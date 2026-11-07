@@ -134,11 +134,5 @@ class SambaShareService {
         fileSystemService.requireAllowedPath(path);
 
         commandExecutor.execute(sessionId, LinuxCommands.mkdir(path));
-
-        String permissions = ShareDirectoryPolicy.permissions(dto);
-        commandExecutor.execute(sessionId, LinuxCommands.chmod(permissions, path));
-
-        ShareDirectoryPolicy.owner(dto)
-                .ifPresent(owner -> commandExecutor.execute(sessionId, LinuxCommands.chownRecursive(owner, path)));
     }
 }
