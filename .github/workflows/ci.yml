@@ -263,6 +263,11 @@ jobs:
       - name: Build standalone Samba and SSH node
         run: docker build --tag sambryx-samba-node:ubuntu24.04 deploy/production/samba
 
+      - name: Verify backup with non-root SSH and generated sudo policy
+        run: >-
+          bash ./mvnw -B test -Dfrontend.skip=true -Dfrontend.copy.skip=true
+          -Dtest=BackupSshIT -Dbackup.ssh.image=sambryx-samba-node:ubuntu24.04
+
       - name: Verify TLS, SSH, SMB and persistence
         run: >-
           bash ./mvnw -B -f tools/smoke/pom.xml -Pproduction-smoke verify

@@ -36,7 +36,7 @@ class BackupCollisionTest {
         backups = Files.createDirectory(temporary.resolve("backup dir's"));
         bin = Files.createDirectory(temporary.resolve("bin"));
         restart = temporary.resolve("restarted");
-        stub("sudo", "exec \"$@\"");
+        stub("sudo", "if [ \"$1\" = -n ]; then shift; fi; exec \"$@\"");
         stub("testparm", "exit 0");
         stub("systemctl", "touch '" + restart + "'");
         executor = mock(CommandExecutor.class);
@@ -54,6 +54,36 @@ class BackupCollisionTest {
     @AfterEach
     void closeTime() {
         time.close();
+    }
+
+    @Test
+    void createsBackupWhenSudoRejectsPrivilegedShells() throws Exception {
+        stub(
+                "sudo",
+                """
+                if [ "$1" = -n ]; then shift; fi
+                case "$1" in
+                  bash|sh|/bin/bash|/bin/sh) exit 77 ;;
+                esac
+                exec "$@"
+                """);
+
+        service.createBackup("session");
+
+        assertThat(Files.readString(backup())).isEqualTo("current");
+        assertThat(Files.readString(config)).isEqualTo("current");
+        assertThat(restart).doesNotExist();
+    }
+
+    @Test
+    void cleanupFailureIsReportedEvenWhenTheBackupWasAlreadyPublished() throws Exception {
+        stub("rm", "exit 29");
+
+        assertThatThrownBy(() -> run(LinuxCommands.createBackup(config.toString(), backup().toString())))
+                .isInstanceOf(SambaCommandException.class);
+
+        assertThat(Files.readString(backup())).isEqualTo("current");
+        assertThat(Files.readString(config)).isEqualTo("current");
     }
 
     @Test

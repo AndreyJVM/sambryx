@@ -143,22 +143,22 @@ public final class LinuxCommands {
         String safeBase = escape(requireValidPath(basePath));
         String script = String.join(
                 " ",
-                "staged=$(mktemp "
+                "staged=$(sudo -n mktemp "
                         + escape(requireValidPath(
                                 basePath.substring(0, basePath.lastIndexOf('/')) + "/.smb.conf.staging.XXXXXX"))
                         + ") || exit 1;",
-                "trap 'rm -f -- \"$staged\"' EXIT;",
-                "cp -- " + safeSource + " \"$staged\" || exit 1;",
+                "trap 'sudo -n rm -f -- \"$staged\" || exit 1' EXIT;",
+                "sudo -n cp -- " + safeSource + " \"$staged\" || exit 1;",
                 "base=" + safeBase + ";",
                 "for ((attempt=0; attempt<100; attempt++)); do",
                 "candidate=$base;",
                 "if ((attempt>0)); then candidate=${base}_$attempt; fi;",
                 "if [ -e \"$candidate\" ] || [ -L \"$candidate\" ]; then continue; fi;",
-                "ln -T -- \"$staged\" \"$candidate\" || exit 1;",
+                "sudo -n ln -T -- \"$staged\" \"$candidate\" || exit 1;",
                 "printf '%s\\n' \"$candidate\"; exit 0;",
                 "done;",
                 "echo 'Backup name attempts exhausted.' >&2; exit 1;");
-        return "sudo bash -c " + escape(script);
+        return "bash -c " + escape(script);
     }
 
     public static String copyRecursive(String source, String destination) {

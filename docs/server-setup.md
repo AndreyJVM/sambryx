@@ -53,7 +53,7 @@ production-профиль. Неограниченные аргументы `tee`
 Пример записывается в одну строку:
 
 ```shell
-samba-admin ALL=(ALL) NOPASSWD: /usr/sbin/useradd, /sbin/useradd, /usr/sbin/userdel, /sbin/userdel, /usr/sbin/chpasswd, /usr/bin/chpasswd, /usr/sbin/groupadd, /sbin/groupadd, /usr/sbin/groupdel, /sbin/groupdel, /usr/bin/gpasswd, /usr/bin/smbpasswd, /usr/bin/pdbedit, /bin/systemctl, /usr/bin/systemctl, /bin/cat, /usr/bin/cat, /bin/mv, /usr/bin/mv, /bin/cp, /usr/bin/cp, /bin/rm, /usr/bin/rm, /bin/mkdir, /usr/bin/mkdir, /bin/chmod, /usr/bin/chmod, /bin/chown, /usr/bin/chown, /usr/bin/smbstatus, /usr/bin/du, /usr/bin/df, /usr/bin/find, /usr/bin/tail, /bin/kill, /usr/bin/kill, /usr/bin/net, /usr/bin/tee, /usr/bin/testparm
+samba-admin ALL=(ALL) NOPASSWD: /usr/sbin/useradd, /sbin/useradd, /usr/sbin/userdel, /sbin/userdel, /usr/sbin/chpasswd, /usr/bin/chpasswd, /usr/sbin/groupadd, /sbin/groupadd, /usr/sbin/groupdel, /sbin/groupdel, /usr/bin/gpasswd, /usr/bin/smbpasswd, /usr/bin/pdbedit, /bin/systemctl, /usr/bin/systemctl, /bin/cat, /usr/bin/cat, /bin/mv, /usr/bin/mv, /bin/cp, /usr/bin/cp, /bin/rm, /usr/bin/rm, /bin/mkdir, /usr/bin/mkdir, /bin/chmod, /usr/bin/chmod, /bin/chown, /usr/bin/chown, /usr/bin/smbstatus, /usr/bin/du, /usr/bin/df, /usr/bin/find, /usr/bin/tail, /bin/kill, /usr/bin/kill, /usr/bin/net, /usr/bin/tee, /usr/bin/testparm, /usr/bin/mktemp, /usr/bin/ln
 ```
 *(Примечание: Список команд расширен для поддержки новых функций: мониторинг логов (`tail`), дискового пространства (`du`, `df`), проверка конфигурации (`testparm`) и ввод в домен AD (`net`, `tee`))*
 
@@ -62,6 +62,24 @@ samba-admin ALL=(ALL) NOPASSWD: /usr/sbin/useradd, /sbin/useradd, /usr/sbin/user
 ```shell
 sudo chmod 0440 /etc/sudoers.d/sambryx
 ```
+
+## Права для резервных копий
+
+Создание копии использует обычный Bash под SSH-пользователем и отдельные вызовы
+`sudo -n mktemp`, `sudo -n cp`, `sudo -n ln`, `sudo -n rm`.
+Создание каталога использует `sudo mkdir`. Права на запуск `sudo bash`, `sudo sh`
+или `sudo ALL` для этой операции не требуются. `-n` запрещает интерактивное ожидание пароля.
+
+Для существующей установки администратору нужно согласовать разрешения `mktemp` и `ln`
+в дополнение к уже используемым файловым командам. Проверяйте реальные абсолютные пути
+утилит и доступ к настроенному каталогу backup; сам каталог не следует делать доступным
+для записи посторонним пользователям. Пример выше разрешает команды без ограничения
+аргументов и не является минимальным профилем безопасности.
+
+Setup-скрипт включает эти команды для новых стендов. Не запускайте весь setup-скрипт
+на рабочем сервере только ради обновления sudoers: он также устанавливает пакеты.
+Исправленный backend и policy должны применяться совместно; существующие контейнеры
+и sudoers автоматически не обновляются.
 
 ## Проверка готовности после входа {#server-readiness}
 

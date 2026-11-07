@@ -321,3 +321,24 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B -f tools/browser/pom.xml 
 desktop/mobile в обеих темах. Mock SSH/API не доказывает работу настоящего
 Samba, sudoers или SMB. Рабочие серверы и реальные секреты для этих тестов не используются.
 Границы отчёта описаны в [настройке сервера](server-setup.md#server-readiness).
+
+## Backup через непривилегированную SSH-сессию
+
+`BackupSshIT` запускается явно и входит в Production Compose Smoke job после сборки
+Samba-образа. Он создаёт собственный контейнер и синтетического пользователя `admin`,
+получает доверенный host key через Docker-консоль и подключается настоящим SSH с новым ключом.
+Root-shell через sudo запрещён. Проверяются создание и чтение списка копий, сохранность
+предыдущей копии и конфигурации, отказ копирования и очистка временного файла.
+
+```bash
+docker build -t sambryx-samba-node:ubuntu24.04 deploy/production/samba
+./mvnw -B test -Dfrontend.skip=true -Dtest=BackupSshIT \
+  -Dbackup.ssh.image=sambryx-samba-node:ubuntu24.04
+```
+
+Sudoers формируется настоящим `scripts/setup-samba-server.sh` внутри одноразового контейнера.
+Вызовы установки пакетов в тесте подменены: проверяется создание policy, а не доступность
+репозиториев ОС. SSH, sudo и файловые команды не подменяются. Тест не меняет работающий
+Sandbox, не проверяет полную production sudo policy, восстановление или веб-интерфейс.
+Локальные shell-тесты `BackupCollisionTest` отдельно проверяют коллизии одного timestamp,
+ошибки утилит, исчерпание имён, символические ссылки и отказ очистки после публикации.

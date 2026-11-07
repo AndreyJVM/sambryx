@@ -1,0 +1,214 @@
+package mari.samba.smbconfig;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import mari.samba.auth.ConnectionRequestDto;
+import mari.samba.config.SambaProperties;
+import mari.samba.core.SambaCommandException;
+import mari.samba.infra.SmbConfParser;
+import mari.samba.infra.SshSessionManager;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/** Explicit Docker/SSH test; run with -Dtest=BackupSshIT and a prepared sandbox image. */
+class BackupSshIT {
+    private static final String ROOT = "/srv/backup-it";
+    private static final String BACKUPS = ROOT + "/backups";
+    private static final String CONFIG = ROOT + "/smb.conf";
+    private static final String SESSION = "backup-ssh-fixture";
+
+    @TempDir
+    Path directory;
+
+    private SshSessionManager ssh;
+    private SambaConfigService service;
+
+    @Test
+    void createsListsAndPreservesBackupsOverSshWithoutPrivilegedShell() throws Exception {
+        String image = System.getProperty("backup.ssh.image", "");
+        assertThat(image)
+                .as("Set backup.ssh.image to a locally prepared sandbox image")
+                .isNotBlank();
+        String container = "sambryx-backup-it-" + UUID.randomUUID();
+        try {
+            startContainer(container, image);
+            prepareServer(container);
+            connect(container);
+
+            assertThat(ssh.executeCommand(SESSION, "sudo -n bash -c 'exit 0'").exitCode())
+                    .isNotZero();
+            assertThat(ssh.execute(SESSION, "id -u").trim()).isNotEqualTo("0");
+            verifySnapshots(container);
+            verifyDeniedCopy(container);
+
+        } finally {
+            if (ssh != null) ssh.disconnect(SESSION);
+            command(List.of("docker", "rm", "--force", container), "");
+        }
+    }
+
+    private void startContainer(String container, String image) throws Exception {
+        command(
+                List.of(
+                        "docker",
+                        "run",
+                        "--detach",
+                        "--name",
+                        container,
+                        "--publish",
+                        "127.0.0.1::22",
+                        "--entrypoint",
+                        "/bin/sh",
+                        image,
+                        "-c",
+                        "mkdir -p /run/sshd && ssh-keygen -A && exec /usr/sbin/sshd -D -e"),
+                "");
+    }
+
+    private void connect(String container) throws Exception {
+        await().atMost(Duration.ofSeconds(15))
+                .untilAsserted(() -> assertThat(exec(container, "", "cat", "/etc/ssh/ssh_host_ed25519_key.pub"))
+                        .isNotBlank());
+        String portOutput =
+                command(List.of("docker", "port", container, "22/tcp"), "").trim();
+        int port = Integer.parseInt(portOutput.substring(portOutput.lastIndexOf(':') + 1));
+        String publicHostKey =
+                exec(container, "", "cat", "/etc/ssh/ssh_host_ed25519_key.pub").trim();
+        Path trust =
+                Files.writeString(directory.resolve("known_hosts"), "[127.0.0.1]:" + port + " " + publicHostKey + "\n");
+        var properties = new SambaProperties(
+                new SambaProperties.Ssh(
+                        Duration.ofSeconds(3), Duration.ofSeconds(10), Duration.ofSeconds(30), 3, trust.toString()),
+                new SambaProperties.Paths(CONFIG, BACKUPS, ROOT + "/log"),
+                null,
+                null);
+        ssh = new SshSessionManager(properties);
+        var request = new ConnectionRequestDto(
+                "127.0.0.1", port, "admin", "key", null, Files.readString(directory.resolve("management")), null);
+        SshSessionManager manager = ssh;
+        await().atMost(Duration.ofSeconds(15)).until(() -> {
+            try {
+                manager.createSession(SESSION, request);
+                return true;
+            } catch (SambaCommandException error) {
+                return false;
+            }
+        });
+        service = new SambaConfigService(ssh, new SmbConfParser(), properties);
+    }
+
+    private void verifySnapshots(String container) throws Exception {
+        service.createBackup(SESSION);
+        var first = service.listBackups(SESSION);
+        assertThat(first).hasSize(1);
+        String firstName = first.getFirst().filename();
+        exec(container, "second", "tee", CONFIG);
+        service.createBackup(SESSION);
+        var second = service.listBackups(SESSION);
+        assertThat(second).hasSize(2);
+        assertThat(exec(container, "", "cat", BACKUPS + "/" + firstName)).isEqualTo("first");
+        for (var backup : second) {
+            assertThat(exec(container, "", "cat", BACKUPS + "/" + backup.filename()))
+                    .isIn("first", "second");
+        }
+    }
+
+    private void verifyDeniedCopy(String container) throws Exception {
+        exec(
+                container,
+                "admin ALL=(root) NOPASSWD: /usr/bin/mkdir, /usr/bin/mktemp, /usr/bin/ln, /usr/bin/rm\n",
+                "tee",
+                "/etc/sudoers.d/sambryx-admin");
+        assertThatThrownBy(() -> service.createBackup(SESSION)).isInstanceOf(SambaCommandException.class);
+        assertThat(service.listBackups(SESSION)).hasSize(2);
+        assertThat(exec(container, "", "find", BACKUPS, "-maxdepth", "1", "-name", ".smb.conf.staging.*"))
+                .isEmpty();
+        assertThat(exec(container, "", "cat", CONFIG)).isEqualTo("second");
+    }
+
+    private void prepareServer(String container) throws Exception {
+        exec(
+                container,
+                "",
+                "sh",
+                "-c",
+                "set -eu; id admin >/dev/null 2>&1 || useradd -m -s /bin/bash admin; mkdir -p " + BACKUPS
+                        + " /tmp/backup-it-bin /home/admin/.ssh; "
+                        + "chmod 755 " + BACKUPS + "; chmod 700 /home/admin/.ssh; "
+                        + "rm -f /etc/sudoers.d/samba-web-ui; "
+                        + "printf '#!/bin/sh\\nexit 0\\n' > /tmp/backup-it-bin/apt-get; chmod 755 /tmp/backup-it-bin/apt-get");
+        exec(container, "admin:" + UUID.randomUUID() + "\n", "chpasswd");
+        command(
+                List.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "",
+                        "-f",
+                        directory.resolve("management").toString()),
+                "");
+        exec(
+                container,
+                Files.readString(directory.resolve("management.pub")),
+                "tee",
+                "/home/admin/.ssh/authorized_keys");
+        exec(
+                container,
+                "",
+                "sh",
+                "-c",
+                "chown -R admin:admin /home/admin/.ssh; chmod 600 /home/admin/.ssh/authorized_keys");
+        exec(
+                container,
+                Files.readString(Path.of("scripts/setup-samba-server.sh")),
+                "env",
+                "PATH=/tmp/backup-it-bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "bash",
+                "-s",
+                "--",
+                "admin");
+        exec(container, "", "visudo", "-c", "-f", "/etc/sudoers.d/sambryx-admin");
+        exec(container, "first", "tee", CONFIG);
+        exec(container, "", "chmod", "600", CONFIG);
+    }
+
+    private String exec(String container, String input, String... args) throws Exception {
+        var command = new ArrayList<>(List.of("docker", "exec", "-i", container));
+        command.addAll(List.of(args));
+        return command(command, input);
+    }
+
+    private String command(List<String> arguments, String input) throws Exception {
+        Path output = Files.createTempFile(directory, "process-", ".log");
+        Process process = new ProcessBuilder(arguments)
+                .redirectErrorStream(true)
+                .redirectOutput(output.toFile())
+                .start();
+        try {
+            try (var stdin = process.getOutputStream()) {
+                stdin.write(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            assertThat(process.waitFor(30, TimeUnit.SECONDS))
+                    .as("Fixture command timeout")
+                    .isTrue();
+            assertThat(process.exitValue())
+                    .as("Fixture command failed: %s", arguments.getFirst())
+                    .isZero();
+            return Files.readString(output);
+        } finally {
+            if (process.isAlive()) process.destroyForcibly();
+            Files.deleteIfExists(output);
+        }
+    }
+}

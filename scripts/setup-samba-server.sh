@@ -83,7 +83,7 @@ DYNAMIC_COMMANDS=(
   useradd userdel chpasswd smbpasswd
   groupadd groupdel gpasswd
   smbstatus df du tail kill find
-  cat mv mkdir cp rm chmod chown
+  cat mv mkdir cp rm chmod chown mktemp ln
 )
 
 SUDO_ENTRIES=()

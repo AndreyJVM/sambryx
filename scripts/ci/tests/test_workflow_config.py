@@ -40,6 +40,12 @@ class WorkflowConfigTest(unittest.TestCase):
         self.assertIn('-Pproduction-smoke verify', workflow)
         self.assertNotIn('smoke-production.py', workflow)
 
+    def test_production_smoke_checks_backup_over_non_root_ssh(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        block = re.search(r'\n  production-compose-smoke:\n(.*?)(?=\n  [a-z][a-z-]*:\n|\Z)', workflow, re.S).group(1)
+        self.assertIn('-Dtest=BackupSshIT', block)
+        self.assertIn('-Dbackup.ssh.image=sambryx-samba-node:ubuntu24.04', block)
+
     def test_browser_jobs_run_java_playwright_and_publish_java_diagnostics(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('-Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT', workflow)

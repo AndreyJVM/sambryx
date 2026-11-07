@@ -129,7 +129,10 @@ class SambaConfigServiceTest {
             verify(commandExecutor, times(3)).execute(eq(sessionId), cmdCaptor.capture());
             List<String> executedCommands = cmdCaptor.getAllValues();
 
-            assertThat(executedCommands.get(1)).startsWith("sudo bash -c ").contains(".smb.conf.staging.XXXXXX");
+            assertThat(executedCommands.get(1))
+                    .startsWith("bash -c ")
+                    .contains("sudo -n mktemp", "sudo -n cp", "sudo -n ln", ".smb.conf.staging.XXXXXX")
+                    .doesNotContain("sudo bash");
             assertThat(executedCommands.get(2)).isEqualTo(LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
         }
 
@@ -228,7 +231,7 @@ class SambaConfigServiceTest {
                 String command = invocation.getArgument(1);
                 boolean shouldFail =
                         switch (stage) {
-                            case "safety-copy" -> command.startsWith("sudo bash -c ");
+                            case "safety-copy" -> command.startsWith("bash -c ");
                             case "restore-copy" -> command.equals(restore);
                             case "restart" -> command.equals(restart);
                             default -> false;
@@ -272,7 +275,7 @@ class SambaConfigServiceTest {
             // then
             InOrder order = inOrder(commandExecutor);
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.mkdir("/etc/samba/backups"));
-            order.verify(commandExecutor).execute(eq(sessionId), matches("sudo bash -c .*"));
+            order.verify(commandExecutor).execute(eq(sessionId), matches("bash -c .*"));
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
             order.verify(commandExecutor)
                     .execute(eq(sessionId), eq(LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp")), eq(newContent));
@@ -307,7 +310,7 @@ class SambaConfigServiceTest {
             when(commandExecutor.execute(eq(sessionId), anyString())).thenAnswer(invocation -> {
                 String command = invocation.getArgument(1);
                 if (command.equals(failedCommand)
-                        || (failedStage.equals("backup-copy") && command.startsWith("sudo bash -c "))) {
+                        || (failedStage.equals("backup-copy") && command.startsWith("bash -c "))) {
                     throw failure;
                 }
                 return "";
