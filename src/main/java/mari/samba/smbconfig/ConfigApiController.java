@@ -60,6 +60,12 @@ public class ConfigApiController {
         return ApiResponse.ok("Backup created successfully", null);
     }
 
+    @GetMapping("/backups/{filename}/compare")
+    public ApiResponse<BackupComparison> compareBackup(
+            @NonNull HttpSession session, @PathVariable("filename") String filename) {
+        return ApiResponse.ok(configService.compareBackup(session.getId(), filename));
+    }
+
     @PostMapping("/backups/{filename}/restore")
     public ApiResponse<Void> restoreBackupByPath(
             @NonNull HttpSession session, @PathVariable("filename") String filename) {

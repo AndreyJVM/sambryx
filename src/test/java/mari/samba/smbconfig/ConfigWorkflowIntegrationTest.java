@@ -28,6 +28,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 // Exercises HTTP validation, the real service/parser, and error mapping; security is tested separately.
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @WebMvcTest(ConfigApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({SambaConfigService.class, SmbConfParser.class})
@@ -41,6 +42,57 @@ class ConfigWorkflowIntegrationTest {
 
     @MockitoBean
     private CommandExecutor commands;
+
+    @Test
+    void comparisonReadFailureReturnsSafeErrorAndNoPartialContent(
+            org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(commands.execute(eq(session.getId()), anyString()))
+                .thenThrow(new SambaCommandException("sensitive-config-content"));
+        mvc.perform(get("/api/config/backups/smb.conf.backup_20301015_143000/compare")
+                        .session(session))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data").doesNotExist())
+                .andExpect(content()
+                        .string(org.hamcrest.Matchers.not(
+                                org.hamcrest.Matchers.containsString("sensitive-config-content"))));
+        verify(commands).execute(session.getId(), LinuxCommands.readComparisonFile("/etc/samba/smb.conf"));
+        verifyNoMoreInteractions(commands);
+        assertThat(output.getAll()).doesNotContain("sensitive-config-content");
+    }
+
+    @Test
+    void comparisonRejectsInvalidNameWithoutCommands() throws Exception {
+        mvc.perform(get("/api/config/backups/not-a-backup/compare"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+        verifyNoInteractions(commands);
+    }
+
+    @Test
+    void comparisonReportsChangesFromCurrentFileToSelectedBackupWithoutMutations() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(commands.execute(eq(session.getId()), anyString()))
+                .thenReturn("[global]\nname = current\n", "[global]\nname = <backup>\n");
+        mvc.perform(get("/api/config/backups/smb.conf.backup_20301015_143000/compare")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.filename").value("smb.conf.backup_20301015_143000"))
+                .andExpect(jsonPath("$.data.equal").value(false))
+                .andExpect(jsonPath("$.data.changes[0].type").value("REMOVED"))
+                .andExpect(jsonPath("$.data.changes[0].text").value("name = current\n"))
+                .andExpect(jsonPath("$.data.changes[1].type").value("ADDED"))
+                .andExpect(jsonPath("$.data.changes[1].text").value("name = <backup>\n"));
+        var captured = ArgumentCaptor.forClass(String.class);
+        verify(commands, times(2)).execute(eq(session.getId()), captured.capture());
+        assertThat(captured.getAllValues()).allSatisfy(command -> {
+            assertThat(command)
+                    .contains("head", "262145", "timeout")
+                    .doesNotContain("cp ", "chmod", "systemctl", "testparm", "include");
+        });
+        verifyNoMoreInteractions(commands);
+    }
 
     @Test
     void listingFailureIsSafeAndRetryCanConfirmAnEmptyDirectory() throws Exception {

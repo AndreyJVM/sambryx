@@ -37,8 +37,17 @@ interface Backup {
   size: string;
 }
 
+interface BackupComparison {
+  filename: string;
+  equal: boolean;
+  changes: { type: "ADDED" | "REMOVED"; lineNumber: number; text: string }[];
+}
+
 export default function ConfigPage() {
   const [config, setConfig] = useState<SmbGlobalConfig | null>(null);
+  const comparisonLock = useRef(false);
+  const [comparing, setComparing] = useState(false);
+  const [comparison, setComparison] = useState<{ filename: string; data?: BackupComparison; error?: boolean } | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,9 +115,10 @@ export default function ConfigPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!config || restoreLock.current || backupCreationLock.current) return;
+    if (!config || comparisonLock.current || restoreLock.current || backupCreationLock.current) return;
 
     try {
+      setComparison(null);
       setSaving(true);
       await api.put("/api/config/global", config);
       success("Saved", "Configuration applied. Restart service to apply fully.");
@@ -122,7 +132,7 @@ export default function ConfigPage() {
   };
 
   const handleReset = async () => {
-    if (restoreLock.current || backupCreationLock.current) return;
+    if (comparisonLock.current || restoreLock.current || backupCreationLock.current) return;
     const ok = await confirm({
       title: t("config.defaults"),
       message: t("config.resetWarning"),
@@ -157,9 +167,32 @@ export default function ConfigPage() {
     success("Restored", "Default values set. Save to apply.");
   };
 
+  const handleCompareBackup = async (filename: string) => {
+    if (comparisonLock.current || restoreLock.current || backupCreationLock.current || saving) return;
+    comparisonLock.current = true;
+    setComparing(true);
+    setComparison({ filename });
+    try {
+      const data = await api.get<BackupComparison>(`/api/config/backups/${encodeURIComponent(filename)}/compare`);
+      if (!data || data.filename !== filename || typeof data.equal !== "boolean" || !Array.isArray(data.changes)
+        || data.changes.length > 2000 || data.equal !== (data.changes.length === 0)
+        || !data.changes.every(change => change && ["ADDED", "REMOVED"].includes(change.type)
+          && Number.isInteger(change.lineNumber) && change.lineNumber > 0 && typeof change.text === "string")) {
+        throw new Error("Invalid backup comparison response.");
+      }
+      setComparison({ filename, data });
+    } catch {
+      setComparison({ filename, error: true });
+    } finally {
+      comparisonLock.current = false;
+      setComparing(false);
+    }
+  };
+
   const handleCreateBackup = async () => {
-    if (backupCreationLock.current || restoreLock.current || saving) return;
+    if (comparisonLock.current || backupCreationLock.current || restoreLock.current || saving) return;
     backupCreationLock.current = true;
+    setComparison(null);
     setCreatingBackup(true);
     setBackupCreationResult(null);
     try {
@@ -178,7 +211,7 @@ export default function ConfigPage() {
   };
 
   const handleRestoreBackup = async (filename: string) => {
-    if (restoreLock.current || backupCreationLock.current || saving) return;
+    if (comparisonLock.current || restoreLock.current || backupCreationLock.current || saving) return;
     restoreLock.current = true;
     try {
       const ok = await confirm({
@@ -189,6 +222,7 @@ export default function ConfigPage() {
       });
       if (!ok) return;
       setRestoreResult(null);
+      setComparison(null);
       setRestoring(filename);
       try {
         await api.post(`/api/config/backups/${encodeURIComponent(filename)}/restore`);
@@ -226,7 +260,7 @@ export default function ConfigPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
         <div><div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-text-muted"><Settings2 className="h-3.5 w-3.5" />smb.conf</div><h1 className="text-2xl font-semibold text-foreground tracking-tight">{t("config.title")}</h1><p className="mt-2 text-sm text-text-muted">{t("config.subtitle")}</p></div>
         <div className="flex gap-2">
-          <button onClick={handleReset} disabled={!!restoring || saving || creatingBackup} type="button" className="disabled:opacity-50 text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
+          <button onClick={handleReset} disabled={comparing || !!restoring || saving || creatingBackup} type="button" className="disabled:opacity-50 text-sm font-medium text-foreground bg-surface border border-border-strong px-4 py-2.5 rounded-md hover:bg-surface-2 transition-colors flex items-center gap-2">
             <RotateCcw className="w-4 h-4" /> {t("config.defaults")}
           </button>
         </div>
@@ -416,7 +450,7 @@ export default function ConfigPage() {
         <section aria-labelledby="config-backups-title" className="bg-surface rounded-lg border border-border overflow-hidden">
              <div className="bg-surface-2 px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
                <h2 id="config-backups-title" className="text-[13px] font-semibold tracking-wide uppercase text-text-muted">{t("config.backups")}</h2>
-               <button type="button" onClick={() => void handleCreateBackup()} disabled={creatingBackup || !!restoring || saving}
+               <button type="button" onClick={() => void handleCreateBackup()} disabled={comparing || creatingBackup || !!restoring || saving}
                  className="text-sm font-medium bg-surface border border-border-strong px-4 py-2 rounded-md disabled:opacity-50">
                  {t(creatingBackup ? "config.creatingBackup" : "config.createBackup")}
                </button>
@@ -450,9 +484,16 @@ export default function ConfigPage() {
                             <div className="text-xs text-text-muted font-medium mt-0.5">{bkp.createdAt} · {bkp.size}</div>
                          </div>
                       </div>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                      <button type="button" onClick={() => void handleCompareBackup(bkp.filename)}
+                        disabled={comparing || !!restoring || saving || creatingBackup}
+                        aria-label={`${t("config.compare")}: ${bkp.filename}`}
+                        className="disabled:opacity-50 text-xs border border-border-strong rounded-md px-3 py-2">
+                        {t("config.compare")}
+                      </button>
                       <button 
                         type="button"
-                        disabled={!!restoring || saving || creatingBackup}
+                        disabled={comparing || !!restoring || saving || creatingBackup}
                         onClick={() => handleRestoreBackup(bkp.filename)}
                         aria-label={`${t("config.restore")}: ${bkp.filename}`}
                         className="disabled:opacity-50 text-xs font-medium bg-surface text-foreground hover:bg-surface-2 py-1.5 px-3 rounded-md transition-colors border border-border-strong flex gap-1.5 items-center shrink-0"
@@ -460,9 +501,27 @@ export default function ConfigPage() {
                         <ArrowLeft className="w-3.5 h-3.5" />
                         {t("config.restore")}
                       </button>
+                      </div>
                     </div>
                   ))}
                 </div>
+                {comparison && <div data-comparison className="mt-4 min-w-0 border border-border rounded-md p-4" aria-live="polite" aria-busy={comparing}>
+                  <h3 className="font-semibold break-all">{t("config.compare")}: {comparison.filename}</h3>
+                  <p className="mt-2 text-sm">{t("config.compareDirection")}</p>
+                  <p className="mt-2 text-sm text-text-muted">{t("config.compareSnapshot")}</p>
+                  {comparing && <p role="status">{t("config.comparing")}</p>}
+                  {comparison.error && <p role="alert" className="config-note mt-3">{t("config.compareError")}</p>}
+                  {comparison.data?.equal && <p role="status" className="config-note mt-3">{t("config.compareEqual")}</p>}
+                  {comparison.data && !comparison.data.equal && <>
+                    <p className="mt-3 text-sm">{t("config.compareLegend")}</p>
+                    <div className="mt-2 max-h-96 overflow-y-auto text-sm font-mono select-text">
+                      {comparison.data.changes.map((change, index) => <div key={index} className="border-b border-border py-1">
+                        <pre className="whitespace-pre-wrap [overflow-wrap:anywhere]">{change.type === "ADDED" ? "+" : "−"} {change.lineNumber}: {change.text}</pre>
+                        {!change.text.endsWith("\n") && <p className="text-text-muted">{t("config.compareNoNewline")}</p>}
+                      </div>)}
+                    </div>
+                  </>}
+                </div>}
              </div>
         </section>
 
@@ -470,7 +529,7 @@ export default function ConfigPage() {
           <p className="text-xs text-text-muted">{t("config.saveHint")}</p>
           <button 
             type="submit" 
-            disabled={saving || !!restoring || creatingBackup}
+            disabled={comparing || saving || !!restoring || creatingBackup}
             className="text-sm font-medium text-on-accent bg-accent px-6 py-2.5 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {saving ? t("config.saving") : t("config.applyConfig")}

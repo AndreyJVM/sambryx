@@ -30,6 +30,7 @@ public class SambaConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(SambaConfigService.class);
 
+    private final BackupComparisonReader backupComparison = new BackupComparisonReader();
     private final CommandExecutor commandExecutor;
     private final SmbConfParser smbConfParser;
     private final String configPath;
@@ -104,6 +105,13 @@ public class SambaConfigService {
         LocalDateTime.parse(
                 date, DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withResolverStyle(ResolverStyle.STRICT));
         return new SambaBackupDto(filename, date, parts[4]);
+    }
+
+    public BackupComparison compareBackup(@NonNull String sessionId, @NonNull String filename) {
+        if (!filename.matches("^smb\\.conf\\.backup_\\d{8}_\\d{6}(?:_[1-9][0-9]?)?$")) {
+            throw new IllegalArgumentException("Invalid backup filename format.");
+        }
+        return backupComparison.compare(commandExecutor, sessionId, configPath, backupDir + "/" + filename, filename);
     }
 
     /**

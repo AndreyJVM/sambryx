@@ -34,7 +34,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-@WebMvcTest({AuthApiController.class, ShareApiController.class})
+@WebMvcTest({AuthApiController.class, ShareApiController.class, mari.samba.smbconfig.ConfigApiController.class})
 @Import({SecurityConfig.class, AuthServiceImpl.class})
 class HttpSecurityIntegrationTest {
     private static final String LOGIN =
@@ -57,6 +57,9 @@ class HttpSecurityIntegrationTest {
 
     @MockitoBean
     private SambaShareService shares;
+
+    @MockitoBean
+    private mari.samba.smbconfig.SambaConfigService configs;
 
     @AfterEach
     void clearSecurityContext() {
@@ -103,6 +106,17 @@ class HttpSecurityIntegrationTest {
         verify(bruteForce).registerFailedLogin(anyString(), eq("qa-user"));
         verify(bruteForce, never()).resetFailedLogin(anyString(), anyString());
         verifyNoInteractions(shares);
+    }
+
+    @Test
+    void comparisonRequiresAuthenticationAndAllowsAuthenticatedRead() throws Exception {
+        String path = "/api/config/backups/smb.conf.backup_20301015_143000/compare";
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        verifyNoInteractions(configs);
+        MockHttpSession session = login();
+        mvc.perform(get(path).session(session)).andExpect(status().isOk());
+        verify(configs).compareBackup(session.getId(), "smb.conf.backup_20301015_143000");
+        verifyNoMoreInteractions(configs);
     }
 
     @Test

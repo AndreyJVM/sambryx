@@ -81,6 +81,14 @@ public final class LinuxCommands {
         return String.format("cat -- %s", escape(requireValidPath(path)));
     }
 
+    /** Reads at most one byte beyond the comparison limit; rejects symlinks during the metadata check. */
+    public static String readComparisonFile(String path) {
+        String safe = escape(requireValidPath(path));
+        String script = "test -f " + safe + " && ! test -L " + safe + " && sudo -n cat -- " + safe
+                + " 2>/dev/null | head -c 262145";
+        return "timeout 10s bash -o pipefail -c " + escape(script);
+    }
+
     public static String sudoCat(String path) {
         return String.format("sudo cat -- %s", escape(requireValidPath(path)));
     }
