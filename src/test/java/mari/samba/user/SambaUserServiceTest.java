@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import mari.samba.core.SambaCommandException;
+import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import org.junit.jupiter.api.Test;
@@ -114,16 +116,61 @@ class SambaUserServiceTest {
     }
 
     @Test
-    void deleteUser_ShouldHandleExceptionsGracefullyForSambaAndKillSystemUser() throws Exception {
-        String username = "olduser";
+    void sambaDeletionFailureStopsBeforeLinuxDeletion() {
+        var failure = new SambaCommandException("Samba deletion failed");
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice")))
+                .thenThrow(failure);
+        assertSame(
+                failure,
+                assertThrows(SambaCommandException.class, () -> sambaUserService.deleteUser(SESSION_ID, "alice")));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
 
-        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser(username)))
-                .thenThrow(new RuntimeException("Failed to delete from Samba"));
+    @Test
+    void deletionPreservesFilesAndRunsOnlyAccountCommandsInOrder() {
+        sambaUserService.deleteUser(SESSION_ID, "alice");
+        var order = inOrder(commandExecutor);
+        order.verify(commandExecutor).execute(SESSION_ID, "sudo smbpasswd -x 'alice'");
+        order.verify(commandExecutor).execute(SESSION_ID, "sudo userdel -- 'alice'");
+        verifyNoMoreInteractions(commandExecutor);
+    }
 
-        assertDoesNotThrow(() -> sambaUserService.deleteUser(SESSION_ID, username));
+    @Test
+    void linuxDeletionFailureReportsPartialCompletionAndKeepsCause() {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice")))
+                .thenReturn("");
+        var failure = new SambaCommandException("Linux deletion failed");
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSystemUser("alice")))
+                .thenThrow(failure);
+        var error = assertThrows(SambaCommandException.class, () -> sambaUserService.deleteUser(SESSION_ID, "alice"));
+        assertTrue(error.getMessage().contains("Samba account was deleted"));
+        assertTrue(error.getMessage().contains("Linux account deletion failed"));
+        assertSame(failure, error.getCause());
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice"));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSystemUser("alice"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
 
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSambaUser(username));
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSystemUser(username));
+    @Test
+    void expiredSessionAfterSambaDeletionReportsPartialCompletion() {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice")))
+                .thenReturn("");
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSystemUser("alice")))
+                .thenThrow(new SshSessionExpiredException("SSH session expired"));
+        var error =
+                assertThrows(SshSessionExpiredException.class, () -> sambaUserService.deleteUser(SESSION_ID, "alice"));
+        assertTrue(error.getMessage().contains("Samba account was deleted"));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice"));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.deleteSystemUser("alice"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"root", "daemon", "sshd", "postgres", "mysql", " ROOT "})
+    void protectedAccountDeletionNeverExecutesCommands(String username) {
+        assertThrows(SecurityException.class, () -> sambaUserService.deleteUser(SESSION_ID, username));
+        verifyNoInteractions(commandExecutor);
     }
 
     @Test

@@ -212,7 +212,7 @@ export const translations = {
     users: {
       subtitle: "System and Samba accounts on the connected server.",
       search: "Search by username or full name",
-      deleteWarning: "Permanently delete this account from the OS and Samba?",
+      deleteWarning: "Delete the Linux and Samba accounts? Home directory, mail files and share data are preserved. Ownership is not reassigned. If a step fails, deletion may be partial; no automatic rollback. Account:",
       title: "Users Management",
       newUser: "New User",
       addUser: "Add User",
@@ -597,7 +597,7 @@ export const translations = {
     users: {
       subtitle: "Учётные записи ОС и Samba на подключённом сервере.",
       search: "Поиск по логину или полному имени",
-      deleteWarning: "Удалить эту учётную запись из ОС и Samba без возможности отмены?",
+      deleteWarning: "Удалить учётные записи Linux и Samba? Домашний каталог, почтовые файлы и данные ресурсов сохраняются. Владельцы файлов не меняются. При ошибке удаление может быть частичным; автоматического отката нет. Логин:",
       title: "Пользователи Samba",
       newUser: "Новый пользователь",
       addUser: "Добавить пользователя",

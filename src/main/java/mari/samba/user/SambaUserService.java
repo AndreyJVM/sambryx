@@ -3,6 +3,8 @@ package mari.samba.user;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import mari.samba.core.SambaCommandException;
+import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import org.slf4j.Logger;
@@ -125,16 +127,23 @@ public class SambaUserService {
         log.info("Successfully created and enabled Samba user '{}'", cleanUsername);
     }
 
-    /** Deletes an existing user from both the Samba database and the OS. */
+    /** Deletes Samba and Linux accounts while preserving their files and ownership. */
     public void deleteUser(String sessionId, String username) {
         requireNonSystemUser(username);
         log.info("Deleting Samba and system user '{}'", username);
+        commandExecutor.execute(sessionId, LinuxCommands.deleteSambaUser(username));
         try {
-            commandExecutor.execute(sessionId, LinuxCommands.deleteSambaUser(username));
-        } catch (Exception e) {
-            log.debug("User '{}' was not present in Samba passdb or deletion failed: {}", username, e.getMessage());
+            commandExecutor.execute(sessionId, LinuxCommands.deleteSystemUser(username));
+        } catch (SshSessionExpiredException e) {
+            throw new SshSessionExpiredException(
+                    "Samba account was deleted, but the SSH session expired before Linux account deletion completed. "
+                            + "Log in again and check both account databases; no rollback was performed.");
+        } catch (SambaCommandException e) {
+            throw new SambaCommandException(
+                    "Samba account was deleted, but Linux account deletion failed. "
+                            + "Check both account databases before retrying; no rollback was performed.",
+                    e);
         }
-        commandExecutor.execute(sessionId, LinuxCommands.deleteSystemUser(username));
         log.info("Successfully deleted user '{}'", username);
     }
 

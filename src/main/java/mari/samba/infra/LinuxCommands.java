@@ -252,7 +252,7 @@ public final class LinuxCommands {
     }
 
     public static String deleteSystemUser(String username) {
-        return String.format("sudo userdel -r -- %s", escape(requireValidUsername(username)));
+        return String.format("sudo userdel -- %s", escape(requireValidUsername(username)));
     }
 
     public static String chpasswd() {

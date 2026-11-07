@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
 class LinuxCommandsTest {
+    @Test
+    void deleteAccountPreservesHomeAndMail() {
+        assertEquals("sudo userdel -- 'alice'", LinuxCommands.deleteSystemUser("alice"));
+    }
 
     @Test
     void testEscapeRejectsNewlines() {

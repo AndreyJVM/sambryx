@@ -213,7 +213,7 @@ jobs:
       - name: Run isolated browser smoke tests
         run: >-
           bash ./mvnw -B -f tools/browser/pom.xml verify
-          -Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT,ServerReadinessIT,BackupComparisonIT
+          -Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT,ServerReadinessIT,BackupComparisonIT,UserDeletionIT
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
