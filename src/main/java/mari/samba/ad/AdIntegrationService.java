@@ -14,13 +14,6 @@ public class AdIntegrationService {
 
     private static final String JOIN_OK_MARKER = "Join is OK";
     private static final String MSG_JOINED = "Successfully joined to domain.";
-    private static final String MSG_NOT_JOINED = "Not joined to any domain.";
-    private static final String DOMAIN_UNKNOWN = "UNKNOWN";
-
-    // Пока не проверяются по-настоящему; заполним реальными данными на одном из следующих шагов
-    private static final boolean DNS_REACHABLE_PLACEHOLDER = true;
-    private static final boolean KERBEROS_WORKING_PLACEHOLDER = true;
-
     private final CommandExecutor commandExecutor;
 
     public AdIntegrationService(CommandExecutor commandExecutor) {
@@ -28,15 +21,15 @@ public class AdIntegrationService {
     }
 
     public AdStatusDto getStatus(String sessionId) {
-        String testJoinOutput = executeIgnoringErrors(sessionId, LinuxCommands.netAdsTestJoin());
-        boolean joined = testJoinOutput.contains(JOIN_OK_MARKER);
+        String output = commandExecutor.execute(sessionId, LinuxCommands.netAdsTestJoin());
+        boolean confirmed = output.lines().anyMatch(line -> line.strip().equals(JOIN_OK_MARKER));
         return new AdStatusDto(
-                joined,
-                joined ? MSG_JOINED : MSG_NOT_JOINED,
-                DOMAIN_UNKNOWN,
-                DNS_REACHABLE_PLACEHOLDER,
-                KERBEROS_WORKING_PLACEHOLDER,
-                joined);
+                confirmed ? Boolean.TRUE : null,
+                confirmed ? MSG_JOINED : "Domain membership could not be confirmed.",
+                null,
+                null,
+                null,
+                null);
     }
 
     public AdStatusDto joinDomain(String sessionId, AdJoinRequestDto request) {
@@ -76,14 +69,5 @@ public class AdIntegrationService {
             dns_lookup_kdc = true
         """
                 .formatted(domain.toUpperCase(Locale.ROOT));
-    }
-
-    private String executeIgnoringErrors(String sessionId, String command) {
-        try {
-            return commandExecutor.execute(sessionId, command);
-        } catch (Exception e) {
-            log.debug("Command failed, treating output as the error message", e);
-            return e.getMessage() != null ? e.getMessage() : "";
-        }
     }
 }

@@ -8,12 +8,12 @@ import { Server, Shield, Unlock, Lock, AlertCircle, RefreshCw, Users } from 'luc
 import { useTranslation } from '../../lib/i18n';
 
 interface AdStatus {
-  isJoined: boolean;
+  isJoined: boolean | null;
   statusMessage: string;
-  domainName: string;
-  dnsReachable: boolean;
-  kerberosWorking: boolean;
-  winbindWorking: boolean;
+  domainName: string | null;
+  dnsReachable: boolean | null;
+  kerberosWorking: boolean | null;
+  winbindWorking: boolean | null;
 }
 
 export default function ActiveDirectoryPage() {
@@ -37,6 +37,7 @@ export default function ActiveDirectoryPage() {
       const res = await api.get<AdStatus>('/api/ad/status');
       setStatus(res);
     } catch (err) {
+      setStatus(null);
       setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -133,7 +134,9 @@ export default function ActiveDirectoryPage() {
             <div className="space-y-4">
               <div className="flex flex-wrap gap-3 items-center justify-between p-4 bg-surface-2 rounded-lg border border-border">
                 <span className="font-medium text-foreground text-sm uppercase tracking-wider">{t('ad.domainJoinState')}</span>
-                {status.isJoined ? (
+                {status.isJoined == null ? (
+                  <span className="text-text-muted text-sm">{t('ad.notChecked')}</span>
+                ) : status.isJoined ? (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-tint text-accent-text rounded-full text-xs font-bold uppercase tracking-widest border border-border">
                     <Shield className="w-3.5 h-3.5" /> {t('ad.joined')}
                   </span>
@@ -144,28 +147,28 @@ export default function ActiveDirectoryPage() {
                   </span>
                 )}
               </div>
-              {status.domainName && <p className="ad-domain font-mono text-sm">{status.domainName}</p>}
+              {status.domainName && status.domainName !== 'UNKNOWN' && <p className="ad-domain font-mono text-sm">{status.domainName}</p>}
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
                    <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">{t('ad.winbindService')}</div>
                    <div className="font-semibold text-sm flex items-center gap-2">
                      {/* TODO: status-error / active token */}
-                     <span className={`w-2 h-2 rounded-full ${status.winbindWorking ? 'bg-accent' : 'bg-status-error'}`}></span>
-                     {status.winbindWorking ? t('ad.operational') : t('ad.failing')}
+                     <span className={`w-2 h-2 rounded-full ${status.winbindWorking == null ? 'bg-text-muted' : status.winbindWorking ? 'bg-accent' : 'bg-status-error'}`}></span>
+                     {status.winbindWorking == null ? t('ad.notChecked') : status.winbindWorking ? t('ad.operational') : t('ad.failing')}
                    </div>
                  </div>
                  <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
                    <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">Kerberos</div>
                    <div className="font-semibold text-sm flex items-center gap-2">
                      {/* TODO: status-error / active token */}
-                     <span className={`w-2 h-2 rounded-full ${status.kerberosWorking ? 'bg-accent' : 'bg-status-error'}`}></span>
-                     {status.kerberosWorking ? t('ad.ok') : t('ad.errorsDetected')}
+                     <span className={`w-2 h-2 rounded-full ${status.kerberosWorking == null ? 'bg-text-muted' : status.kerberosWorking ? 'bg-accent' : 'bg-status-error'}`}></span>
+                     {status.kerberosWorking == null ? t('ad.notChecked') : status.kerberosWorking ? t('ad.ok') : t('ad.errorsDetected')}
                    </div>
                  </div>
                  <div className="p-3 bg-surface-2 rounded-md border border-border flex flex-col justify-center">
                    <div className="text-xs text-text-muted uppercase tracking-widest mb-1.5 font-bold">DNS</div>
-                   <div className="font-semibold text-sm flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${status.dnsReachable ? 'bg-status-active' : 'bg-status-error'}`} />{status.dnsReachable ? t('ad.ok') : t('ad.errorsDetected')}</div>
+                   <div className="font-semibold text-sm flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${status.dnsReachable == null ? 'bg-text-muted' : status.dnsReachable ? 'bg-status-active' : 'bg-status-error'}`} />{status.dnsReachable == null ? t('ad.notChecked') : status.dnsReachable ? t('ad.ok') : t('ad.errorsDetected')}</div>
                  </div>
               </div>
             </div>

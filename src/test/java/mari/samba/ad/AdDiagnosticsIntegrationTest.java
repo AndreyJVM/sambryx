@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,6 +43,7 @@ class AdDiagnosticsIntegrationTest {
     private final Logger logger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
     private final ListAppender<ILoggingEvent> events = new ListAppender<>();
     private MockMvc mvc;
+    private CommandResult statusResult = new CommandResult(0, "Join is OK", "");
 
     @BeforeEach
     void setUp() {
@@ -104,6 +106,78 @@ class AdDiagnosticsIntegrationTest {
         assertSafeDiagnostics(body);
     }
 
+    @Test
+    void successfulLeaveReadsStatusWithoutClaimingConfirmedNonMembership() throws Exception {
+        statusResult = new CommandResult(0, "", "");
+        respondToDomainCommand(new CommandResult(0, "Left domain", ""));
+
+        var data = new ObjectMapper().readTree(request("leave", 200)).get("data");
+
+        assertThat(data.get("isJoined").isNull()).isTrue();
+        assertThat(commands)
+                .containsExactly(LinuxCommands.netAdsLeave("Administrator", SECRET), LinuxCommands.netAdsTestJoin());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"join", "leave"})
+    void statusFailureAfterDomainOperationDoesNotReturnSuccess(String action) throws Exception {
+        statusResult = new CommandResult(1, "Join is OK", SECRET);
+        respondToDomainCommand(new CommandResult(0, "Domain operation completed", ""));
+
+        String body = request(action, 500);
+
+        assertSafeDiagnostics(body);
+        assertThat(body).doesNotContain("\"success\":true");
+        assertThat(commands).endsWith(LinuxCommands.netAdsTestJoin());
+    }
+
+    @Test
+    void confirmedMembershipDoesNotConfirmOtherChecksOrDomainName() throws Exception {
+        respondToDomainCommand(new CommandResult(0, "", ""));
+        var data = new ObjectMapper()
+                .readTree(mvc.perform(get("/api/ad/status"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("data");
+        assertThat(data.get("isJoined").booleanValue()).isTrue();
+        for (String field : List.of("domainName", "dnsReachable", "kerberosWorking", "winbindWorking")) {
+            assertThat(data.get(field).isNull()).as(field).isTrue();
+        }
+        assertThat(commands).containsExactly(LinuxCommands.netAdsTestJoin());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"unrecognized response", "Not joined", "Error: Join is OK", ""})
+    void unrecognizedSuccessfulOutputDoesNotConfirmNonMembership(String output) throws Exception {
+        statusResult = new CommandResult(0, output, "");
+        respondToDomainCommand(new CommandResult(0, "", ""));
+        var data = new ObjectMapper()
+                .readTree(mvc.perform(get("/api/ad/status"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString())
+                .get("data");
+        assertThat(data.get("isJoined").isNull()).isTrue();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 7, 127})
+    void failedStatusCannotBecomeMembershipEvenWhenOutputContainsSuccessMarker(int exitCode) throws Exception {
+        statusResult = new CommandResult(exitCode, "Join is OK", SECRET);
+        respondToDomainCommand(new CommandResult(0, "", ""));
+        String body = mvc.perform(get("/api/ad/status"))
+                .andExpect(status().isInternalServerError())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertSafeDiagnostics(body);
+        assertThat(commands).containsExactly(LinuxCommands.netAdsTestJoin());
+    }
+
     private void respondToDomainCommand(CommandResult result) throws Exception {
         when(ssh.openChannel("exec")).thenAnswer(invocation -> {
             ChannelExec channel = mock(ChannelExec.class);
@@ -118,7 +192,7 @@ class AdDiagnosticsIntegrationTest {
                     .setCommand(any(String.class));
             java.util.function.Supplier<CommandResult> response = () -> {
                 if (LinuxCommands.netAdsTestJoin().equals(command.get())) {
-                    return new CommandResult(0, "Join is OK", "");
+                    return statusResult;
                 }
                 if (command.get().startsWith("sudo net ads ")) return result;
                 return new CommandResult(0, "", "");

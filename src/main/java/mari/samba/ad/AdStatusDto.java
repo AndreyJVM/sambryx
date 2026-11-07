@@ -1,9 +1,9 @@
 package mari.samba.ad;
 
 public record AdStatusDto(
-        boolean isJoined,
+        Boolean isJoined,
         String statusMessage,
         String domainName,
-        boolean dnsReachable,
-        boolean kerberosWorking,
-        boolean winbindWorking) {}
+        Boolean dnsReachable,
+        Boolean kerberosWorking,
+        Boolean winbindWorking) {}
