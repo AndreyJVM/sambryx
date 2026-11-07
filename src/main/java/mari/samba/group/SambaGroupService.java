@@ -51,7 +51,7 @@ public class SambaGroupService {
                     userList = Arrays.asList(parts[3].split(","));
                 }
 
-                groups.add(new SambaGroup(displayName, userList));
+                groups.add(new SambaGroup(displayName, userList, groupName));
             }
         }
         return groups;

@@ -9,6 +9,8 @@ import mari.samba.config.SambaProperties;
 import mari.samba.infra.CommandExecutor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +28,26 @@ class SambaGroupServiceTest {
     private SambaGroupService sambaGroupService;
 
     private static final String SESSION_ID = "test-session";
+
+    @ParameterizedTest
+    @ValueSource(strings = {"smb_", "team_", ""})
+    void exposesActualSystemNameWithoutChangingDisplayName(String prefix) {
+        String actualName = prefix + "engineering";
+        when(commandExecutor.execute(SESSION_ID, "getent group")).thenReturn(actualName + ":x:1001:alice,bob\n");
+        var settings = new SambaProperties(null, null, null, new SambaProperties.Group(prefix));
+        var service = new SambaGroupService(commandExecutor, settings);
+
+        var group = service.getAllGroups(SESSION_ID).getFirst();
+
+        assertEquals("engineering", group.name());
+        assertEquals(List.of("alice", "bob"), group.members());
+        assertEquals(
+                actualName,
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .valueToTree(group)
+                        .path("systemName")
+                        .asText());
+    }
 
     @Test
     void getAllGroups_ShouldFilterAndParseCorrectly() throws Exception {

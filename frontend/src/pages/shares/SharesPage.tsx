@@ -40,7 +40,7 @@ type AdvancedShareField = {
 };
 
 interface User { username: string; }
-interface Group { name: string; }
+interface Group { name: string; systemName: string; }
 
 export default function SharesPage() {
   const [diagnosticShare, setDiagnosticShare] = useState<string | null>(null);
@@ -79,7 +79,8 @@ export default function SharesPage() {
   const { t } = useTranslation();
 
   const usernames = [...new Set([...users.map(user => user.username), ...systemUsers])].sort();
-  const accessOptions = [...usernames, ...groups.map(group => '@' + group.name)];
+  const groupNames = groups.flatMap(group => group.systemName ? [group.systemName] : []);
+  const accessOptions = [...usernames, ...groupNames.map(name => '@' + name)];
   const sambaUsernames = new Set(users.map(user => user.username));
   const optionDescriptions = Object.fromEntries(accessOptions.map(name => [name,
     name.startsWith('@') ? t("shares.systemGroup") : sambaUsernames.has(name) ? t("shares.sambaAccount") : t("shares.osAccount")
@@ -89,7 +90,7 @@ export default function SharesPage() {
     { l: t("shares.writeList"), k: "writeList", p: "@admins, user1", mult: true, sug: accessOptions },
     { l: t("shares.maxConn"), k: "maxConnections", p: "0" },
     { l: t("shares.forceUser"), k: "forceUser", p: "user1", mult: false, sug: usernames },
-    { l: t("shares.forceGroup"), k: "forceGroup", p: "users", mult: false, sug: groups.map(g => g.name) },
+    { l: t("shares.forceGroup"), k: "forceGroup", p: "users", mult: false, sug: groupNames },
     { l: t("shares.hostsAllow"), k: "hostsAllow", p: "192.168.1." },
     { l: t("shares.hostsDeny"), k: "hostsDeny", p: "ALL" },
   ];

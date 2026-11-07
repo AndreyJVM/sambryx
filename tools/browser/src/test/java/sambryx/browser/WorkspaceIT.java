@@ -24,6 +24,58 @@ import org.junit.jupiter.params.provider.MethodSource;
 class WorkspaceIT {
     private BrowserTestRuntime runtime;
 
+    @ParameterizedTest(name = "{0} prefix={1}")
+    @MethodSource("groupVariants")
+    void resourceSuggestionsUseActualSystemGroupNames(BrowserVariant variant, String prefix) {
+        runtime.verify(variant, "en", "systemGroupNames-" + prefix, fixture -> {
+            String actualName = prefix + "engineering";
+            var saved = new java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+            fixture.page.route(
+                    "**/api/groups",
+                    route -> BrowserState.reply(
+                            route,
+                            List.of(Map.of(
+                                    "name", "engineering", "systemName", actualName, "members", List.of("alice")))));
+            fixture.page.route("**/api/shares", route -> {
+                if (route.request().method().equals("POST")) {
+                    saved.set(BrowserState.json(route.request().postData()));
+                    BrowserState.reply(route, null);
+                } else route.fallback();
+            });
+            fixture.go("/ui/shares");
+            fixture.button("New Share").click();
+            fixture.page.locator("#share-name").fill("documents");
+            fixture.page.locator("#share-path").fill("/srv/samba/documents");
+            fixture.page.locator("#share-valid-users").fill("@" + actualName);
+            fixture.page
+                    .getByRole(AriaRole.OPTION)
+                    .filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("@" + actualName))
+                    .click();
+            fixture.button("Advanced Options").click();
+            fixture.page.locator("#share-writeList").fill("@" + actualName);
+            fixture.page
+                    .getByRole(AriaRole.OPTION)
+                    .filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("@" + actualName))
+                    .click();
+            fixture.page.locator("#share-forceGroup").fill(actualName.substring(0, actualName.length() - 1));
+            fixture.page
+                    .locator("#share-forceGroup")
+                    .locator("..")
+                    .getByText(actualName, new com.microsoft.playwright.Locator.GetByTextOptions().setExact(true))
+                    .click();
+            button(fixture.page.getByRole(AriaRole.DIALOG), "Save").click();
+            fixture.page.waitForCondition(() -> saved.get() != null);
+            assertEquals("@" + actualName, saved.get().path("validUsers").asText());
+            assertEquals("@" + actualName, saved.get().path("writeList").asText());
+            assertEquals(actualName, saved.get().path("forceGroup").asText());
+        });
+    }
+
+    static Stream<Arguments> groupVariants() {
+        return Arrays.stream(BrowserVariant.values())
+                .flatMap(variant -> Stream.of("smb_", "team_", "").map(prefix -> Arguments.of(variant, prefix)));
+    }
+
     @BeforeAll
     void startBrowser() {
         runtime = new BrowserTestRuntime();

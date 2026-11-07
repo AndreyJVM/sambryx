@@ -36,13 +36,14 @@ class GroupApiControllerTest {
 
     @Test
     void testGetAllGroups_ShouldReturnGroups() throws Exception {
-        SambaGroup group = new SambaGroup("developers", List.of("alice", "bob"));
+        SambaGroup group = new SambaGroup("developers", List.of("alice", "bob"), "smb_developers");
         when(groupService.getAllGroups(anyString())).thenReturn(List.of(group));
 
         mockMvc.perform(get("/api/groups"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].name").value("developers"))
+                .andExpect(jsonPath("$.data[0].systemName").value("smb_developers"))
                 .andExpect(jsonPath("$.data[0].members[0]").value("alice"));
     }
 

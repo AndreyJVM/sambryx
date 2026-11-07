@@ -139,7 +139,15 @@ final class BrowserState {
                     return;
                 }
                 case "/api/groups" -> {
-                    reply(route, List.of(Map.of("name", "engineering", "members", List.of("alice", "bob"))));
+                    reply(
+                            route,
+                            List.of(Map.of(
+                                    "name",
+                                    "engineering",
+                                    "systemName",
+                                    "smb_engineering",
+                                    "members",
+                                    List.of("alice", "bob"))));
                     return;
                 }
                 case "/api/monitoring/dashboard" -> {
