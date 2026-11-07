@@ -52,27 +52,47 @@ export default function ConfigPage() {
   const [restoreResult, setRestoreResult] = useState<{ filename: string; success: boolean } | null>(null);
   const [loadError, setLoadError] = useState("");
   const [backupError, setBackupError] = useState(false);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const backupListLock = useRef(false);
   const { error: toastError, success } = useToast();
   const { confirm } = useConfirm();
   const { t } = useTranslation();
+
+  const refreshBackups = useCallback(async () => {
+    if (backupListLock.current) return;
+    backupListLock.current = true;
+    setLoadingBackups(true);
+    setBackups([]);
+    try {
+      const result = await api.get<Backup[]>("/api/config/backups");
+      if (!Array.isArray(result) || result.some(entry =>
+        !entry || typeof entry.filename !== "string" || typeof entry.createdAt !== "string" || typeof entry.size !== "string"
+      )) throw new Error("Invalid backup list response.");
+      setBackups(result);
+      setBackupError(false);
+    } catch {
+      setBackupError(true);
+    } finally {
+      setLoadingBackups(false);
+      backupListLock.current = false;
+    }
+  }, []);
 
   const fetchData = useCallback(async (safeErrorMessage?: string) => {
     try {
       setLoading(true);
       setLoadError("");
-      setBackupError(false);
-      const [resConfig, resBackups] = await Promise.all([
+      const [resConfig] = await Promise.all([
         api.get<SmbGlobalConfig>("/api/config/global"),
-        api.get<Backup[]>("/api/config/backups").catch(() => { setBackupError(true); return []; })
+        refreshBackups()
       ]);
       setConfig(resConfig);
-      setBackups(resBackups || []);
     } catch (err) {
       setLoadError(safeErrorMessage || getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshBackups]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -150,13 +170,7 @@ export default function ConfigPage() {
         return;
       }
       setBackupCreationResult(true);
-      try {
-        const currentBackups = await api.get<Backup[]>("/api/config/backups");
-        setBackups(currentBackups || []);
-        setBackupError(false);
-      } catch {
-        setBackupError(true);
-      }
+      await refreshBackups();
     } finally {
       setCreatingBackup(false);
       backupCreationLock.current = false;
@@ -415,10 +429,17 @@ export default function ConfigPage() {
                     {t(backupCreationResult ? "config.backupCreated" : "config.backupCreationFailed")}
                   </p>
                 )}
-                {backupError && <p role="status" className="config-note mb-4">{t("config.backupError")}</p>}
-                {!backupError && backups.length === 0 && <p className="text-sm text-text-muted">{t("config.noBackups")}</p>}
+                {backupError && <div className="mb-4">
+                  <p role="status" className="config-note mb-3">{t("config.backupError")}</p>
+                  <button type="button" onClick={() => void refreshBackups()}
+                    disabled={loadingBackups || creatingBackup || !!restoring || saving}
+                    className="disabled:opacity-50 text-sm border border-border-strong rounded-md px-3 py-2">
+                    {t(loadingBackups ? "config.loadingBackups" : "config.retryBackups")}
+                  </button>
+                </div>}
+                {!backupError && !loadingBackups && backups.length === 0 && <p className="text-sm text-text-muted">{t("config.noBackups")}</p>}
                 <div className="grid grid-cols-1 gap-3 select-none">
-                  {backups.map((bkp) => (
+                  {!backupError && !loadingBackups && backups.map((bkp) => (
                     <div key={bkp.filename} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-border rounded-md bg-surface-2 hover:border-border-strong transition-colors group">
                       <div className="flex min-w-0 items-center gap-3">
                          <div className="shrink-0 bg-surface border border-border p-2 rounded-md">

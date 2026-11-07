@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BackupCreationIT {
@@ -29,6 +30,87 @@ class BackupCreationIT {
     @AfterAll
     void closeBrowser() {
         if (runtime != null) runtime.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "{}", "[{\"filename\":1}]"})
+    void rejectsMalformedListAndAllowsReadOnlyRecovery(String payload) {
+        runtime.verify(BrowserVariant.DESKTOP_LIGHT, "en", "rejectsMalformedBackupList", fixture -> {
+            var requests = new AtomicInteger();
+            fixture.page.route("**/api/config/backups", route -> {
+                if (requests.incrementAndGet() == 1) BrowserState.reply(route, BrowserState.json(payload));
+                else route.fallback();
+            });
+            fixture.go("/ui/config");
+            assertThat(fixture.page.getByText(
+                            "The backup list is unavailable. This does not mean there are no backups."))
+                    .isVisible();
+            assertThat(fixture.page.getByText("No backups found.")).hasCount(0);
+            fixture.button("Retry backup list").click();
+            assertThat(fixture.page.getByText("No backups found.")).isVisible();
+            assertEquals(2, requests.get());
+            assertTrue(fixture.app.mutations().isEmpty());
+        });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(BrowserVariant.class)
+    void retriesOnlyListingAndPreservesUnsavedForm(BrowserVariant variant) {
+        runtime.verify(variant, "en", "retriesBackupListing", fixture -> {
+            var requests = new AtomicInteger();
+            fixture.page.route("**/api/config/backups", route -> {
+                requests.incrementAndGet();
+                if (requests.get() == 1) BrowserState.reply(route, null, 503, "synthetic-sensitive-output");
+                else route.fallback();
+            });
+            fixture.go("/ui/config");
+            assertThat(fixture.page.getByText(
+                            "The backup list is unavailable. This does not mean there are no backups."))
+                    .isVisible();
+            fixture.page.locator("#config-workgroup").fill("UNSAVED");
+            fixture.button("Retry backup list").click();
+            assertThat(fixture.page.getByText("No backups found.")).isVisible();
+            assertThat(fixture.page.getByText(
+                            "The backup list is unavailable. This does not mean there are no backups."))
+                    .hasCount(0);
+            assertThat(fixture.page.getByText("synthetic-sensitive-output")).hasCount(0);
+            assertThat(fixture.page.locator("#config-workgroup")).hasValue("UNSAVED");
+            assertEquals(1, fixture.app.count("/api/config/global"));
+            assertEquals(2, requests.get());
+            assertTrue(fixture.app.mutations().isEmpty());
+            assertTrue(fixture.fits());
+        });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(BrowserVariant.class)
+    void hidesStaleListAfterFailedRefreshAndRecovers(BrowserVariant variant) {
+        runtime.verify(variant, "en", "hidesStaleBackupList", fixture -> {
+            fixture.app.backups = BrowserState.JSON.valueToTree(
+                    java.util.List.of(new BackupEntry(CREATED_BACKUP, "2026-11-06 18:00:00", "2 KB")));
+            var reads = new AtomicInteger();
+            fixture.page.route("**/api/config/backups", route -> {
+                if (route.request().method().equals("POST")) BrowserState.reply(route, null);
+                else if (reads.incrementAndGet() == 2)
+                    BrowserState.reply(route, null, 503, "synthetic-sensitive-output");
+                else route.fallback();
+            });
+            fixture.go("/ui/config");
+            assertThat(fixture.button("Restore: " + CREATED_BACKUP)).isVisible();
+            fixture.page.locator("#config-workgroup").fill("UNSAVED");
+            fixture.button("Create backup").click();
+            assertThat(fixture.page.getByText(
+                            "The backup list is unavailable. This does not mean there are no backups."))
+                    .isVisible();
+            assertThat(fixture.button("Restore: " + CREATED_BACKUP)).hasCount(0);
+            assertThat(fixture.page.getByText("No backups found.")).hasCount(0);
+            fixture.button("Retry backup list").click();
+            assertThat(fixture.button("Restore: " + CREATED_BACKUP)).isVisible();
+            assertThat(fixture.page.locator("#config-workgroup")).hasValue("UNSAVED");
+            assertEquals(1, fixture.app.count("/api/config/global"));
+            assertEquals(3, reads.get());
+            assertTrue(fixture.app.mutations().isEmpty());
+        });
     }
 
     @ParameterizedTest(name = "{0}")

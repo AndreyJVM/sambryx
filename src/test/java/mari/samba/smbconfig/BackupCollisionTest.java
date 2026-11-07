@@ -228,6 +228,50 @@ class BackupCollisionTest {
         verifyNoInteractions(executor);
     }
 
+    @Test
+    void listsAccessibleEmptyDirectorySuccessfully() {
+        assertThat(service.listBackups("session")).isEmpty();
+    }
+
+    @Test
+    void reportsMissingDirectoryWithoutCreatingIt() throws Exception {
+        Files.delete(backups);
+        assertThatThrownBy(() -> service.listBackups("session")).isInstanceOf(SambaCommandException.class);
+        assertThat(backups).doesNotExist();
+        assertThat(Files.readString(config)).isEqualTo("current");
+        assertThat(restart).doesNotExist();
+    }
+
+    @Test
+    void reportsListingFailureInsteadOfEmptyResult() throws Exception {
+        stub("ls", "echo 'synthetic-sensitive-output' >&2; exit 13");
+        Files.writeString(backup(), "snapshot");
+        assertThatThrownBy(() -> service.listBackups("session"))
+                .isInstanceOf(SambaCommandException.class)
+                .hasMessage("Configuration backup list is unavailable.");
+        assertThat(Files.readString(backup())).isEqualTo("snapshot");
+        assertThat(restart).doesNotExist();
+    }
+
+    @Test
+    void rejectsBackupPathThatIsNotADirectory() throws Exception {
+        Files.delete(backups);
+        Files.writeString(backups, "unexpected file");
+        assertThatThrownBy(() -> service.listBackups("session")).isInstanceOf(SambaCommandException.class);
+        assertThat(Files.readString(backups)).isEqualTo("unexpected file");
+    }
+
+    @Test
+    void listsConfiguredDirectorySymlinkInsteadOfReportingItEmpty() throws Exception {
+        Path actual = Files.createDirectory(temporary.resolve("actual backups"));
+        Files.writeString(actual.resolve(backup().getFileName()), "snapshot");
+        Files.delete(backups);
+        Files.createSymbolicLink(backups, actual);
+        assertThat(service.listBackups("session"))
+                .extracting(SambaBackupDto::filename)
+                .containsExactly(backup().getFileName().toString());
+    }
+
     private Path backup() {
         return backups.resolve("smb.conf.backup_" + STAMP);
     }

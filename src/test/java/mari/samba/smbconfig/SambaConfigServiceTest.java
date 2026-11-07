@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.matches;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
@@ -20,6 +19,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -143,7 +143,7 @@ class SambaConfigServiceTest {
             String fakeLsOutput =
                     "-rw-r--r-- 1 root root 1200 2024-10-15 14:30:00 /etc/samba/backups/smb.conf.backup_20241015_143000\n"
                             + "-rw-r--r-- 1 root root 1150 2024-10-14 10:20:00 /etc/samba/backups/smb.conf.backup_20241014_102000";
-            when(commandExecutor.execute(eq(sessionId), matches("ls -lh --time-style.*")))
+            when(commandExecutor.execute(eq(sessionId), eq(LinuxCommands.listBackupsDetailed("/etc/samba/backups"))))
                     .thenReturn(fakeLsOutput);
 
             // when
@@ -156,17 +156,41 @@ class SambaConfigServiceTest {
             assertThat(backups.get(0).size()).isEqualTo("1200");
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"Permission denied", "SSH timeout", "Listing failed"})
+        void listBackups_whenCommandFails_reportsSafeFailure(String diagnostic) {
+            when(commandExecutor.execute(eq("sess-1"), anyString())).thenThrow(new SambaCommandException(diagnostic));
+
+            assertThatThrownBy(() -> sambaConfigService.listBackups("sess-1"))
+                    .isInstanceOf(SambaCommandException.class)
+                    .hasMessage("Configuration backup list is unavailable.");
+            verify(commandExecutor).execute(eq("sess-1"), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(
+                strings = {
+                    "\n",
+                    "\r\n",
+                    "garbled output",
+                    "total 0",
+                    "   ",
+                    "-rw-r--r-- 1 root root 12 2024-99-99 14:30:00 /etc/samba/backups/smb.conf.backup_20241015_143000",
+                    "-rw-r--r-- 1 root root 12 2024-10-15 14:30:00 /etc/samba/backups/unexpected"
+                })
+        void listBackups_rejectsUnusableOutput(String output) {
+            when(commandExecutor.execute(eq("sess-1"), anyString())).thenReturn(output);
+            assertThatThrownBy(() -> sambaConfigService.listBackups("sess-1"))
+                    .isInstanceOf(SambaCommandException.class)
+                    .hasMessage("Configuration backup list is unavailable.");
+        }
+
         @Test
-        void listBackups_whenCommandFails_returnsEmptyList() throws Exception {
-            // given
-            String sessionId = "sess-1";
-            when(commandExecutor.execute(eq(sessionId), anyString())).thenThrow(new RuntimeException("Command failed"));
-
-            // when
-            List<SambaBackupDto> backups = sambaConfigService.listBackups(sessionId);
-
-            // then
-            assertThat(backups).isEmpty();
+        void listBackups_acceptsConfirmedEmptyOutput() {
+            when(commandExecutor.execute(eq("sess-1"), anyString())).thenReturn("");
+            assertThat(sambaConfigService.listBackups("sess-1")).isEmpty();
         }
 
         @Test

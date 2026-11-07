@@ -43,6 +43,28 @@ class ConfigWorkflowIntegrationTest {
     private CommandExecutor commands;
 
     @Test
+    void listingFailureIsSafeAndRetryCanConfirmAnEmptyDirectory() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String command = LinuxCommands.listBackupsDetailed("/etc/samba/backups");
+        when(commands.execute(session.getId(), command))
+                .thenThrow(new SambaCommandException("synthetic-sensitive-command-output"))
+                .thenReturn("");
+
+        mvc.perform(get("/api/config/backups").session(session))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(
+                        jsonPath("$.message").value("Samba command failed: Configuration backup list is unavailable."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        mvc.perform(get("/api/config/backups").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+        verify(commands, times(2)).execute(session.getId(), command);
+        verifyNoMoreInteractions(commands);
+    }
+
+    @Test
     void updatingGlobalSettingsPreservesSharesAndValidatesBeforeReplacingConfig() throws Exception {
         MockHttpSession session = new MockHttpSession();
         when(commands.execute(session.getId(), LinuxCommands.cat("/etc/samba/smb.conf")))

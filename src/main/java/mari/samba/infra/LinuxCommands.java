@@ -177,7 +177,7 @@ public final class LinuxCommands {
 
     public static String listBackupsDetailed(String backupDir) {
         return String.format(
-                "ls -lh --time-style=\"+%%Y-%%m-%%d %%H:%%M:%%S\" -- %s/smb.conf.backup_* 2>/dev/null",
+                "test -d %1$s && LC_ALL=C find -H %1$s -maxdepth 1 -name 'smb.conf.backup_*' -exec ls -ldh --time-style=\"+%%Y-%%m-%%d %%H:%%M:%%S\" -- {} +",
                 escape(requireValidPath(backupDir)));
     }
 

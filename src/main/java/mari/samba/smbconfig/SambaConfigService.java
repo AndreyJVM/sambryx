@@ -1,10 +1,15 @@
 package mari.samba.smbconfig;
 
 import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import mari.samba.config.SambaProperties;
+import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SmbConfParser;
@@ -66,30 +71,39 @@ public class SambaConfigService {
     }
 
     public List<SambaBackupDto> listBackups(@NonNull String sessionId) {
-        List<SambaBackupDto> backups = new ArrayList<>();
         try {
-            String cmd = LinuxCommands.listBackupsDetailed(backupDir);
-            String output = commandExecutor.execute(sessionId, cmd);
-            String[] lines = output.split("\\r?\\n");
-
-            for (String line : lines) {
-                line = line.trim();
-                if (line.isEmpty() || line.startsWith("total")) continue;
-
-                String[] parts = line.split("\\s+");
-                if (parts.length >= 7) {
-                    String size = parts[4];
-                    String date = parts[5] + " " + parts[6];
-                    String fullPath = parts[parts.length - 1];
-                    String filename = fullPath.substring(fullPath.lastIndexOf('/') + 1);
-
-                    backups.add(new SambaBackupDto(filename, date, size));
-                }
+            String output = commandExecutor.execute(sessionId, LinuxCommands.listBackupsDetailed(backupDir));
+            if (output == null) throw new IllegalArgumentException("Missing backup listing result.");
+            if (output.isEmpty()) return List.of();
+            if (output.isBlank()) throw new IllegalArgumentException("Invalid backup listing result.");
+            List<SambaBackupDto> backups = new ArrayList<>();
+            for (String line : output.split("\\r?\\n")) {
+                backups.add(parseBackupEntry(line));
             }
-        } catch (Exception e) {
-            log.warn("Failed to list configuration backups: {}", e.getMessage());
+            return List.copyOf(backups);
+        } catch (SambaCommandException | IllegalArgumentException | DateTimeException e) {
+            log.warn("Configuration backup listing failed");
+            throw new SambaCommandException("Configuration backup list is unavailable.");
         }
-        return backups;
+    }
+
+    private SambaBackupDto parseBackupEntry(String line) {
+        String[] parts = line.split("\\s+", 8);
+        if (parts.length != 8
+                || !parts[0].matches("-[rwxStTs-]{9}[.+]?")
+                || !parts[1].matches("[0-9]+")
+                || !parts[4].matches("[0-9]+(?:\\.[0-9]+)?[KMGTPEZY]?")) {
+            throw new IllegalArgumentException("Invalid backup listing entry.");
+        }
+        String filename = parts[7].substring(parts[7].lastIndexOf('/') + 1);
+        if (!filename.matches("smb\\.conf\\.backup_\\d{8}_\\d{6}(?:_[1-9][0-9]?)?")
+                || !parts[7].equals(backupDir + "/" + filename)) {
+            throw new IllegalArgumentException("Invalid backup listing filename.");
+        }
+        String date = parts[5] + " " + parts[6];
+        LocalDateTime.parse(
+                date, DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withResolverStyle(ResolverStyle.STRICT));
+        return new SambaBackupDto(filename, date, parts[4]);
     }
 
     /**
