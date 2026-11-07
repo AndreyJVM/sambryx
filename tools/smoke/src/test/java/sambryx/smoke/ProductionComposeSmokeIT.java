@@ -69,6 +69,11 @@ class ProductionComposeSmokeIT {
 
     private void verifyPersistence(ComposeFixture fixture) throws Exception {
         createUserAndShare(fixture);
+        assertEquals(
+                "sgfixture:sgfixture:770",
+                fixture.node("", "stat", "-c", "%U:%G:%a", "/srv/samba/lifecycle")
+                        .trim(),
+                "Disposable SMB directory must have explicitly prepared access");
         String uid = fixture.node("", "id", "-u", "sgfixture");
         String key = fixture.node("", "ssh-keygen", "-lf", "/etc/ssh/ssh_host_ed25519_key.pub");
         fixture.smb(true);
@@ -100,6 +105,8 @@ class ProductionComposeSmokeIT {
                 "POST",
                 "/api/users",
                 Map.of("username", "sgfixture", "password", fixture.password, "fullName", "Disposable fixture"));
+        // Provision access explicitly: saving a share preserves filesystem ownership and permissions.
+        fixture.node("", "install", "-d", "-o", "sgfixture", "-g", "sgfixture", "-m", "0770", "/srv/samba/lifecycle");
         fixture.api.data(
                 "POST",
                 "/api/shares",
