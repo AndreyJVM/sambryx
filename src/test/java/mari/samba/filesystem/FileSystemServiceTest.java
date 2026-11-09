@@ -155,6 +155,49 @@ class FileSystemServiceTest {
         assertTrue(result.total().contains("GB"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"0 1 1024 0% /srv", "1024 0 1 100% /data"})
+    void diskUsagePreservesSizesAndMountPoint(String row) {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.df("/srv")))
+                .thenReturn("Filesystem 1024-blocks Used Available Capacity Mounted on\r\n/dev/test " + row
+                        + "\r\n/dev/ignored 9 9 0 100% /ignored");
+
+        DiskUsageDto result = fileSystemService.getDiskUsage(SESSION_ID, "/srv/child/..");
+
+        DiskUsageDto expected = row.startsWith("0 ")
+                ? new DiskUsageDto("/srv", "0 B", "1.0 KB", "1.0 MB", 0, "/srv")
+                : new DiskUsageDto("/srv", "1.0 MB", "0 B", "1.0 KB", 100, "/data");
+        assertEquals(expected, result);
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.df("/srv"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "  ", "header", "header\nshort row", "header\n/dev/test bad 1 2 3% /srv"})
+    void diskUsagePreservesMalformedOutputFailures(String output) {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.df("/srv"))).thenReturn(output);
+
+        RuntimeException failure =
+                assertThrows(RuntimeException.class, () -> fileSystemService.getDiskUsage(SESSION_ID, "/srv"));
+
+        String expected = output == null || output.isBlank()
+                ? "Empty output from df command for path: /srv"
+                : !output.contains("\n")
+                        ? "Invalid df output format: " + output
+                        : output.endsWith("short row")
+                                ? "Unexpected df line structure: short row"
+                                : "Failed to parse disk usage numbers from: /dev/test bad 1 2 3% /srv";
+        assertEquals(RuntimeException.class, failure.getClass());
+        assertEquals(expected, failure.getMessage());
+        if (output != null && output.contains("bad")) {
+            assertInstanceOf(NumberFormatException.class, failure.getCause());
+        } else {
+            assertNull(failure.getCause());
+        }
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
     @Test
     void testGetDiskUsage_UnauthorizedPath_ShouldThrowSecurityException() {
         assertThrows(SecurityException.class, () -> fileSystemService.getDiskUsage(SESSION_ID, "/etc"));
