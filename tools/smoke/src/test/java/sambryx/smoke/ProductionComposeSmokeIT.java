@@ -1,11 +1,15 @@
 package sambryx.smoke;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
@@ -26,6 +30,7 @@ class ProductionComposeSmokeIT {
             verifyPersistence(fixture);
             verifyValidRestore(fixture);
             verifyInvalidBackupIsRejected(fixture);
+            verifyUserDeletionPreservesFiles(fixture);
         }
     }
 
@@ -185,6 +190,79 @@ class ProductionComposeSmokeIT {
         fixture.smb(false);
         System.out.println("PASS: invalid backup rejected without changing configuration, Samba PID or SMB data");
     }
+
+    private void verifyUserDeletionPreservesFiles(ComposeFixture fixture) throws Exception {
+        var before = preparePreservedFiles(fixture);
+        // Mutate through the authenticated application session; observe independently via Docker exec.
+        var response = fixture.api.request("DELETE", "/api/users/sgfixture", Map.of());
+        assertAll(
+                "Account deletion preserves data independently of the HTTP response",
+                () -> assertEquals(200, response.status(), "Deletion HTTP status"),
+                () -> assertTrue(response.body().path("success").asBoolean(), "Deletion API envelope"),
+                () -> verifyLinuxAccountIsAbsent(fixture),
+                () -> assertFalse(hasSambaAccount(fixture), "Samba account remains visible"),
+                () -> assertAll(
+                        "Preserved filesystem entries",
+                        before.entrySet().stream()
+                                .map(entry -> () -> assertEquals(
+                                        entry.getValue(),
+                                        snapshot(fixture, entry.getKey()),
+                                        "Changed entry: " + entry.getKey()))));
+        System.out.println(
+                "PASS: HTTP/SSH deletion removes Linux/Samba accounts and preserves home, mail and share data"
+                        + " with numeric UID/GID and modes");
+    }
+
+    private Map<String, FileSnapshot> preparePreservedFiles(ComposeFixture fixture) throws Exception {
+        String account = fixture.node("", "getent", "passwd", "sgfixture").trim();
+        String[] fields = account.split(":", -1);
+        assertEquals(7, fields.length, "Synthetic Linux account must exist before deletion");
+        assertEquals("/home/sgfixture", fields[5], "Unexpected synthetic home path");
+        assertTrue(hasSambaAccount(fixture), "Synthetic Samba account must exist before deletion");
+        prepareHomeAndMail(fixture);
+        var before = new LinkedHashMap<String, FileSnapshot>();
+        for (String path : List.of(
+                "/home/sgfixture",
+                "/home/sgfixture/preserved.txt",
+                "/var/mail/sgfixture",
+                "/srv/samba/lifecycle",
+                "/srv/samba/lifecycle/sentinel.txt")) {
+            FileSnapshot snapshot = snapshot(fixture, path);
+            assertTrue(
+                    snapshot.metadata().startsWith(fields[2] + ":" + fields[3] + ":"),
+                    "Fixture must belong to the synthetic UID/GID: " + path);
+            before.put(path, snapshot);
+        }
+        return before;
+    }
+
+    private void prepareHomeAndMail(ComposeFixture fixture) throws Exception {
+        fixture.node("", "chmod", "0750", "/home/sgfixture");
+        fixture.node("", "install", "-d", "/var/mail");
+        for (String path : List.of("/home/sgfixture/preserved.txt", "/var/mail/sgfixture")) {
+            fixture.node("", "install", "-o", "sgfixture", "-g", "sgfixture", "-m", "0640", "/dev/null", path);
+            fixture.node("Synthetic preservation fixture\n", "tee", path);
+        }
+    }
+
+    private void verifyLinuxAccountIsAbsent(ComposeFixture fixture) throws Exception {
+        var result = fixture.nodeResult("getent", "passwd", "sgfixture");
+        assertEquals(2, result.exitCode(), "Linux account must be absent, not a failed probe");
+        assertTrue(result.output().isBlank(), "Linux account remains visible");
+    }
+
+    private boolean hasSambaAccount(ComposeFixture fixture) throws Exception {
+        return fixture.node("", "pdbedit", "-L").lines().anyMatch(line -> line.startsWith("sgfixture:"));
+    }
+
+    private FileSnapshot snapshot(ComposeFixture fixture, String path) throws Exception {
+        String metadata =
+                fixture.node("", "stat", "-c", "%u:%g:%a:%F", "--", path).trim();
+        String content = metadata.endsWith(":directory") ? "" : fixture.node("", "cat", "--", path);
+        return new FileSnapshot(metadata, content);
+    }
+
+    private record FileSnapshot(String metadata, String content) {}
 
     private record ShareRequest(
             String name,
