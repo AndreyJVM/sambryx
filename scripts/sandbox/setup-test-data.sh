@@ -21,7 +21,7 @@ for base_group in developers qa hr finance managers interns; do
 done
 
 echo ">>> [2/3] Creating test users..."
-TEST_PASS="test"
+TEST_PASS=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
 
 setup_user() {
     local username=$1
@@ -145,5 +145,5 @@ echo " Groups: developers, qa, hr, finance, managers, interns"
 echo " Web UI prefixes: smb_developers, smb_qa, smb_hr, ..."
 echo " Mock documents: pdf, docx, xlsx, pptx, csv, java, js"
 echo " Users: dev1, dev2, qa1, qa2, hr1, fin1, boss, intern1"
-echo " Password for all test accounts: test"
+echo " Test accounts use a generated password; reset it explicitly for SMB login tests."
 echo "========================================================"

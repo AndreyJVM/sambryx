@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y \
     vim \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure SSH to allow user and root login
+# Configure password login for the disposable sandbox administrator
 RUN mkdir /var/run/sshd && \
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
 # Copy configuration files and scripts into the image
@@ -27,19 +27,18 @@ COPY scripts/sandbox/setup-test-data.sh /setup-test-data.sh
 RUN chmod +x /usr/bin/systemctl /entrypoint.sh /setup-samba-server.sh /setup-test-data.sh
 
 # Initialize the Samba admin user non-interactively
-ENV AUTO_ADMIN_USER=admin
-ENV AUTO_ADMIN_PASS=admin
-RUN /setup-samba-server.sh
+RUN useradd -m -s /bin/bash admin && /setup-samba-server.sh admin
 
 # Prepare directories and the base Samba configuration
 RUN mkdir -p /srv/samba/public && \
     chown -R admin:admin /srv/samba/public && \
     chmod -R 0777 /srv/samba/public && \
     mv /etc/samba/smb.conf /etc/samba/smb.conf.bak && \
-    cp /tmp/smb-base.conf /etc/samba/smb.conf
+    cp /tmp/smb-base.conf /etc/samba/smb.conf && \
+    chmod 0644 /etc/samba/smb.conf
 
 # Generate test data for the developer sandbox
-RUN /setup-test-data.sh
+RUN /setup-test-data.sh && rm -f /etc/ssh/ssh_host_*
 
 # Expose SSH (22) and Samba (139, 445) ports
 EXPOSE 22 139 445

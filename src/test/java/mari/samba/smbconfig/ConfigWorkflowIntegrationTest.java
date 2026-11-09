@@ -118,6 +118,8 @@ class ConfigWorkflowIntegrationTest {
 
     @Test
     void updatingGlobalSettingsPreservesSharesAndValidatesBeforeReplacingConfig() throws Exception {
+        when(commands.executeCommand(anyString(), anyString()))
+                .thenReturn(new mari.samba.infra.CommandResult(0, "", ""));
         MockHttpSession session = new MockHttpSession();
         when(commands.execute(session.getId(), LinuxCommands.cat("/etc/samba/smb.conf")))
                 .thenReturn("[global]\nworkgroup = OLD\n[team]\npath = /srv/team\nvalid users = @team\n");
@@ -135,10 +137,8 @@ class ConfigWorkflowIntegrationTest {
         order.verify(commands)
                 .execute(
                         eq(session.getId()),
-                        eq(LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp")),
+                        eq(LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf")),
                         written.capture());
-        order.verify(commands).execute(session.getId(), LinuxCommands.testparmSilent("/tmp/smb.conf.tmp"));
-        order.verify(commands).execute(session.getId(), LinuxCommands.move("/tmp/smb.conf.tmp", "/etc/samba/smb.conf"));
         order.verify(commands).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
         assertThat(written.getValue())
                 .contains("workgroup = NEW", "[team]", "path = /srv/team", "valid users = @team")
@@ -147,8 +147,11 @@ class ConfigWorkflowIntegrationTest {
 
     @Test
     void rejectedConfigurationReturnsErrorWithoutReplacingFileOrRestartingSamba() throws Exception {
+        when(commands.executeCommand(anyString(), anyString()))
+                .thenReturn(new mari.samba.infra.CommandResult(0, "", ""));
         MockHttpSession session = new MockHttpSession();
-        when(commands.execute(session.getId(), LinuxCommands.testparmSilent("/tmp/smb.conf.tmp")))
+        when(commands.execute(
+                        eq(session.getId()), eq(LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf")), anyString()))
                 .thenThrow(new SambaCommandException("Invalid configuration"));
 
         mvc.perform(put("/api/config/raw")
@@ -159,9 +162,8 @@ class ConfigWorkflowIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false));
 
         verify(commands)
-                .execute(eq(session.getId()), eq(LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp")), anyString());
-        verify(commands, never())
-                .execute(session.getId(), LinuxCommands.move("/tmp/smb.conf.tmp", "/etc/samba/smb.conf"));
+                .execute(
+                        eq(session.getId()), eq(LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf")), anyString());
         verify(commands, never()).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
     }
 

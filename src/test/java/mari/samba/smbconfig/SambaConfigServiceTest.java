@@ -49,6 +49,9 @@ class SambaConfigServiceTest {
         when(mockPaths.config()).thenReturn("/etc/samba/smb.conf");
         when(mockPaths.backups()).thenReturn("/etc/samba/backups");
 
+        lenient()
+                .when(commandExecutor.executeCommand(anyString(), anyString()))
+                .thenReturn(new mari.samba.infra.CommandResult(0, "", ""));
         sambaConfigService = new SambaConfigService(commandExecutor, smbConfParser, properties);
     }
 
@@ -288,6 +291,35 @@ class SambaConfigServiceTest {
     class UpdateOperations {
 
         @Test
+        void incompatibleSavePermissionsAreReportedBeforeAnyMutation() {
+            when(commandExecutor.executeCommand(eq("session"), anyString()))
+                    .thenReturn(new mari.samba.infra.CommandResult(1, "", ""));
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf("session", "[global]"))
+                    .isInstanceOf(SambaCommandException.class)
+                    .hasMessageContaining("Review configuration save sudo permissions");
+            verify(commandExecutor, never()).execute(anyString(), anyString());
+            verify(commandExecutor, never()).execute(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        void overlappingUpdatesDoNotUseSharedLegacyPath() {
+            var writtenPaths = new java.util.ArrayList<String>();
+            lenient()
+                    .doAnswer(call -> {
+                        writtenPaths.add(call.getArgument(1));
+                        if (writtenPaths.size() == 1) sambaConfigService.updateSmbConf("second", "second content");
+                        return "";
+                    })
+                    .when(commandExecutor)
+                    .execute(anyString(), anyString(), anyString());
+
+            sambaConfigService.updateSmbConf("first", "first content");
+
+            assertThat(writtenPaths).hasSize(2);
+            assertThat(writtenPaths).noneMatch(command -> command.contains("/tmp/smb.conf.tmp"));
+        }
+
+        @Test
         void updateSmbConf_writesChecksAndMoves() throws Exception {
             // given
             String sessionId = "sess-1";
@@ -298,77 +330,52 @@ class SambaConfigServiceTest {
 
             // then
             InOrder order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(sessionId, LinuxCommands.configSavePermissionProbe());
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.mkdir("/etc/samba/backups"));
             order.verify(commandExecutor).execute(eq(sessionId), matches("bash -c .*"));
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
             order.verify(commandExecutor)
-                    .execute(eq(sessionId), eq(LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp")), eq(newContent));
-            order.verify(commandExecutor).execute(eq(sessionId), eq(LinuxCommands.testparmSilent("/tmp/smb.conf.tmp")));
-            order.verify(commandExecutor)
-                    .execute(eq(sessionId), eq(LinuxCommands.move("/tmp/smb.conf.tmp", "/etc/samba/smb.conf")));
+                    .execute(
+                            eq(sessionId),
+                            eq(LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf")),
+                            eq(newContent));
             order.verify(commandExecutor).execute(eq(sessionId), eq(LinuxCommands.systemctl("restart", "smbd")));
             verifyNoMoreInteractions(commandExecutor);
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"backup", "backup-copy", "cleanup", "write", "validate", "move", "restart"})
+        @ValueSource(strings = {"backup", "backup-copy", "cleanup", "install", "restart"})
         void updateSmbConf_stopsAfterFailedStage(String failedStage) {
             String sessionId = "session-failure";
-            String content = "[global]\nworkgroup = TEST";
-            String write = LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp");
-            String validate = LinuxCommands.testparmSilent("/tmp/smb.conf.tmp");
-            String move = LinuxCommands.move("/tmp/smb.conf.tmp", "/etc/samba/smb.conf");
+            String content = "[global]";
+            String install = LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf");
             String restart = LinuxCommands.systemctl("restart", "smbd");
-            SambaCommandException failure = new SambaCommandException("Synthetic " + failedStage + " failure");
-
-            String failedCommand =
-                    switch (failedStage) {
-                        case "backup" -> LinuxCommands.mkdir("/etc/samba/backups");
-                        case "cleanup" -> LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10);
-                        case "validate" -> validate;
-                        case "move" -> move;
-                        case "restart" -> restart;
-                        case "backup-copy", "write" -> null;
-                        default -> throw new IllegalArgumentException(failedStage);
-                    };
-            when(commandExecutor.execute(eq(sessionId), anyString())).thenAnswer(invocation -> {
-                String command = invocation.getArgument(1);
-                if (command.equals(failedCommand)
-                        || (failedStage.equals("backup-copy") && command.startsWith("bash -c "))) {
-                    throw failure;
-                }
-                return "";
-            });
-            if (failedStage.equals("write")) {
-                when(commandExecutor.execute(sessionId, write, content)).thenThrow(failure);
+            var failure = new SambaCommandException("Synthetic failure");
+            if (failedStage.equals("install")) {
+                lenient()
+                        .when(commandExecutor.execute(sessionId, install, content))
+                        .thenThrow(failure);
+            } else {
+                when(commandExecutor.execute(eq(sessionId), anyString())).thenAnswer(call -> {
+                    String command = call.getArgument(1);
+                    boolean fails =
+                            switch (failedStage) {
+                                case "backup" -> command.equals(LinuxCommands.mkdir("/etc/samba/backups"));
+                                case "backup-copy" -> command.startsWith("bash -c ");
+                                case "cleanup" -> command.equals(
+                                        LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
+                                case "restart" -> command.equals(restart);
+                                default -> false;
+                            };
+                    if (fails) throw failure;
+                    return "";
+                });
             }
-
             assertThatThrownBy(() -> sambaConfigService.updateSmbConf(sessionId, content))
                     .isSameAs(failure);
-
-            if (failedStage.equals("backup")) {
-                verify(commandExecutor).execute(sessionId, LinuxCommands.mkdir("/etc/samba/backups"));
-                verifyNoMoreInteractions(commandExecutor);
-            }
-            if (List.of("backup", "backup-copy").contains(failedStage)) {
-                verify(commandExecutor, never()).execute(sessionId, write, content);
-                verify(commandExecutor, never())
-                        .execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
-            }
-            if (failedStage.equals("cleanup")) {
-                verify(commandExecutor, never()).execute(sessionId, write, content);
-            }
-            if (List.of("backup", "backup-copy", "cleanup", "write").contains(failedStage)) {
-                verify(commandExecutor, never()).execute(sessionId, validate);
-            }
-            if (List.of("backup", "backup-copy", "cleanup", "write", "validate").contains(failedStage)) {
-                verify(commandExecutor, never()).execute(sessionId, move);
-            }
-            if (!failedStage.equals("restart")) {
-                verify(commandExecutor, never()).execute(sessionId, restart);
-            }
-            if (failedStage.equals("restart")) {
-                verify(commandExecutor).execute(sessionId, restart);
+            if (!failedStage.equals("restart")) verify(commandExecutor, never()).execute(sessionId, restart);
+            if (List.of("backup", "backup-copy", "cleanup").contains(failedStage)) {
+                verify(commandExecutor, never()).execute(sessionId, install, content);
             }
         }
 
@@ -405,7 +412,7 @@ class SambaConfigServiceTest {
             verify(commandExecutor)
                     .execute(
                             sessionId,
-                            LinuxCommands.writeToFileStdin("/tmp/smb.conf.tmp"),
+                            LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf"),
                             "[global]\nserver string=Hello");
         }
     }

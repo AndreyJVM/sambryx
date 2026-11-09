@@ -1,0 +1,7 @@
+*
+!scripts/
+!scripts/setup-samba-server.sh
+!scripts/sandbox/
+!scripts/sandbox/*.sh
+!config/
+!config/smb-base.conf

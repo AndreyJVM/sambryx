@@ -101,6 +101,28 @@ public final class LinuxCommands {
         return String.format("cat > %s", escape(requireValidPath(targetPath)));
     }
 
+    /** Non-mutating probes for the sudo requirements introduced by isolated staging and backups. */
+    public static String configSavePermissionProbe() {
+        return "for tool in mktemp testparm ln; do sudo -n \"$tool\" --version > /dev/null 2>&1 || exit 1; done";
+    }
+
+    /** Stages stdin in the protected configuration directory before validation and replacement. */
+    public static String installSmbConfStdin(String configPath) {
+        String target = escape(requireValidPath(configPath));
+        String template = escape(
+                requireValidPath(configPath.substring(0, configPath.lastIndexOf('/')) + "/.smb.conf.update.XXXXXX"));
+        String script = String.join(
+                " ",
+                "staged=$(sudo -n mktemp -- " + template + ") || exit 1;",
+                "trap 'sudo -n rm -f -- \"$staged\" || { echo \"Configuration staging cleanup failed.\" >&2; exit 1; }' EXIT;",
+                "trap 'exit 1' HUP INT TERM;",
+                "sudo -n tee -- \"$staged\" > /dev/null || exit 1;",
+                "sudo -n testparm -s -- \"$staged\" > /dev/null || exit 1;",
+                "sudo -n cp --attributes-only --preserve=mode,ownership -- " + target + " \"$staged\" || exit 1;",
+                "sudo -n mv -T -- \"$staged\" " + target + " || exit 1;");
+        return "bash -c " + escape(script);
+    }
+
     public static String uploadBase64Stdin(String targetPath) {
         return String.format("base64 -d | sudo tee -- %s > /dev/null", escape(requireValidPath(targetPath)));
     }

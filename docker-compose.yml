@@ -35,7 +35,12 @@ services:
       - samba-network
 
   samba-node:
-    image: andreyvorobevaqa/samba-node-sandbox:latest
+    image: ${SAMBA_SANDBOX_IMAGE:-andreyvorobevaqa/samba-node-sandbox}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.samba
+    secrets:
+      - sandbox_admin_password
     container_name: samba-node-sandbox
     hostname: samba-node
     restart: unless-stopped
@@ -68,3 +73,7 @@ volumes:
     name: samba_sandbox_shares
   samba-config:
     name: samba_sandbox_config
+
+secrets:
+  sandbox_admin_password:
+    file: ${SANDBOX_ADMIN_PASSWORD_FILE:?Set SANDBOX_ADMIN_PASSWORD_FILE to a generated password file}

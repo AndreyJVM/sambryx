@@ -59,6 +59,18 @@ else
     exit 1
 fi
 
+# Keep generated sandbox credentials outside tracked files.
+export SANDBOX_ADMIN_PASSWORD_FILE="${SANDBOX_ADMIN_PASSWORD_FILE:-$PROJECT_ROOT/.local/sandbox/admin-password}"
+mkdir -p "$(dirname "$SANDBOX_ADMIN_PASSWORD_FILE")"
+if [ -L "$SANDBOX_ADMIN_PASSWORD_FILE" ] || { [ -e "$SANDBOX_ADMIN_PASSWORD_FILE" ] && [ ! -f "$SANDBOX_ADMIN_PASSWORD_FILE" ]; }; then
+    echo "Sandbox administrator password must be a regular file." >&2
+    exit 1
+fi
+if [ ! -e "$SANDBOX_ADMIN_PASSWORD_FILE" ]; then
+    (umask 077; set -C; openssl rand -hex 32 > "$SANDBOX_ADMIN_PASSWORD_FILE")
+fi
+chmod 0600 "$SANDBOX_ADMIN_PASSWORD_FILE"
+
 # Trust is provisioned only from the operator-controlled disposable Docker node.
 export SSH_KNOWN_HOSTS_FILE="$PROJECT_ROOT/.local/sandbox/known_hosts"
 mkdir -p "$(dirname "$SSH_KNOWN_HOSTS_FILE")"
@@ -73,6 +85,13 @@ seed_sandbox_host_keys() {
     $COMPOSE_CMD exec -T samba-node sh -c 'for key in /etc/ssh/ssh_host_*_key.pub; do if [ -f "$key" ]; then printf "samba-node "; cat "$key"; fi; done' > "$SSH_KNOWN_HOSTS_FILE"
     test -s "$SSH_KNOWN_HOSTS_FILE"
     chmod 0644 "$SSH_KNOWN_HOSTS_FILE"
+}
+
+check_node_save_permissions() {
+    if ! $COMPOSE_CMD exec -T --user admin samba-node sh -c 'for tool in mktemp testparm ln; do sudo -n "$tool" --version >/dev/null 2>&1 || exit 1; done'; then
+        echo "The running node has an incompatible sudo policy. Preserve its data and follow docs/server-setup.md before updating it." >&2
+        return 1
+    fi
 }
 
 # Check Docker daemon availability
@@ -162,6 +181,8 @@ build_backend() {
 
 # Build the web Docker image
 build_docker_image() {
+    echo ">>> Pulling the published sandbox node..."
+    $COMPOSE_CMD pull samba-node || return 1
     echo ">>> Building web Docker image (copying JAR into Alpine JRE)..."
     local jars=("$PROJECT_ROOT"/target/*.jar)
     if [[ ${#jars[@]} -ne 1 || ! -f "${jars[0]}" ]]; then
@@ -218,7 +239,7 @@ print_banner() {
     echo "  - Host (IP):    samba-node                              "
     echo "  - SSH Port:     22                                      "
     echo "  - Username:     admin                                   "
-    echo "  - Password:     admin                                   "
+    echo "  - Password file: $SANDBOX_ADMIN_PASSWORD_FILE"
     echo "  ------------------------------------------------------  "
     echo "  Direct access from the host (Windows/Mac/Linux):"
     echo "  - SSH:          ssh admin@localhost -p 2222             "
@@ -230,7 +251,7 @@ print_banner() {
 # Display available commands
 print_help() {
     echo "Available commands:"
-    echo "  build, b, fast        - Rebuild frontend/code without resetting samba-node or volumes"
+    echo "  build, b, fast        - Build web image and pull node; update web only after node permission checks"
     echo "  build-full, bf        - Remove containers and volumes, then rebuild"
     echo "  restart, r            - Restart containers without rebuilding"
     echo "  logs, l               - Follow logs (Ctrl+C to return)"
@@ -258,7 +279,9 @@ rebuild_fast() {
         return 1
     fi
 
-    echo ">>> Recreating web container (samba-node and volumes are preserved)..."
+    echo ">>> Checking the existing node before updating the web container..."
+    check_node_save_permissions || return 1
+    echo ">>> Recreating web container; the running node and volumes are preserved..."
     $COMPOSE_CMD up -d --no-deps web
 
     echo ""
@@ -296,6 +319,7 @@ rebuild_full() {
     $COMPOSE_CMD up -d
 
     wait_for_node
+    check_node_save_permissions
     seed_sandbox_host_keys
     print_banner
 }
@@ -353,6 +377,7 @@ $COMPOSE_CMD up -d
 
 # 4. Wait for container readiness
 wait_for_node
+check_node_save_permissions
 seed_sandbox_host_keys
 print_banner
 

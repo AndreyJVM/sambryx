@@ -48,6 +48,7 @@ class BackupSshIT {
                     .isNotZero();
             assertThat(ssh.execute(SESSION, "id -u").trim()).isNotEqualTo("0");
             verifySnapshots(container);
+            verifyUpdates(container);
             verifyDeniedCopy(container);
 
         } finally {
@@ -122,14 +123,83 @@ class BackupSshIT {
         }
     }
 
+    private void verifyUpdates(String container) throws Exception {
+        String systemctl =
+                exec(container, "", "sh", "-c", "command -v systemctl").trim();
+        exec(container, "#!/bin/sh\nprintf restarted > /srv/backup-it/restarted\n", "tee", systemctl);
+        exec(container, "", "chmod", "755", systemctl);
+        String valid = "[global]\nworkgroup = UPDATED\n";
+        service.updateSmbConf(SESSION, valid);
+        assertThat(exec(container, "", "cat", CONFIG)).isEqualTo(valid);
+        assertThat(exec(container, "", "stat", "-c", "%a:%U:%G", CONFIG).trim()).isEqualTo("600:root:root");
+        exec(container, "", "rm", ROOT + "/restarted");
+        assertThatThrownBy(() -> service.updateSmbConf(SESSION, "[broken\n")).isInstanceOf(SambaCommandException.class);
+        assertThat(exec(container, "", "cat", CONFIG)).isEqualTo(valid);
+        assertThat(exec(container, "", "find", ROOT, "-name", ".smb.conf.update.*"))
+                .isEmpty();
+        assertThat(exec(container, "", "find", ROOT, "-name", "restarted")).isEmpty();
+        String policy = exec(container, "", "cat", "/etc/sudoers.d/sambryx-admin");
+        for (String denied : List.of("tee", "mv")) {
+            String restricted = policy.replaceAll("(?:/bin/|/usr/bin/)" + denied + "(?=,|\\s|$),?\\s*", "");
+            exec(container, restricted, "tee", "/etc/sudoers.d/sambryx-admin");
+            assertThatThrownBy(() -> service.updateSmbConf(SESSION, "[global]\nworkgroup = DENIED\n"))
+                    .isInstanceOf(SambaCommandException.class);
+            assertThat(exec(container, "", "cat", CONFIG)).isEqualTo(valid);
+            assertThat(exec(container, "", "find", ROOT, "-name", ".smb.conf.update.*"))
+                    .isEmpty();
+            assertThat(exec(container, "", "find", ROOT, "-name", "restarted")).isEmpty();
+        }
+        exec(container, policy, "tee", "/etc/sudoers.d/sambryx-admin");
+        verifyOverlappingUpdates(container);
+        exec(container, "second", "tee", CONFIG);
+    }
+
+    private void verifyOverlappingUpdates(String container) throws Exception {
+        String testparm = exec(container, "", "sh", "-c", "command -v testparm").trim();
+        exec(container, "", "mv", testparm, testparm + ".real");
+        String wrapper = "#!/bin/sh\ncase \"$1\" in --version) exec " + testparm + ".real --version;; esac\n" + testparm
+                + ".real \"$@\" >/dev/null || exit 1\n"
+                + "name=$(sed -n 's/workgroup = //p' \"$3\")\n"
+                + "printf '%s' \"$3\" > " + ROOT + "/$name-ready\n"
+                + "read -r go < " + ROOT + "/$name-go\n";
+        exec(container, wrapper, "tee", testparm);
+        exec(container, "", "chmod", "755", testparm);
+        for (String name : List.of("first", "second")) {
+            exec(container, "", "mkfifo", ROOT + "/" + name + "-ready", ROOT + "/" + name + "-go");
+        }
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = pool.submit(() -> service.updateSmbConf(SESSION, "[global]\nworkgroup = first\n"));
+            var firstReady = pool.submit(() -> exec(container, "", "cat", ROOT + "/first-ready"));
+            String firstPath = firstReady.get(15, TimeUnit.SECONDS);
+            var second = pool.submit(() -> service.updateSmbConf(SESSION, "[global]\nworkgroup = second\n"));
+            var secondReady = pool.submit(() -> exec(container, "", "cat", ROOT + "/second-ready"));
+            String secondPath = secondReady.get(15, TimeUnit.SECONDS);
+            assertThat(firstPath).isNotEqualTo(secondPath);
+            assertThat(exec(container, "", "stat", "-c", "%a:%U:%G", firstPath).trim())
+                    .isEqualTo("600:root:root");
+            exec(container, "go\n", "tee", ROOT + "/second-go");
+            second.get(15, TimeUnit.SECONDS);
+            assertThat(exec(container, "", "cat", CONFIG)).contains("workgroup = second");
+            assertThat(exec(container, "", "cat", firstPath)).contains("workgroup = first");
+            exec(container, "go\n", "tee", ROOT + "/first-go");
+            first.get(15, TimeUnit.SECONDS);
+            assertThat(exec(container, "", "cat", CONFIG)).contains("workgroup = first");
+        } finally {
+            exec(container, "", "mv", testparm + ".real", testparm);
+        }
+        assertThat(exec(container, "", "find", ROOT, "-name", ".smb.conf.update.*"))
+                .isEmpty();
+    }
+
     private void verifyDeniedCopy(String container) throws Exception {
+        var before = service.listBackups(SESSION);
         exec(
                 container,
                 "admin ALL=(root) NOPASSWD: /usr/bin/mkdir, /usr/bin/mktemp, /usr/bin/ln, /usr/bin/rm\n",
                 "tee",
                 "/etc/sudoers.d/sambryx-admin");
         assertThatThrownBy(() -> service.createBackup(SESSION)).isInstanceOf(SambaCommandException.class);
-        assertThat(service.listBackups(SESSION)).hasSize(2);
+        assertThat(service.listBackups(SESSION)).containsExactlyElementsOf(before);
         assertThat(exec(container, "", "find", BACKUPS, "-maxdepth", "1", "-name", ".smb.conf.staging.*"))
                 .isEmpty();
         assertThat(exec(container, "", "cat", CONFIG)).isEqualTo("second");

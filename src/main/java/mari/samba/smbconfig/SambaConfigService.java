@@ -137,12 +137,14 @@ public class SambaConfigService {
      * Syntax is checked with {@code testparm} before overwriting configuration and restarting {@code smbd}.
      */
     public void updateSmbConf(@NonNull String sessionId, @NonNull String content) {
-        String tempFile = "/tmp/smb.conf.tmp";
-
+        var permissionResult = commandExecutor.executeCommand(sessionId, LinuxCommands.configSavePermissionProbe());
+        if (permissionResult == null || !permissionResult.isSuccess()) {
+            throw new SambaCommandException("Review configuration save sudo permissions with the server administrator: "
+                    + "mktemp, testparm and ln require noninteractive access. See docs/server-setup.md. "
+                    + "No configuration changes were started.");
+        }
         createBackup(sessionId);
-        commandExecutor.execute(sessionId, LinuxCommands.writeToFileStdin(tempFile), content);
-        commandExecutor.execute(sessionId, LinuxCommands.testparmSilent(tempFile));
-        commandExecutor.execute(sessionId, LinuxCommands.move(tempFile, configPath));
+        commandExecutor.execute(sessionId, LinuxCommands.installSmbConfStdin(configPath), content);
         commandExecutor.execute(sessionId, LinuxCommands.systemctl("restart", "smbd"));
         log.info("Updated {} and restarted smbd", configPath);
     }

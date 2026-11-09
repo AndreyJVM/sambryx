@@ -366,3 +366,50 @@ DNS, Kerberos и служба Winbind не проверяются и возвр�
 подтверждённые значения и ошибку обновления. Эти тесты не подтверждают реальную
 совместимость с AD; доменное окружение и реальные проверки остаются в
 [#64](https://github.com/AndreyJVM/sambryx/issues/64).
+
+## Изоляция staging при сохранении
+
+`ConfigStagingTest` запускает настоящий Bash и файловые утилиты над временным каталогом.
+SSH executor, sudo, testparm и systemctl подменены; FIFO-барьеры без sleep удерживают
+две операции на validation и проверяют независимые файлы и устанавливаемый контент.
+Проверяются planted symlink, mode, ошибки mktemp/write/validation/metadata/move,
+cleanup failure, отсутствие чужого удаления и restart после отказа.
+`SambaConfigServiceTest` проверяет порядок backup/install/restart;
+`ConfigWorkflowIntegrationTest` — API с настоящим сервисом и parser, но mocked SSH
+и отключёнными security filters.
+
+`BackupSshIT` дополнительно проверяет сохранение через настоящий SSH непривилегированного
+пользователя с setup-generated sudoers, настоящим testparm и root-owned каталогом.
+В одноразовом Docker-стенде systemctl заменён маркером: реальный restart Samba
+не проверяется. Проверяются успешная установка, owner/mode, отказ validation,
+запрет sudo tee/mv, отсутствие утечки staging и отсутствие restart при отказе.
+Пересечение двух SSH-сохранений удерживается FIFO-барьерами вокруг настоящего testparm;
+проверяются разные root-owned файлы, установка собственного контента и независимая очистка.
+Запуск: `JAVA_HOME=/path/to/jdk21 ./mvnw -Dfrontend.skip=true -Dtest=BackupSshIT
+-Dbackup.ssh.image=<prepared-local-image> test`.
+
+
+### Штатная поставка sandbox и сохранение через приложение
+
+`SandboxConfigSaveIT` запускает корневой Compose с изолированными именами контейнеров,
+собственными volumes, случайными паролем и портами, собирая node из штатного Dockerfile.
+После настоящего SSH-входа `admin` проверяется сохранение описания через HTTP API,
+метаданные, точный валидный backup, настоящий restart smbd и отказ настоящего testparm
+без изменения active config/PID. Проверяются отсутствие staging, отказ privileged shell,
+понятная ошибка несовместимых sudo permissions до backup и восстановление packaged policy
+при restart node без изменения config. Здесь нет mocks testparm/systemctl/SSH.
+Браузерные клики не выполняются: проверяется тот же HTTP endpoint, который вызывает UI.
+
+```bash
+JAVA_HOME=/path/to/jdk21 ./mvnw -f tools/smoke/pom.xml \
+  -Dtest=SandboxConfigSaveIT -Dsmoke.root="$PWD" \
+  -Dsmoke.image=sambryx-save-review:local test
+```
+
+Образ приложения предварительно собирается из проверяемого JAR через основной Dockerfile.
+Для проблем DNS только внутри build-сети Linux Docker можно передать тесту
+`-Dsmoke.build.network=host`; это касается установки пакетов в build, не runtime-изоляции.
+Для проверки опубликованного node без локальной сборки передайте
+`-Dsmoke.node.image=andreyvorobevaqa/samba-node-sandbox`.
+Предварительно загрузите этот образ через `docker pull`.
+Тест очищает только собственный Compose project и volumes. Рабочие контейнеры не меняются.
