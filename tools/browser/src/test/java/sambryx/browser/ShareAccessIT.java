@@ -154,6 +154,92 @@ class ShareAccessIT {
         });
     }
 
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("localizedVariants")
+    void containsKeyboardFocusAndCancelsShareDialogs(BrowserVariant variant, String language, String ignored) {
+        runtime.verify(variant, language, "shareDialogKeyboard-" + language, fixture -> {
+            boolean russian = language.equals("ru");
+            String cancel = russian ? "Отмена" : "Cancel";
+            fixture.go("/ui/shares");
+            for (String action :
+                    List.of(russian ? "Новый ресурс" : "New Share", russian ? "Настроить: team" : "Configure: team")) {
+                var opener = fixture.button(action);
+                opener.focus();
+                fixture.page.keyboard().press("Enter");
+                var editor = fixture.page.getByRole(AriaRole.DIALOG);
+                assertThat(editor).isVisible();
+                if (action.endsWith(": team"))
+                    assertThat(editor.locator("#share-name")).isDisabled();
+                cycleFocus(fixture, editor);
+                var browse = button(editor, russian ? "Обзор..." : "Browse...");
+                browse.focus();
+                fixture.page.waitForResponse(
+                        response -> response.url().contains("/api/fs/browse?"),
+                        () -> fixture.page.keyboard().press("Enter"));
+                var picker = fixture.page.getByRole(
+                        AriaRole.DIALOG,
+                        new com.microsoft.playwright.Page.GetByRoleOptions()
+                                .setName(russian ? "Диски и Файлы" : "Storage & Explorer")
+                                .setExact(true));
+                assertThat(fixture.page.getByRole(AriaRole.DIALOG)).hasCount(2);
+                assertThat(picker.locator(".animate-spin")).hasCount(0);
+                assertThat(button(picker, "team").last()).isVisible();
+                cycleFocus(fixture, picker);
+                fixture.page.keyboard().press("Escape");
+                assertThat(fixture.page.getByRole(AriaRole.DIALOG)).hasCount(1);
+                assertThat(browse).isFocused();
+                fixture.page.keyboard().press("Escape");
+                assertThat(editor).hasCount(0);
+                assertThat(opener).isFocused();
+                fixture.page.keyboard().press("Enter");
+                button(editor, cancel).focus();
+                fixture.page.keyboard().press("Enter");
+                assertThat(editor).hasCount(0);
+                assertThat(opener).isFocused();
+            }
+            var delete = fixture.button(russian ? "Удалить: archive" : "Delete: archive");
+            for (String key : List.of("Escape", "Enter")) {
+                delete.focus();
+                fixture.page.keyboard().press("Enter");
+                var confirmation = fixture.page.getByRole(AriaRole.ALERTDIALOG);
+                assertThat(button(confirmation, cancel)).isFocused();
+                cycleFocus(fixture, confirmation);
+                button(confirmation, cancel).focus();
+                fixture.page.keyboard().press(key);
+                assertThat(confirmation).hasCount(0);
+                assertThat(delete).isFocused();
+            }
+            assertTrue(fixture.app.mutations().isEmpty(), "Dismissal must not mutate resources");
+        });
+    }
+
+    private static void cycleFocus(BrowserFixture fixture, com.microsoft.playwright.Locator dialog) {
+        assertThat(dialog).isVisible();
+        var controls = dialog.locator(
+                "button:visible:enabled, input:visible:enabled, select:visible:enabled, textarea:visible:enabled, a[href]:visible, [tabindex='0']:visible");
+        int count = controls.count();
+        assertTrue(count > 0);
+        controls.first().focus();
+        for (String key : List.of("Shift+Tab", "Tab")) {
+            for (int i = 0; i < count; i++) {
+                fixture.page.keyboard().press(key);
+                int expected = key.equals("Tab") ? (i + 1) % count : (count - 1 - i);
+                assertThat(controls.nth(expected)).isFocused();
+                assertTrue(
+                        (Boolean)
+                                dialog.evaluate(
+                                        "element => { const active=document.activeElement; const style=getComputedStyle(active); return active.tagName !== 'BUTTON' || (active.matches(':focus-visible') && (parseFloat(style.outlineWidth) > 0 || style.boxShadow !== 'none')); }"),
+                        "Keyboard-focused buttons must have a visible indicator");
+                assertTrue((Boolean) dialog.evaluate("element => element.contains(document.activeElement)"));
+                assertTrue(
+                        (Boolean)
+                                dialog.evaluate(
+                                        "element => { const active=document.activeElement; return !active.matches(':disabled') && active.getClientRects().length > 0; }"));
+            }
+            assertThat(controls.first()).isFocused();
+        }
+    }
+
     private static double number(Map<String, Object> value, String field) {
         return ((Number) value.get(field)).doubleValue();
     }
