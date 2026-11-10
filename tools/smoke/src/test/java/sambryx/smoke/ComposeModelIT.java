@@ -95,6 +95,56 @@ class ComposeModelIT {
         render(false, true, "sambryx-production");
     }
 
+    @Test
+    void resolvesEnvFilePathsAgainstComposeDirectoryFromAnotherWorkingDirectory() throws Exception {
+        Path root = Path.of(System.getProperty("smoke.root")).toAbsolutePath().normalize();
+        Path env = directory.resolve("custom config.env");
+        Files.writeString(
+                env,
+                """
+                SAMBRYX_IMAGE=sambryx:0.15.0
+                SSH_KNOWN_HOSTS_FILE='./input files/known_hosts'
+                TLS_CERT_FILE='./input files/certificate.pem'
+                TLS_KEY_FILE='./input files/private.key'
+                UNUSED=$(touch should-not-exist)
+                """);
+        var environment = new java.util.HashMap<>(System.getenv());
+        for (String name : new String[] {"SAMBRYX_IMAGE", "SSH_KNOWN_HOSTS_FILE", "TLS_CERT_FILE", "TLS_KEY_FILE"}) {
+            environment.remove(name);
+        }
+        var result = CommandProcess.run(
+                java.util.List.of(
+                        "docker",
+                        "compose",
+                        "--env-file",
+                        env.getFileName().toString(),
+                        "-f",
+                        root.resolve("docker-compose.production.yml").toString(),
+                        "config",
+                        "--format",
+                        "json"),
+                directory,
+                environment,
+                "");
+        assertEquals(0, result.exitCode(), "Compose model rendering failed");
+        var model = new ObjectMapper().readTree(result.output());
+        var trust = StreamSupport.stream(
+                        model.path("services").path("web").path("volumes").spliterator(), false)
+                .filter(mount -> mount.path("target").asText().equals("/etc/sambryx/known_hosts"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                root.resolve("input files/known_hosts").toString(),
+                trust.path("source").asText());
+        assertEquals(
+                root.resolve("input files/certificate.pem").toString(),
+                model.path("secrets").path("tls_certificate").path("file").asText());
+        assertEquals(
+                root.resolve("input files/private.key").toString(),
+                model.path("secrets").path("tls_private_key").path("file").asText());
+        assertFalse(Files.exists(directory.resolve("should-not-exist")));
+    }
+
     private JsonNode render(boolean bundled, boolean missingImage, String project) throws Exception {
         Path root = Path.of(System.getProperty("smoke.root"));
         try (var fixture = new ComposeFixture("fixture:image", root, directory)) {
