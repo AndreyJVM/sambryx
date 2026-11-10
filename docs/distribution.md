@@ -167,3 +167,6 @@ CodeQL exact source SHA, registry errors, checksum и dependency guards. Вне�
 подменены: это не реальная публикация и не проверка GitHub concurrency scheduler.
 Полный CI отдельно проверяет настоящий image и Production Compose; обычный master push
 не выпускает release. В артефакт не включаются secrets, полный workspace или application logs.
+
+Обновление установленной панели и границы возврата предыдущей версии описаны в
+[инструкции обновления и ограниченного отката](production.md#web-update).
