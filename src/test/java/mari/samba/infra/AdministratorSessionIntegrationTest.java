@@ -55,6 +55,8 @@ class AdministratorSessionIntegrationTest {
         MockHttpSession session = login();
         clock.now.set(start.plusSeconds(899));
         when(ssh.execute(eq(session.getId()), anyString())).thenReturn("");
+        when(ssh.executeCommand(eq(session.getId()), eq(LinuxCommands.systemctl("is-active", "smbd")), isNull()))
+                .thenReturn(new CommandResult(0, "active\n", ""));
         mvc.perform(get("/api/monitoring/dashboard").session(session)).andExpect(status().isOk());
         clearInvocations(ssh);
         clock.now.set(start.plusSeconds(900));
@@ -62,6 +64,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh).disconnect(session.getId());
         assertThat(session.isInvalid()).isTrue();
         verify(ssh, never()).execute(anyString(), anyString());
+        verify(ssh, never()).executeCommand(anyString(), anyString(), any());
     }
 
     @Test

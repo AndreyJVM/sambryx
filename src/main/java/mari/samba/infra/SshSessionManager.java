@@ -4,9 +4,9 @@ import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -46,9 +46,8 @@ public class SshSessionManager implements CommandExecutor {
 
     public void createSession(String sessionId, ConnectionRequestDto request) throws Exception {
         JSch jsch = new JSch();
-        String knownHosts = properties != null && properties.ssh() != null
-                ? properties.ssh().knownHosts()
-                : "/etc/sambryx/known_hosts";
+        var settings = properties != null ? properties.ssh() : null;
+        String knownHosts = settings != null ? settings.knownHosts() : "/etc/sambryx/known_hosts";
         VerifiedHostKeys hostKeys = VerifiedHostKeys.configure(jsch, knownHosts);
         Session session = null;
         boolean published = false;
@@ -63,6 +62,11 @@ public class SshSessionManager implements CommandExecutor {
             }
             session = jsch.getSession(request.getUsername(), request.getHost(), request.getPort());
             session.setConfig("StrictHostKeyChecking", "yes");
+            session.setServerAliveInterval(
+                    settings != null
+                            ? Math.toIntExact(settings.serverAliveInterval().toMillis())
+                            : 30_000);
+            session.setServerAliveCountMax(settings != null ? settings.serverAliveCountMax() : 3);
             if (!request.isKeyAuth()) {
                 session.setPassword(request.getPassword());
             }
@@ -132,49 +136,34 @@ public class SshSessionManager implements CommandExecutor {
             channel = (ChannelExec) session.openChannel("exec");
             channel.setCommand(command);
 
-            ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
-            ByteArrayOutputStream stderrStream = new ByteArrayOutputStream();
-
-            try (InputStream stdout = channel.getInputStream();
-                    InputStream stderr = channel.getErrStream()) {
-
+            try (InputStream input = inputData == null
+                            ? null
+                            : new ByteArrayInputStream(inputData.getBytes(StandardCharsets.UTF_8));
+                    var stdout = new ByteArrayOutputStream();
+                    var stderr = new ByteArrayOutputStream()) {
+                channel.setOutputStream(stdout);
+                channel.setErrStream(stderr);
+                if (input != null) channel.setInputStream(input);
                 channel.connect((int) getConnectTimeout().toMillis());
 
-                if (inputData != null) {
-                    try (OutputStream out = channel.getOutputStream()) {
-                        out.write(inputData.getBytes(StandardCharsets.UTF_8));
-                        out.flush();
-                    }
-                }
-
-                long deadline = System.currentTimeMillis() + getCommandTimeout().toMillis();
-                byte[] buffer = new byte[1024];
-
+                long started = System.nanoTime();
                 while (!channel.isClosed()) {
-                    drainStreams(stdout, stderr, stdoutStream, stderrStream, buffer);
-                    if (System.currentTimeMillis() > deadline) {
-                        channel.disconnect();
-                        throw new SambaCommandException("SSH command timed out after "
-                                + getCommandTimeout().toMillis() + " ms.");
-                    }
+                    checkCommandDeadline(started);
                     Thread.sleep(50);
                 }
+                checkCommandDeadline(started);
 
-                drainStreams(stdout, stderr, stdoutStream, stderrStream, buffer);
+                int exitStatus = channel.getExitStatus();
+                if (exitStatus != 0) log.warn("SSH command failed with code {}", exitStatus);
+                return new CommandResult(
+                        exitStatus, stdout.toString(StandardCharsets.UTF_8), stderr.toString(StandardCharsets.UTF_8));
             }
-
-            int exitStatus = channel.getExitStatus();
-            String stdoutOutput = stdoutStream.toString(StandardCharsets.UTF_8);
-            String stderrOutput = stderrStream.toString(StandardCharsets.UTF_8);
-
-            if (exitStatus != 0) {
-                log.warn("SSH command failed with code {}", exitStatus);
-            }
-
-            return new CommandResult(exitStatus, stdoutOutput, stderrOutput);
 
         } catch (SambaCommandException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SambaCommandException("SSH command execution interrupted.");
         } catch (Exception e) {
             // Commands, remote output and exception messages can contain credentials.
             log.error("SSH command execution failed ({})", e.getClass().getSimpleName());
@@ -186,26 +175,11 @@ public class SshSessionManager implements CommandExecutor {
         }
     }
 
-    private void drainStreams(
-            InputStream stdout,
-            InputStream stderr,
-            ByteArrayOutputStream stdoutStream,
-            ByteArrayOutputStream stderrStream,
-            byte[] buffer)
-            throws Exception {
-        while (stdout.available() > 0) {
-            int read = stdout.read(buffer, 0, buffer.length);
-            if (read < 0) {
-                break;
-            }
-            stdoutStream.write(buffer, 0, read);
-        }
-        while (stderr.available() > 0) {
-            int read = stderr.read(buffer, 0, buffer.length);
-            if (read < 0) {
-                break;
-            }
-            stderrStream.write(buffer, 0, read);
+    private void checkCommandDeadline(long started) throws InterruptedException {
+        if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+        if (System.nanoTime() - started >= getCommandTimeout().toNanos()) {
+            throw new SambaCommandException(
+                    "SSH command timed out after " + getCommandTimeout().toMillis() + " ms.");
         }
     }
 }

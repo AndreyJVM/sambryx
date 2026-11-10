@@ -11,12 +11,16 @@ import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import mari.samba.auth.ConnectionRequestDto;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
@@ -25,6 +29,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
@@ -40,14 +45,29 @@ class SshSessionManagerTest {
     private final ChannelExec channel = mock(ChannelExec.class);
     private final Logger logger = (Logger) LoggerFactory.getLogger(SshSessionManager.class);
     private final ListAppender<ILoggingEvent> events = new ListAppender<>();
+    private final java.util.concurrent.atomic.AtomicReference<OutputStream> stdout =
+            new java.util.concurrent.atomic.AtomicReference<>();
+    private final java.util.concurrent.atomic.AtomicReference<OutputStream> stderr =
+            new java.util.concurrent.atomic.AtomicReference<>();
 
     @BeforeEach
     void captureLogs() throws Exception {
         events.start();
         logger.addAppender(events);
         when(session.openChannel("exec")).thenReturn(channel);
-        when(channel.getInputStream()).thenReturn(stream(""));
-        when(channel.getErrStream()).thenReturn(stream(""));
+        doAnswer(call -> {
+                    stdout.set(call.getArgument(0));
+                    return null;
+                })
+                .when(channel)
+                .setOutputStream(any(OutputStream.class));
+        doAnswer(call -> {
+                    stderr.set(call.getArgument(0));
+                    return null;
+                })
+                .when(channel)
+                .setErrStream(any(OutputStream.class));
+        useOutput("", "");
         when(channel.isConnected()).thenReturn(true);
     }
 
@@ -62,8 +82,7 @@ class SshSessionManagerTest {
     void failedCommandDoesNotExposeCommandOrRemoteOutput(boolean secretInStderr) throws Exception {
         when(channel.isClosed()).thenReturn(true);
         when(channel.getExitStatus()).thenReturn(7);
-        when(channel.getInputStream()).thenReturn(stream(secretInStderr ? "" : SECRET));
-        when(channel.getErrStream()).thenReturn(stream(secretInStderr ? SECRET : ""));
+        useOutput(secretInStderr ? "" : SECRET, secretInStderr ? SECRET : "");
 
         assertThatThrownBy(() -> manager(Duration.ofSeconds(30)).execute("session", COMMAND))
                 .isInstanceOf(SambaCommandException.class)
@@ -89,11 +108,7 @@ class SshSessionManagerTest {
     }
 
     @Test
-    void channelConnectFailureClosesStreamsAndDoesNotExposeSensitiveDetails() throws Exception {
-        InputStream stdout = mock(InputStream.class);
-        InputStream stderr = mock(InputStream.class);
-        when(channel.getInputStream()).thenReturn(stdout);
-        when(channel.getErrStream()).thenReturn(stderr);
+    void channelConnectFailureDisconnectsAndDoesNotExposeSensitiveDetails() throws Exception {
         String originalMessage = "synthetic-connect-failure " + COMMAND;
         doThrow(new JSchException(originalMessage)).when(channel).connect(anyInt());
 
@@ -106,8 +121,6 @@ class SshSessionManagerTest {
         assertSafeLogs();
         assertThat(events.list).allSatisfy(event -> assertThat(event.getFormattedMessage())
                 .doesNotContain(originalMessage, "synthetic-connect-failure"));
-        verify(stdout).close();
-        verify(stderr).close();
         verify(channel).disconnect();
         verify(channel, never()).getOutputStream();
     }
@@ -148,6 +161,40 @@ class SshSessionManagerTest {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({"30000,3", "17000,5", "0,3"})
+    void keepaliveSettingsReachTransportBeforeConnect(int intervalMillis, int countMax) throws Exception {
+        var trust = java.nio.file.Files.writeString(directory.resolve("known_hosts"), "");
+        var transport = spy(new JSch().getSession("admin", "fixture.test", 22));
+        doAnswer(call -> {
+                    assertThat(transport.getServerAliveInterval()).isEqualTo(intervalMillis);
+                    assertThat(transport.getServerAliveCountMax()).isEqualTo(countMax);
+                    return null;
+                })
+                .when(transport)
+                .connect(anyInt());
+        var properties = new SambaProperties(
+                new SambaProperties.Ssh(
+                        Duration.ofSeconds(1),
+                        Duration.ofSeconds(30),
+                        Duration.ofMillis(intervalMillis),
+                        countMax,
+                        trust.toString()),
+                null,
+                null,
+                null);
+        var manager = new SshSessionManager(properties);
+        try (var jsch = mockConstruction(JSch.class, (mock, context) -> {
+            when(mock.getSession("admin", "fixture.test", 22)).thenReturn(transport);
+            when(mock.getHostKeyRepository()).thenReturn(mock(com.jcraft.jsch.HostKeyRepository.class));
+        })) {
+            manager.createSession(
+                    "session", new ConnectionRequestDto("fixture.test", 22, "admin", "password", SECRET, null, null));
+        } finally {
+            manager.disconnect("session");
+        }
+    }
+
     @Test
     void timeoutDoesNotExposeCommandAndDisconnectsChannel() {
         when(channel.isClosed()).thenReturn(false);
@@ -162,10 +209,98 @@ class SshSessionManagerTest {
     }
 
     @Test
+    void blockedInputCannotBypassCommandTimeout() throws Exception {
+        var release = new CountDownLatch(1);
+        when(channel.isClosed()).thenReturn(false);
+        when(channel.getOutputStream()).thenReturn(new OutputStream() {
+            @Override
+            public void write(int value) throws java.io.IOException {
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new InterruptedIOException("Synthetic interrupted input");
+                }
+            }
+        });
+        try (var worker = Executors.newVirtualThreadPerTaskExecutor()) {
+            var outcome = worker.submit(() -> {
+                try {
+                    manager(Duration.ofMillis(-1)).execute("session", COMMAND, SECRET);
+                    return null;
+                } catch (SambaCommandException error) {
+                    return error;
+                }
+            });
+            try {
+                assertThat(outcome.get(5, TimeUnit.SECONDS))
+                        .isInstanceOf(SambaCommandException.class)
+                        .hasMessage("SSH command timed out after -1 ms.");
+            } finally {
+                release.countDown();
+            }
+        }
+        verify(channel, atLeastOnce()).disconnect();
+        assertSafeLogs();
+    }
+
+    @Test
+    void interruptedCommandPreservesInterruptFlagAndReleasesResources() {
+        when(channel.isClosed()).thenReturn(false);
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> manager(Duration.ofSeconds(30)).execute("session", COMMAND))
+                    .isInstanceOf(SambaCommandException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(channel).disconnect();
+            assertSafeLogs();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void expiredDeadlineStillRejectsBufferedOutput() throws Exception {
+        useOutput(SECRET, "");
+        when(channel.isClosed()).thenReturn(false);
+        assertThatThrownBy(() -> manager(Duration.ofMillis(-1)).execute("session", COMMAND))
+                .isInstanceOf(SambaCommandException.class)
+                .hasMessage("SSH command timed out after -1 ms.");
+        assertSafeLogs();
+    }
+
+    @Test
+    void inputIsConfiguredBeforeConnectAndPreservesUtf8() throws Exception {
+        String input = "synthetic-input-\u00e9\n";
+        var supplied = new java.util.concurrent.atomic.AtomicReference<InputStream>();
+        doAnswer(call -> {
+                    supplied.set(call.getArgument(0));
+                    return null;
+                })
+                .when(channel)
+                .setInputStream(any(InputStream.class));
+        doAnswer(call -> {
+                    assertThat(supplied.get()).isNotNull();
+                    assertThat(supplied.get().readAllBytes()).isEqualTo(input.getBytes(StandardCharsets.UTF_8));
+                    return null;
+                })
+                .when(channel)
+                .connect(anyInt());
+        when(channel.isClosed()).thenReturn(true);
+        when(channel.getExitStatus()).thenReturn(0);
+
+        assertThat(manager(Duration.ofSeconds(30)).execute("session", COMMAND, input))
+                .isEmpty();
+        verify(channel, never()).getOutputStream();
+        verify(channel).disconnect();
+        assertSafeLogs();
+    }
+
+    @Test
     void successfulCommandPreservesOutputWithoutLoggingIt() throws Exception {
         when(channel.isClosed()).thenReturn(true);
         when(channel.getExitStatus()).thenReturn(0);
-        when(channel.getInputStream()).thenReturn(stream(SECRET));
+        useOutput(SECRET, "");
 
         assertThat(manager(Duration.ofSeconds(30)).execute("session", COMMAND)).isEqualTo(SECRET);
 
@@ -212,7 +347,13 @@ class SshSessionManagerTest {
         });
     }
 
-    private static ByteArrayInputStream stream(String value) {
-        return new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8));
+    private void useOutput(String output, String error) throws Exception {
+        doAnswer(call -> {
+                    stdout.get().write(output.getBytes(StandardCharsets.UTF_8));
+                    stderr.get().write(error.getBytes(StandardCharsets.UTF_8));
+                    return null;
+                })
+                .when(channel)
+                .connect(anyInt());
     }
 }

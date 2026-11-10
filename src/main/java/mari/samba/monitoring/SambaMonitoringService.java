@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import mari.samba.core.SambaCommandException;
+import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import org.slf4j.Logger;
@@ -23,11 +25,18 @@ public class SambaMonitoringService {
 
     public boolean isServiceRunning(String sessionId) {
         try {
-            String output = commandExecutor.execute(sessionId, LinuxCommands.systemctl("is-active", "smbd"));
-            return "active".equalsIgnoreCase(output.trim());
-        } catch (Exception e) {
-            log.debug("Failed to check if smbd is active: {}", e.getMessage());
-            return false;
+            var result = commandExecutor.executeCommand(sessionId, LinuxCommands.systemctl("is-active", "smbd"));
+            if (result != null && result.stdout() != null) {
+                String state = result.stdout().trim();
+                if (result.isSuccess() && state.equals("active")) return true;
+                if ((result.exitCode() == 0 || result.exitCode() == 3)
+                        && (state.equals("inactive") || state.equals("failed"))) return false;
+            }
+            throw new SambaCommandException("Samba service status is unavailable.");
+        } catch (SshSessionExpiredException e) {
+            throw e;
+        } catch (Exception ignored) {
+            throw new SambaCommandException("Samba service status is unavailable.");
         }
     }
 
@@ -77,8 +86,10 @@ public class SambaMonitoringService {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.debug("Failed to get active Samba connections: {}", e.getMessage());
+        } catch (SshSessionExpiredException e) {
+            throw e;
+        } catch (Exception ignored) {
+            throw new SambaCommandException("Samba connections are unavailable.");
         }
         return connections;
     }
@@ -122,8 +133,10 @@ public class SambaMonitoringService {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.debug("Failed to get open files: {}", e.getMessage());
+        } catch (SshSessionExpiredException e) {
+            throw e;
+        } catch (Exception ignored) {
+            throw new SambaCommandException("Samba open files are unavailable.");
         }
         return openFiles;
     }
@@ -158,8 +171,10 @@ public class SambaMonitoringService {
                     stats.add(parts[5] + " " + parts[4] + " " + parts[1]);
                 }
             }
-        } catch (Exception e) {
-            log.debug("Failed to get disk usage: {}", e.getMessage());
+        } catch (SshSessionExpiredException e) {
+            throw e;
+        } catch (Exception ignored) {
+            throw new SambaCommandException("Samba disk usage is unavailable.");
         }
         return stats;
     }

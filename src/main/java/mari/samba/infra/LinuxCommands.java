@@ -89,16 +89,8 @@ public final class LinuxCommands {
         return "timeout 10s bash -o pipefail -c " + escape(script);
     }
 
-    public static String sudoCat(String path) {
-        return String.format("sudo cat -- %s", escape(requireValidPath(path)));
-    }
-
     public static String base64(String path) {
         return String.format("sudo base64 -- %s", escape(requireValidPath(path)));
-    }
-
-    public static String writeToFileStdin(String targetPath) {
-        return String.format("cat > %s", escape(requireValidPath(targetPath)));
     }
 
     /** Non-mutating probes for the sudo requirements introduced by isolated staging and backups. */
@@ -153,13 +145,6 @@ public final class LinuxCommands {
             throw new SecurityException("Invalid chmod permissions format.");
         }
         return String.format("sudo chmod %s -- %s", permissions, escape(requireValidPath(path)));
-    }
-
-    public static String chownRecursive(String owner, String path) {
-        if (!owner.matches("^([a-z_][a-z0-9_.-]*(:[a-z_][a-z0-9_.-]*)?|:[a-z_][a-z0-9_.-]+)$")) {
-            throw new SecurityException("Invalid chown owner profile.");
-        }
-        return String.format("sudo chown -R %s -- %s", escape(owner), escape(requireValidPath(path)));
     }
 
     public static String copy(String source, String destination) {
@@ -352,14 +337,6 @@ public final class LinuxCommands {
 
     public static String netAdsTestJoin() {
         return "sudo net ads testjoin";
-    }
-
-    public static String wbinfoUsers() {
-        return "wbinfo -u";
-    }
-
-    public static String wbinfoGroups() {
-        return "wbinfo -g";
     }
 
     public static String writeKrb5Conf() {

@@ -17,6 +17,7 @@ import mari.samba.core.SambaCommandException;
 import mari.samba.infra.SmbConfParser;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Explicit Docker/SSH test; run with -Dtest=BackupSshIT and a prepared sandbox image. */
@@ -33,6 +34,7 @@ class BackupSshIT {
     private SambaConfigService service;
 
     @Test
+    @Timeout(120)
     void createsListsAndPreservesBackupsOverSshWithoutPrivilegedShell() throws Exception {
         String image = System.getProperty("backup.ssh.image", "");
         assertThat(image)
@@ -47,6 +49,7 @@ class BackupSshIT {
             assertThat(ssh.executeCommand(SESSION, "sudo -n bash -c 'exit 0'").exitCode())
                     .isNotZero();
             assertThat(ssh.execute(SESSION, "id -u").trim()).isNotEqualTo("0");
+            verifyBoundedInput(container);
             verifySnapshots(container);
             verifyUpdates(container);
             verifyDeniedCopy(container);
@@ -105,6 +108,23 @@ class BackupSshIT {
             }
         });
         service = new SambaConfigService(ssh, new SmbConfParser(), properties);
+    }
+
+    private void verifyBoundedInput(String container) throws Exception {
+        String input = "synthetic-input\n".repeat(300_000);
+        String result = ssh.execute(SESSION, "head -c 4194304 /dev/zero; wc -c", input);
+        String count = input.getBytes(java.nio.charset.StandardCharsets.UTF_8).length + "\n";
+        assertThat(result.length()).isEqualTo(4_194_304 + count.length());
+        assertThat(result.substring(4_194_304)).isEqualTo(count);
+        assertThat(result.chars().limit(4_194_304).allMatch(value -> value == 0))
+                .isTrue();
+
+        String blocked = "/home/admin/blocked-stdin";
+        exec(container, "", "mkfifo", blocked);
+        assertThatThrownBy(() -> ssh.execute(SESSION, "cat -- '" + blocked + "'", input))
+                .isInstanceOf(SambaCommandException.class)
+                .hasMessage("SSH command timed out after 10000 ms.");
+        assertThat(ssh.execute(SESSION, "printf recovered")).isEqualTo("recovered");
     }
 
     private void verifySnapshots(String container) throws Exception {

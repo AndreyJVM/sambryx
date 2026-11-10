@@ -14,8 +14,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.Session;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -197,13 +196,27 @@ class AdDiagnosticsIntegrationTest {
                 if (command.get().startsWith("sudo net ads ")) return result;
                 return new CommandResult(0, "", "");
             };
-            when(channel.getInputStream())
-                    .thenAnswer(call ->
-                            new ByteArrayInputStream(response.get().stdout().getBytes(StandardCharsets.UTF_8)));
-            when(channel.getErrStream())
-                    .thenAnswer(call ->
-                            new ByteArrayInputStream(response.get().stderr().getBytes(StandardCharsets.UTF_8)));
-            when(channel.getOutputStream()).thenReturn(new ByteArrayOutputStream());
+            var stdout = new AtomicReference<OutputStream>();
+            var stderr = new AtomicReference<OutputStream>();
+            org.mockito.Mockito.doAnswer(call -> {
+                        stdout.set(call.getArgument(0));
+                        return null;
+                    })
+                    .when(channel)
+                    .setOutputStream(any(OutputStream.class));
+            org.mockito.Mockito.doAnswer(call -> {
+                        stderr.set(call.getArgument(0));
+                        return null;
+                    })
+                    .when(channel)
+                    .setErrStream(any(OutputStream.class));
+            org.mockito.Mockito.doAnswer(call -> {
+                        stdout.get().write(response.get().stdout().getBytes(StandardCharsets.UTF_8));
+                        stderr.get().write(response.get().stderr().getBytes(StandardCharsets.UTF_8));
+                        return null;
+                    })
+                    .when(channel)
+                    .connect(org.mockito.ArgumentMatchers.anyInt());
             when(channel.isClosed()).thenReturn(true);
             when(channel.isConnected()).thenReturn(true);
             when(channel.getExitStatus()).thenAnswer(call -> response.get().exitCode());

@@ -5,10 +5,16 @@ import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Map;
+import mari.samba.core.SambaCommandException;
+import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
+import mari.samba.infra.CommandResult;
 import mari.samba.infra.LinuxCommands;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,31 +34,58 @@ class SambaMonitoringServiceTest {
     // isServiceRunning Tests
     // ==========================================
 
-    @Test
-    void testIsServiceRunning_WhenActive_ShouldReturnTrue() throws Exception {
-        when(commandExecutor.execute(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
-                .thenReturn("active\n");
+    @ParameterizedTest
+    @CsvSource({"0,active,true", "0,inactive,false", "3,inactive,false", "3,failed,false"})
+    void serviceStateRequiresConfirmedCommandResult(int exitCode, String state, boolean running) {
+        when(commandExecutor.executeCommand(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
+                .thenReturn(new CommandResult(exitCode, state + "\n", ""));
 
-        boolean active = monitoringService.isServiceRunning(SESSION_ID);
-        assertTrue(active);
+        assertEquals(running, monitoringService.isServiceRunning(SESSION_ID));
     }
 
-    @Test
-    void testIsServiceRunning_WhenInactive_ShouldReturnFalse() throws Exception {
-        when(commandExecutor.execute(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
-                .thenReturn("inactive\n");
+    @ParameterizedTest
+    @CsvSource({"1,active", "4,unknown", "127,missing", "0,unexpected"})
+    void unusableServiceStateIsUnavailableInsteadOfStopped(int exitCode, String state) {
+        when(commandExecutor.executeCommand(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
+                .thenReturn(new CommandResult(exitCode, state, "synthetic-sensitive-output"));
 
-        boolean active = monitoringService.isServiceRunning(SESSION_ID);
-        assertFalse(active);
+        assertThrows(SambaCommandException.class, () -> monitoringService.isServiceRunning(SESSION_ID));
     }
 
-    @Test
-    void testIsServiceRunning_WhenException_ShouldReturnFalse() throws Exception {
-        when(commandExecutor.execute(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
-                .thenThrow(new RuntimeException("Command failed"));
+    @ParameterizedTest
+    @ValueSource(strings = {"state", "connections", "files", "disk"})
+    void commandFailureCannotBecomeSuccessfulMonitoringData(String operation) {
+        if (operation.equals("state")) {
+            when(commandExecutor.executeCommand(eq(SESSION_ID), anyString()))
+                    .thenThrow(new SambaCommandException("synthetic-sensitive-output"));
+        } else {
+            when(commandExecutor.execute(eq(SESSION_ID), anyString()))
+                    .thenThrow(new SambaCommandException("synthetic-sensitive-output"));
+        }
+        var failure = assertThrows(SambaCommandException.class, () -> readMonitoring(operation));
+        assertFalse(failure.getMessage().contains("synthetic-sensitive-output"));
+    }
 
-        boolean active = monitoringService.isServiceRunning(SESSION_ID);
-        assertFalse(active);
+    @ParameterizedTest
+    @ValueSource(strings = {"state", "connections", "files", "disk"})
+    void expiredSessionIsPreservedForAuthenticationHandling(String operation) {
+        var expired = new SshSessionExpiredException("SSH session expired.");
+        if (operation.equals("state")) {
+            when(commandExecutor.executeCommand(eq(SESSION_ID), anyString())).thenThrow(expired);
+        } else {
+            when(commandExecutor.execute(eq(SESSION_ID), anyString())).thenThrow(expired);
+        }
+        assertSame(expired, assertThrows(SshSessionExpiredException.class, () -> readMonitoring(operation)));
+    }
+
+    private void readMonitoring(String operation) {
+        switch (operation) {
+            case "state" -> monitoringService.isServiceRunning(SESSION_ID);
+            case "connections" -> monitoringService.getActiveConnections(SESSION_ID);
+            case "files" -> monitoringService.getOpenFiles(SESSION_ID);
+            case "disk" -> monitoringService.getDiskUsage(SESSION_ID);
+            default -> throw new IllegalArgumentException(operation);
+        }
     }
 
     // ==========================================

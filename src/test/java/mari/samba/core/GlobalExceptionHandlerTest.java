@@ -1,5 +1,6 @@
 package mari.samba.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -7,10 +8,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.Set;
+import mari.samba.ad.AdJoinException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.DummyController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -87,15 +93,43 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void testHandleGeneralException_ShouldReturn500() throws Exception {
+    void unexpectedFailureReturnsSafeMessage(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/dummy/general-exception"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Database is down"));
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        assertThat(output.getAll())
+                .doesNotContain("synthetic-private-key", "synthetic-password", "synthetic-suppressed");
+    }
+
+    @Test
+    void unexpectedFailureLogOmitsExceptionMessagesAndCauses(CapturedOutput output) throws Exception {
+        mockMvc.perform(get("/dummy/general-exception")).andExpect(status().isInternalServerError());
+
+        assertThat(output.getAll())
+                .contains("Unhandled exception")
+                .doesNotContain("synthetic-private-key", "synthetic-password", "synthetic-suppressed");
+    }
+
+    @Test
+    void domainJoinFailureKeepsSafePublicMessage(CapturedOutput output) throws Exception {
+        mockMvc.perform(get("/dummy/domain-join-failure"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Domain join failed."));
+
+        assertThat(output.getAll()).doesNotContain("synthetic-ad-secret");
     }
 
     @RestController
     static class DummyController {
+        @GetMapping("/dummy/domain-join-failure")
+        public void throwDomainJoinFailure() {
+            throw new AdJoinException("synthetic-ad-secret");
+        }
+
         @GetMapping("/dummy/ssh-expired")
         public void throwSshException() {
             throw new SshSessionExpiredException("Connection lost internally");
@@ -129,7 +163,10 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/dummy/general-exception")
         public void throwGeneralException() {
-            throw new RuntimeException("Database is down");
+            var failure =
+                    new RuntimeException("synthetic-private-key", new IllegalStateException("synthetic-password"));
+            failure.addSuppressed(new IllegalStateException("synthetic-suppressed"));
+            throw failure;
         }
     }
 

@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
+import mari.samba.ad.AdJoinException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -104,14 +105,17 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Samba command failed: " + ex.getMessage()));
     }
 
+    @ExceptionHandler(AdJoinException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAdJoinException() {
+        log.error("Domain join failed.");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Domain join failed."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(
             @NonNull Exception ex, @NonNull HttpServletRequest request) {
-        log.error("Unhandled exception processing {}: {}", request.getRequestURI(), ex.getMessage(), ex);
-
-        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
-                ? ex.getMessage()
-                : DEFAULT_GENERIC_ERROR_MESSAGE;
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(message));
+        log.error("Unhandled exception ({})", ex.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(DEFAULT_GENERIC_ERROR_MESSAGE));
     }
 }
