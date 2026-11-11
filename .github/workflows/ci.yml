@@ -78,7 +78,7 @@ jobs:
           "-Dexec.args=install --with-deps chromium"
       - name: Render branding at desktop and mobile sizes
         run: bash ./mvnw -B -f tools/browser/pom.xml verify -Dit.test=BrandingIT
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: branding-previews
@@ -125,21 +125,21 @@ jobs:
       - name: Generate backend Allure report
         if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}
         run: bash ./mvnw -B allure:report
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}
         with:
           name: backend-allure-results
           path: target/allure-results/
           retention-days: 7
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && hashFiles('target/site/allure-maven-plugin/index.html') != '' }}
         with:
           name: backend-allure-report
           path: target/site/allure-maven-plugin/
           retention-days: 7
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ failure() && !cancelled() }}
         with:
           name: backend-test-reports
@@ -186,7 +186,7 @@ jobs:
         run: bash scripts/ci/release/select-jar.sh target
 
       - name: Upload Built JAR Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sambryx-jar
           path: target/*.jar
@@ -233,7 +233,7 @@ jobs:
           -Dit.test=WorkspaceIT,AdministratorSessionIT,ConfigurationBackupIT,BackupCreationIT,ShareAccessIT,ServerReadinessIT,BackupComparisonIT,UserDeletionIT,AdStatusIT
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-smoke-report
           path: |
@@ -345,7 +345,7 @@ jobs:
         run: python3 scripts/ci/release/release.py publish
       - name: Preserve release files for manual investigation
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-files-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
