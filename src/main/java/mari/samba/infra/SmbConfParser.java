@@ -77,14 +77,14 @@ public class SmbConfParser {
 
             if (insideGlobal && trimmed.contains("=")) {
                 String[] parts = trimmed.split("=", 2);
-                String key = parts[0].trim().toLowerCase();
+                String key = parts[0].trim().toLowerCase(Locale.ROOT);
                 String val = parts[1].trim();
 
                 switch (key) {
                     case "workgroup" -> builder.workgroup(val);
                     case "server string" -> builder.serverString(val);
                     case "netbios name" -> builder.netbiosName(val);
-                    case "security" -> builder.security(val.toLowerCase());
+                    case "security" -> builder.security(val.toLowerCase(Locale.ROOT));
                     case "map to guest" -> builder.mapToGuest(val);
                     case "interfaces" -> builder.interfaces(val);
                     case "bind interfaces only" -> builder.bindInterfacesOnly("yes".equalsIgnoreCase(val));
@@ -246,7 +246,7 @@ public class SmbConfParser {
 
             if (insideShare && currentShare != null && trimmed.contains("=")) {
                 String[] parts = trimmed.split("=", 2);
-                String key = parts[0].trim().toLowerCase();
+                String key = parts[0].trim().toLowerCase(Locale.ROOT);
                 String value = parts[1].trim();
 
                 mapProperty(currentShare, key, value);
