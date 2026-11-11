@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -18,6 +18,9 @@
         <java.version>21</java.version>
         <jsch.version>0.2.16</jsch.version>
         <testcontainers.version>1.19.3</testcontainers.version>
+        <allure.version>2.29.1</allure.version>
+        <allure-maven.version>2.15.2</allure-maven.version>
+        <allure-report.version>2.32.0</allure-report.version>
         <spotless.version>2.43.0</spotless.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
         <frontend.skip>false</frontend.skip>
@@ -77,6 +80,12 @@
 
         <!-- Test dependencies -->
         <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-junit5</artifactId>
+            <version>${allure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -103,6 +112,15 @@
     <build>
         <finalName>sambryx-${project.version}</finalName>
         <plugins>
+            <plugin>
+                <groupId>io.qameta.allure</groupId>
+                <artifactId>allure-maven</artifactId>
+                <version>${allure-maven.version}</version>
+                <configuration>
+                    <reportVersion>${allure-report.version}</reportVersion>
+                    <installDirectory>${project.build.directory}/allure</installDirectory>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

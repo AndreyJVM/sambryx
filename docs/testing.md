@@ -12,6 +12,62 @@ Java HTTP-сервер и подменяют API на границе HTTP. Ну�
 Набор CI выбирается по изменённым путям; правила — в README репозитория и
 [руководстве по поставке](distribution.md).
 
+## Backend-отчёт Allure
+
+Для корневого JUnit 5 набора нужен JDK 21. Docker, Node.js и глобальная установка Allure
+для обычных backend-тестов не требуются. Из корня проекта:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+# Remove results from previous runs before collecting a new report.
+rm -rf target/allure-results target/site/allure-maven-plugin
+./mvnw -Dfrontend.skip=true test
+./mvnw -B allure:report
+python3 -m http.server 8000 --bind 127.0.0.1 --directory target/site/allure-maven-plugin
+```
+
+Откройте [локальный отчёт](http://127.0.0.1:8000) и остановите сервер через `Ctrl+C`.
+При падении тестов команду `allure:report` можно выполнить отдельно: она читает уже
+записанные результаты и не запускает тесты повторно. Отчёт не заменяет код выхода Maven.
+Не используйте `clean` между тестами и генерацией: он удалит результаты.
+
+В `pom.xml` закреплены адаптер `allure-junit5` 2.29.1, Maven plugin 2.15.2 и Java CLI
+Allure Report 2.32.0. Maven загружает их при первом использовании; CLI устанавливается
+в `target/allure/` только при генерации отчёта. AspectJ и отдельный Node.js runtime не нужны.
+Исходные результаты находятся в `target/allure-results/`, HTML — в
+`target/site/allure-maven-plugin/`. Каталоги генерируются и игнорируются Git.
+Результаты накапливаются между запусками, поэтому перед новым набором удаляйте их,
+как показано выше. Навигация использует package, class и method; параметризованные
+вызовы отображаются отдельно.
+
+Существующая CI-job **Backend Checks** после тестов, включая отказ, генерирует HTML,
+если есть `*-result.json`. Артефакты `backend-allure-results` и `backend-allure-report`
+доступны семь дней. При отсутствии результатов генерация и загрузка пропускаются;
+ошибка тестового шага сохраняется. Raw results загружаются и при ошибке генерации HTML.
+Для просмотра скачайте и полностью распакуйте `backend-allure-report`, затем выполните
+в каталоге с `index.html`:
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1
+```
+
+Откройте тот же локальный адрес. Открытие `index.html` через `file://` может блокировать
+загрузку данных браузером. Отчёт не публикуется в Pages или сторонних сервисах;
+history/trends между CI-запусками не сохраняются.
+
+Захват stdout/stderr JUnit Platform явно отключён в `src/test/resources/junit-platform.properties`:
+адаптер умеет прикладывать эти потоки из report entries. Интеграция не подключает сбор
+Spring/SSH logs, конфигурации, ключей, запросов, ответов или переменных окружения.
+В отчёт входят имена тестов, статусы, метаданные и сообщения/stack traces ошибок;
+используйте синтетические данные в тестах и не добавляйте секреты в assertions,
+параметры, display names или явные report entries/attachments.
+Frontend, browser и отдельные smoke Maven-проекты в этот отчёт не включены.
+
+Версии и команды: [JUnit 5 adapter](https://github.com/allure-framework/allure-java/releases/tag/2.29.1),
+[Maven plugin 2.x](https://github.com/allure-framework/allure-maven/tree/2.15.2),
+[Allure Report 2](https://github.com/allure-framework/allure2/releases/tag/2.32.0).
+
 ## Первый запуск
 
 Нужны JDK 21, Node.js 20+ и npm. Node.js используется для сборки приложения,

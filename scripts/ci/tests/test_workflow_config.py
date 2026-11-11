@@ -61,3 +61,25 @@ class WorkflowConfigTest(unittest.TestCase):
         expected = {path.stem for path in (ROOT / 'tools/browser/src/test/java').rglob('*IT.java')}
         expected.discard('BrandingIT')
         self.assertEqual(selected, expected)
+
+    def test_backend_publishes_allure_after_failure_without_repeating_tests(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        block = re.search(r'\n  backend:\n(.*?)(?=\n  [a-z][a-z-]*:\n|\Z)', workflow, re.S).group(1)
+        self.assertEqual(block.count('spotless:check verify'), 1)
+        self.assertNotIn('continue-on-error', block)
+        steps = block.split('      - ')
+        report = next((step for step in steps if 'run: bash ./mvnw -B allure:report' in step), '')
+        self.assertTrue(report, 'Backend job must generate the Allure HTML report')
+        self.assertIn("if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}", report)
+        uploads = [step for step in steps if 'uses: actions/upload-artifact@v4' in step]
+        for name, path, pattern in (
+                ('backend-allure-results', 'target/allure-results/', 'target/allure-results/*-result.json'),
+                ('backend-allure-report', 'target/site/allure-maven-plugin/',
+                 'target/site/allure-maven-plugin/index.html')):
+            upload = next((step for step in uploads if 'name: ' + name + '\n' in step), '')
+            with self.subTest(artifact=name):
+                self.assertTrue(upload, 'Allure artifact must be downloadable')
+                self.assertIn("if: ${{ !cancelled() && hashFiles('" + pattern + "') != '' }}", upload)
+                self.assertIn('path: ' + path, upload)
+                self.assertIn('retention-days: 7', upload)
+                self.assertIn('if-no-files-found: error', upload)

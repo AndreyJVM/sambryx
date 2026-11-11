@@ -122,6 +122,23 @@ jobs:
           cache: maven
       - name: Check formatting and backend behavior
         run: bash ./mvnw -B spotless:check verify -Dfrontend.skip=true -Dfrontend.copy.skip=true
+      - name: Generate backend Allure report
+        if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}
+        run: bash ./mvnw -B allure:report
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}
+        with:
+          name: backend-allure-results
+          path: target/allure-results/
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && hashFiles('target/site/allure-maven-plugin/index.html') != '' }}
+        with:
+          name: backend-allure-report
+          path: target/site/allure-maven-plugin/
+          retention-days: 7
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && !cancelled() }}
         with:
