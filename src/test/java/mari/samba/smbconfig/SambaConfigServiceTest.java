@@ -210,8 +210,10 @@ class SambaConfigServiceTest {
             order.verify(commandExecutor)
                     .execute(sessionId, LinuxCommands.testparmSilent("/etc/samba/backups/" + filename));
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(sessionId), startsWith("bash -c "));
             order.verify(commandExecutor)
                     .execute(sessionId, LinuxCommands.copy("/etc/samba/backups/" + filename, "/etc/samba/smb.conf"));
+            order.verify(commandExecutor).execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.systemctl("restart", "smbd"));
         }
 

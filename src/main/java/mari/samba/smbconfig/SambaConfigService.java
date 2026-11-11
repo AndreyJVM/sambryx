@@ -62,13 +62,17 @@ public class SambaConfigService {
 
     /** Creates a backup of smb.conf and retains up to 10 latest backups. */
     public void createBackup(@NonNull String sessionId) {
+        createBackupSnapshot(sessionId);
+        commandExecutor.execute(sessionId, LinuxCommands.cleanupOldBackups(backupDir, 10));
+        log.info("Created configuration backup");
+    }
+
+    private void createBackupSnapshot(String sessionId) {
         commandExecutor.execute(sessionId, LinuxCommands.mkdir(backupDir));
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String backupFile = backupDir + "/smb.conf.backup_" + timestamp;
 
         commandExecutor.execute(sessionId, LinuxCommands.createBackup(configPath, backupFile));
-        commandExecutor.execute(sessionId, LinuxCommands.cleanupOldBackups(backupDir, 10));
-        log.info("Created configuration backup");
     }
 
     public List<SambaBackupDto> listBackups(@NonNull String sessionId) {
@@ -125,9 +129,11 @@ public class SambaConfigService {
 
         String backupFile = backupDir + "/" + filename;
         commandExecutor.execute(sessionId, LinuxCommands.testparmSilent(backupFile));
-        createBackup(sessionId);
+        createBackupSnapshot(sessionId);
 
         commandExecutor.execute(sessionId, LinuxCommands.copy(backupFile, configPath));
+        // Consume the selected source before retention can remove it.
+        commandExecutor.execute(sessionId, LinuxCommands.cleanupOldBackups(backupDir, 10));
         commandExecutor.execute(sessionId, LinuxCommands.systemctl("restart", "smbd"));
         log.info("Restored configuration from backup {} and restarted smbd", filename);
     }
