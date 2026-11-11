@@ -19,7 +19,7 @@
     "lucide-react": "^0.407.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.4.0",
-    "react-hook-form": "^7.52.1",
+    "react-hook-form": "^7.91.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-label": "^2.1.0"
   },
