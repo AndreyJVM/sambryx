@@ -87,13 +87,13 @@ public class SmbConfParser {
                     case "security" -> builder.security(val.toLowerCase(Locale.ROOT));
                     case "map to guest" -> builder.mapToGuest(val);
                     case "interfaces" -> builder.interfaces(val);
-                    case "bind interfaces only" -> builder.bindInterfacesOnly("yes".equalsIgnoreCase(val));
-                    case "load printers" -> builder.loadPrinters("yes".equalsIgnoreCase(val));
-                    case "disable netbios" -> builder.disableNetbios("yes".equalsIgnoreCase(val));
+                    case "bind interfaces only" -> builder.bindInterfacesOnly(parseBoolean(val));
+                    case "load printers" -> builder.loadPrinters(parseBoolean(val));
+                    case "disable netbios" -> builder.disableNetbios(parseBoolean(val));
                     case "server min protocol" -> builder.serverMinProtocol(val.toUpperCase());
                     case "server max protocol" -> builder.serverMaxProtocol(val.toUpperCase());
                     case "realm" -> builder.realm(val);
-                    case "winbind use default domain" -> builder.winbindUseDefaultDomain("yes".equalsIgnoreCase(val));
+                    case "winbind use default domain" -> builder.winbindUseDefaultDomain(parseBoolean(val));
                     case "template shell" -> builder.templateShell(val);
                     case "idmap config * : backend" -> builder.idmapDefaultBackend(val);
                     case "idmap config * : range" -> builder.idmapDefaultRange(val);
@@ -316,13 +316,17 @@ public class SmbConfParser {
         return result.toString();
     }
 
+    private boolean parseBoolean(String value) {
+        return "yes".equalsIgnoreCase(value) || "true".equalsIgnoreCase(value) || "1".equals(value);
+    }
+
     private void mapProperty(SambaShare.Builder share, String key, String value) {
         switch (key) {
             case "path" -> share.path(value);
             case "comment" -> share.comment(value);
-            case "read only" -> share.readOnly("yes".equalsIgnoreCase(value));
-            case "guest ok" -> share.guestOk("yes".equalsIgnoreCase(value));
-            case "browseable" -> share.browseable("yes".equalsIgnoreCase(value));
+            case "read only" -> share.readOnly(parseBoolean(value));
+            case "guest ok" -> share.guestOk(parseBoolean(value));
+            case "browseable" -> share.browseable(parseBoolean(value));
             case "valid users" -> share.validUsers(value);
             case "write list" -> share.writeList(value);
             case "create mask" -> share.createMask(value);
