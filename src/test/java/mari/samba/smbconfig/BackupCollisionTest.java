@@ -4,14 +4,13 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.*;
+import mari.samba.support.ShellCommandFixture;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,7 +25,7 @@ class BackupCollisionTest {
 
     private Path config;
     private Path backups;
-    private Path bin;
+    private ShellCommandFixture shell;
     private Path restart;
     private CommandExecutor executor;
     private SambaConfigService service;
@@ -36,13 +35,13 @@ class BackupCollisionTest {
     void setUp() throws Exception {
         config = Files.writeString(temporary.resolve("smb config's.conf"), "current");
         backups = Files.createDirectory(temporary.resolve("backup dir's"));
-        bin = Files.createDirectory(temporary.resolve("bin"));
+        shell = new ShellCommandFixture(temporary);
         restart = temporary.resolve("restarted");
-        stub("sudo", "if [ \"$1\" = -n ]; then shift; fi; exec \"$@\"");
-        stub("testparm", "exit 0");
-        stub("systemctl", "touch '" + restart + "'");
+        shell.stub("sudo", "if [ \"$1\" = -n ]; then shift; fi; exec \"$@\"");
+        shell.stub("testparm", "exit 0");
+        shell.stub("systemctl", "touch '" + restart + "'");
         executor = mock(CommandExecutor.class);
-        when(executor.execute(anyString(), anyString())).thenAnswer(call -> run(call.getArgument(1)));
+        when(executor.execute(anyString(), anyString())).thenAnswer(call -> shell.runChecked(call.getArgument(1)));
         SambaProperties properties = mock(SambaProperties.class);
         SambaProperties.Paths paths = mock(SambaProperties.Paths.class);
         when(properties.paths()).thenReturn(paths);
@@ -60,7 +59,7 @@ class BackupCollisionTest {
 
     @Test
     void createsBackupWhenSudoRejectsPrivilegedShells() throws Exception {
-        stub(
+        shell.stub(
                 "sudo",
                 """
                 if [ "$1" = -n ]; then shift; fi
@@ -79,9 +78,9 @@ class BackupCollisionTest {
 
     @Test
     void cleanupFailureIsReportedEvenWhenTheBackupWasAlreadyPublished() throws Exception {
-        stub("rm", "exit 29");
+        shell.stub("rm", "exit 29");
 
-        assertThatThrownBy(() -> run(LinuxCommands.createBackup(config.toString(), backup().toString())))
+        assertThatThrownBy(() -> shell.runChecked(LinuxCommands.createBackup(config.toString(), backup().toString())))
                 .isInstanceOf(SambaCommandException.class);
 
         assertThat(Files.readString(backup())).isEqualTo("current");
@@ -122,7 +121,7 @@ class BackupCollisionTest {
     @ValueSource(strings = {"mktemp", "cp", "ln"})
     void safetyCreationFailureLeavesSelectedAndActiveFilesUntouched(String utility) throws Exception {
         Files.writeString(backup(), "selected");
-        stub(utility, utility.equals("cp") ? "printf partial > \"$3\"; exit 29" : "exit 29");
+        shell.stub(utility, utility.equals("cp") ? "printf partial > \"$3\"; exit 29" : "exit 29");
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
                 .isInstanceOf(SambaCommandException.class);
@@ -226,7 +225,7 @@ class BackupCollisionTest {
 
     @Test
     void reportsListingFailureInsteadOfEmptyResult() throws Exception {
-        stub("ls", "echo 'synthetic-sensitive-output' >&2; exit 13");
+        shell.stub("ls", "echo 'synthetic-sensitive-output' >&2; exit 13");
         Files.writeString(backup(), "snapshot");
         assertThatThrownBy(() -> service.listBackups("session"))
                 .isInstanceOf(SambaCommandException.class)
@@ -256,7 +255,7 @@ class BackupCollisionTest {
 
     @Test
     void missingSelectedBackupStopsBeforeCreatingSafetyCopy() throws Exception {
-        stub("testparm", "test -s \"$3\"");
+        shell.stub("testparm", "test -s \"$3\"");
 
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -271,7 +270,7 @@ class BackupCollisionTest {
     @Test
     void rejectedSelectedContentStopsBeforeSafetyCopyAndPreservesBothFiles() throws Exception {
         Files.writeString(backup(), "invalid selected");
-        stub("testparm", "echo 'Selected configuration rejected' >&2; exit 29");
+        shell.stub("testparm", "echo 'Selected configuration rejected' >&2; exit 29");
 
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -287,7 +286,7 @@ class BackupCollisionTest {
     @Test
     void retentionEnumerationFailureLeavesInstalledSelectionAndSafetyCopyWithoutRestart() throws Exception {
         Files.writeString(backup(), "selected");
-        stub("find", "echo 'Backup enumeration failed' >&2; exit 29");
+        shell.stub("find", "echo 'Backup enumeration failed' >&2; exit 29");
 
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -302,13 +301,10 @@ class BackupCollisionTest {
 
     @Test
     void retentionDeletionFailureLeavesInstalledSelectionAndSafetyCopyWithoutRestart() throws Exception {
-        Files.writeString(backup(), "selected");
-        Files.setLastModifiedTime(backup(), java.nio.file.attribute.FileTime.fromMillis(1000));
-        for (int i = 1; i < 10; i++) {
-            Path newer = Files.writeString(backups.resolve(backup().getFileName() + "_" + i), "newer-" + i);
-            Files.setLastModifiedTime(newer, java.nio.file.attribute.FileTime.fromMillis(1000 + i));
-        }
-        stub("rm", "case \"$1\" in -f) exec /usr/bin/rm \"$@\" ;; esac; echo 'Retention deletion failed' >&2; exit 29");
+        seedFullRetentionWindowWithSelectedOldest();
+        shell.stub(
+                "rm",
+                "case \"$1\" in -f) exec /usr/bin/rm \"$@\" ;; esac; echo 'Retention deletion failed' >&2; exit 29");
 
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -327,7 +323,7 @@ class BackupCollisionTest {
     @Test
     void partialRestoreCopyFailurePreservesRecoveryFilesWithoutRestartOrRollback() throws Exception {
         Files.writeString(backup(), "selected");
-        stub(
+        shell.stub(
                 "cp",
                 "if [ \"$3\" = " + LinuxCommands.escape(config.toString())
                         + " ]; then printf partial > \"$3\"; echo 'Restore copy failed' >&2; exit 29; fi; exec /usr/bin/cp \"$@\"");
@@ -346,7 +342,7 @@ class BackupCollisionTest {
     @Test
     void restoreRestartFailureLeavesInstalledSelectionAndSafetyCopyAvailable() throws Exception {
         Files.writeString(backup(), "selected");
-        stub("systemctl", "echo 'Restart failed' >&2; exit 29");
+        shell.stub("systemctl", "echo 'Restart failed' >&2; exit 29");
 
         assertThatThrownBy(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -363,9 +359,9 @@ class BackupCollisionTest {
     void saveRestartFailureLeavesValidatedInstallationAndOriginalSafetyCopy() throws Exception {
         when(executor.executeCommand(anyString(), anyString())).thenReturn(new CommandResult(0, "", ""));
         when(executor.execute(anyString(), anyString(), anyString()))
-                .thenAnswer(call -> run(call.getArgument(1), call.getArgument(2)));
-        stub("testparm", "test \"$(cat -- \"$3\")\" = updated");
-        stub("systemctl", "echo 'Restart failed' >&2; exit 29");
+                .thenAnswer(call -> shell.runChecked(call.getArgument(1), call.getArgument(2)));
+        shell.stub("testparm", "test \"$(cat -- \"$3\")\" = updated");
+        shell.stub("systemctl", "echo 'Restart failed' >&2; exit 29");
 
         assertThatThrownBy(() -> service.updateSmbConf("session", "updated"))
                 .isInstanceOf(SambaCommandException.class)
@@ -382,13 +378,8 @@ class BackupCollisionTest {
 
     @Test
     void restoringOldestRetainedBackupDoesNotDeleteItsOwnSource() throws Exception {
-        Files.writeString(backup(), "selected");
-        Files.setLastModifiedTime(backup(), java.nio.file.attribute.FileTime.fromMillis(1000));
-        for (int i = 1; i < 10; i++) {
-            Path newer = Files.writeString(backups.resolve(backup().getFileName() + "_" + i), "newer-" + i);
-            Files.setLastModifiedTime(newer, java.nio.file.attribute.FileTime.fromMillis(1000 + i));
-        }
-        stub("testparm", "test \"$(cat -- \"$3\")\" = selected");
+        seedFullRetentionWindowWithSelectedOldest();
+        shell.stub("testparm", "test \"$(cat -- \"$3\")\" = selected");
 
         assertThatCode(() ->
                         service.restoreBackup("session", backup().getFileName().toString()))
@@ -401,6 +392,15 @@ class BackupCollisionTest {
                     .isEqualTo("current"));
         }
         assertThat(restart).exists();
+    }
+
+    private void seedFullRetentionWindowWithSelectedOldest() throws Exception {
+        Files.writeString(backup(), "selected");
+        Files.setLastModifiedTime(backup(), java.nio.file.attribute.FileTime.fromMillis(1000));
+        for (int i = 1; i < 10; i++) {
+            Path newer = Files.writeString(backups.resolve(backup().getFileName() + "_" + i), "newer-" + i);
+            Files.setLastModifiedTime(newer, java.nio.file.attribute.FileTime.fromMillis(1000 + i));
+        }
     }
 
     private void assertBackupContents(String... expected) throws Exception {
@@ -418,33 +418,5 @@ class BackupCollisionTest {
 
     private Path backup() {
         return backups.resolve("smb.conf.backup_" + STAMP);
-    }
-
-    private void stub(String name, String body) throws Exception {
-        Path file = Files.writeString(bin.resolve(name), "#!/bin/sh\n" + body + "\n");
-        assertThat(file.toFile().setExecutable(true)).isTrue();
-    }
-
-    private String run(String command) throws Exception {
-        return run(command, "");
-    }
-
-    private String run(String command, String input) throws Exception {
-        ProcessBuilder builder = new ProcessBuilder("/bin/sh", "-c", command);
-        builder.environment().put("PATH", bin + ":/usr/bin:/bin");
-        Path output = temporary.resolve("output");
-        builder.redirectErrorStream(true).redirectOutput(output.toFile());
-        Process process = builder.start();
-        try {
-            try (var stdin = process.getOutputStream()) {
-                stdin.write(input.getBytes(StandardCharsets.UTF_8));
-            }
-            assertThat(process.waitFor(10, TimeUnit.SECONDS)).isTrue();
-            String text = Files.readString(output);
-            if (process.exitValue() != 0) throw new SambaCommandException("Synthetic remote command failed: " + text);
-            return text;
-        } finally {
-            process.destroyForcibly();
-        }
     }
 }
