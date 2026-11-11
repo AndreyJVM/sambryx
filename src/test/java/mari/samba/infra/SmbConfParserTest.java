@@ -235,6 +235,7 @@ class SmbConfParserTest {
     }
 
     @Test
+    @DisplayName("Windows line endings and equals signs within values are preserved")
     void parsesWindowsLineEndingsAndPreservesEqualsInsideValues() {
         String config = "[global]\r\nserver string = Files = Archive\r\n"
                 + "[archive]\r\npath = /srv/data=archive\r\ncomment = Revision=2\r\n";
@@ -247,6 +248,7 @@ class SmbConfParserTest {
     }
 
     @Test
+    @DisplayName("Case-insensitive section removal preserves similarly named shares")
     void removingSectionDoesNotRemoveSimilarlyNamedShare() {
         String config = "[archive]\npath = /srv/old\n[archive-2026]\npath = /srv/current\n";
 
@@ -260,6 +262,7 @@ class SmbConfParserTest {
     }
 
     @Test
+    @DisplayName("Homes and printers sections do not leak properties into user shares")
     void specialSectionsDoNotLeakTheirPropertiesIntoUserShares() {
         String config = "[team]\npath = /srv/team\n[homes]\npath = /home/%S\n"
                 + "[printers]\npath = /var/spool/samba\n[other]\npath = /srv/other\n";
@@ -270,8 +273,9 @@ class SmbConfParserTest {
                 .containsExactly("/srv/team", "/srv/other");
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "default locale={0}")
     @ValueSource(strings = {"en-US", "tr-TR"})
+    @DisplayName("Global parameter names parse independently of the default locale")
     void parsesGlobalParameterNamesIndependentlyOfDefaultLocale(String languageTag) {
         Locale originalLocale = Locale.getDefault();
         Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
@@ -291,8 +295,9 @@ class SmbConfParserTest {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "default locale={0}")
     @ValueSource(strings = {"en-US", "tr-TR"})
+    @DisplayName("Share parameter names parse independently of the default locale")
     void parsesShareParameterNamesIndependentlyOfDefaultLocale(String languageTag) {
         Locale originalLocale = Locale.getDefault();
         Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
@@ -310,8 +315,9 @@ class SmbConfParserTest {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "default locale={0}")
     @ValueSource(strings = {"en-US", "tr-TR"})
+    @DisplayName("Domain security normalizes independently of the default locale")
     void normalizesSecurityDomainIndependentlyOfDefaultLocale(String languageTag) {
         Locale originalLocale = Locale.getDefault();
         Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
@@ -329,6 +335,7 @@ class SmbConfParserTest {
     }
 
     @Test
+    @DisplayName("Mixed-case section and parameter names preserve string value case")
     void parsesMixedCaseNamesWhilePreservingStringValueCase() {
         String config = "[GlObAl]\nSeRvEr StRiNg = Mixed Case Server\n"
                 + "[HoMeS]\npath = /home/%S\n[PrInTeRs]\npath = /var/spool/samba\n"
@@ -343,6 +350,7 @@ class SmbConfParserTest {
     }
 
     @Test
+    @DisplayName("Global replacement preserves unmanaged parameters in other sections")
     void updatingGlobalPreservesUnmanagedParametersInOtherSections() {
         String config = "[GlObAl]\nworkgroup = OLD\n"
                 + "[homes]\npath = /home/%S\nvfs objects = acl_xattr\n"

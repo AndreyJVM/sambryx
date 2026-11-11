@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -38,6 +39,7 @@ class AdApiControllerTest {
     private AdIntegrationService adIntegrationService;
 
     @Test
+    @DisplayName("Domain status serializes the mocked membership and status message")
     void testGetStatus_ReturnsStatus() throws Exception {
         AdStatusDto mockStatus = new AdStatusDto(true, "mari.local", "SAMBA-SERVER", true, true, true);
         when(adIntegrationService.getStatus(any(String.class))).thenReturn(mockStatus);
@@ -52,6 +54,7 @@ class AdApiControllerTest {
     }
 
     @Test
+    @DisplayName("Domain join serializes the mocked successful membership result")
     void testJoinDomain_Success() throws Exception {
         AdJoinRequestDto requestDto = new AdJoinRequestDto("mari.local", "Administrator", "password123", "192.168.1.1");
         AdStatusDto mockStatus = new AdStatusDto(true, "mari.local", "SAMBA-SERVER", true, true, true);
@@ -70,6 +73,7 @@ class AdApiControllerTest {
     }
 
     @Test
+    @DisplayName("Domain leave serializes the mocked non-membership result")
     void testLeaveDomain_Success() throws Exception {
         AdJoinRequestDto requestDto = new AdJoinRequestDto("mari.local", "Administrator", "password123", "192.168.1.1");
         AdStatusDto mockStatus = new AdStatusDto(false, null, null, false, false, false);

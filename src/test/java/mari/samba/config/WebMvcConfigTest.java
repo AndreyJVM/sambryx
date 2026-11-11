@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -22,6 +23,7 @@ class WebMvcConfigTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("Root and UI routes forward to the bundled UI index")
     void testRootRoutesForwardToIndex() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(forwardedUrl("/ui/index.html"));
         mockMvc.perform(get("/ui")).andExpect(status().isOk()).andExpect(forwardedUrl("/ui/index.html"));

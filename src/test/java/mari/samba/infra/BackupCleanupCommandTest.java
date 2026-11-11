@@ -13,11 +13,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @Epic("Configuration and backups")
@@ -60,8 +63,8 @@ class BackupCleanupCommandTest {
     }
 
     @DisplayName("Removes only the selected backup with special characters")
-    @ParameterizedTest(name = "{argumentsWithNames}")
-    @ValueSource(strings = {"quote'", "double\"quote", "line\nbreak", "tab\tname", "$(touch injected);&", "-rf"})
+    @ParameterizedTest(name = "filename case={0}")
+    @MethodSource("specialFilenameSuffixes")
     void removesOnlyTheSelectedBackupWithSpecialCharacters(String suffix) throws Exception {
         Path old = backup(suffix, 1000);
         Path newest = backup("new", 2000);
@@ -69,6 +72,16 @@ class BackupCleanupCommandTest {
         assertFalse(Files.exists(old));
         assertTrue(Files.exists(newest));
         assertFalse(Files.exists(temporary.resolve("injected")));
+    }
+
+    private static Stream<Named<String>> specialFilenameSuffixes() {
+        return Stream.of(
+                Named.of("single quote", "quote'"),
+                Named.of("double quote", "double\"quote"),
+                Named.of("line break", "line\nbreak"),
+                Named.of("tab character", "tab\tname"),
+                Named.of("shell metacharacters", "$(touch injected);&"),
+                Named.of("option-like suffix", "-rf"));
     }
 
     @DisplayName("Deletion failure is reported without removing backup")

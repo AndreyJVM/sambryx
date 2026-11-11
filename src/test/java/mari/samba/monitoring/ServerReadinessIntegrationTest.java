@@ -11,6 +11,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.SshSessionManager;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -31,12 +32,14 @@ class ServerReadinessIntegrationTest {
     SshSessionManager ssh;
 
     @Test
+    @DisplayName("Anonymous readiness requests return HTTP 401 without SSH calls")
     void anonymousRequestCannotReachSsh() throws Exception {
         mvc.perform(get("/api/monitoring/readiness")).andExpect(status().isUnauthorized());
         verifyNoInteractions(ssh);
     }
 
     @Test
+    @DisplayName("After mocked SSH login rejected probes return a partial sanitized readiness report")
     void authenticatedSshWithRejectedProbeReturnsPartialSanitizedReport() throws Exception {
         var session = (MockHttpSession) mvc.perform(
                         post("/api/auth/login")

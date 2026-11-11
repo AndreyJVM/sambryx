@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import mari.samba.share.SambaShareCreateDto;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -15,23 +16,25 @@ import org.junit.jupiter.params.provider.ValueSource;
 class SmbConfParserBooleanTest {
     private final SmbConfParser parser = new SmbConfParser();
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "Samba form={0}")
     @ValueSource(strings = {"true", "TRUE", "1"})
+    @DisplayName("Share settings recognize Samba true forms")
     void readsSambaTrueFormsInShareSettings(String value) {
         assertThat(parser.parseShares("[team]\npath = /srv/team\nread only = " + value + "\n"))
                 .singleElement()
                 .satisfies(share -> assertThat(share.isReadOnly()).isTrue());
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "Samba form={0}")
     @ValueSource(strings = {"true", "TRUE", "1"})
+    @DisplayName("Global settings recognize Samba true forms")
     void readsSambaTrueFormsInGlobalSettings(String value) {
         assertThat(parser.parseGlobalConfig("[global]\nbind interfaces only = " + value + "\n")
                         .bindInterfacesOnly())
                 .isTrue();
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "Samba form=[{0}], expected enabled={1}")
     @CsvSource({
         "yes,true",
         "YES,true",
@@ -51,6 +54,7 @@ class SmbConfParserBooleanTest {
         "2,false",
         "'',false"
     })
+    @DisplayName("Managed boolean values retain their meaning across read and rewrite")
     void preservesManagedBooleanSemanticsAcrossReadAndRewrite(String value, boolean expected) {
         String config = "[global]\ninterfaces = eth0\nbind interfaces only = " + value
                 + "\nload printers = " + value + "\ndisable netbios = " + value
@@ -96,6 +100,7 @@ class SmbConfParserBooleanTest {
     }
 
     @Test
+    @DisplayName("Absent boolean settings retain global and share defaults")
     void retainsDefaultsWhenBooleanParametersAreAbsent() {
         var global = parser.parseGlobalConfig("[global]\n");
         assertThat(global.bindInterfacesOnly()).isFalse();

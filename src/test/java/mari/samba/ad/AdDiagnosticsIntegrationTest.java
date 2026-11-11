@@ -21,15 +21,20 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import mari.samba.core.GlobalExceptionHandler;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -69,8 +74,9 @@ class AdDiagnosticsIntegrationTest {
         events.stop();
     }
 
-    @ParameterizedTest
-    @CsvSource({"join, true", "join, false", "leave, true", "leave, false"})
+    @ParameterizedTest(name = "operation={0}, credential location={1}")
+    @MethodSource("domainFailureStreams")
+    @DisplayName("Failed domain commands stop the workflow without exposing credentials")
     void sshFailureDoesNotExposeOutputOrContinueWorkflow(String action, boolean secretInStderr) throws Exception {
         respondToDomainCommand(new CommandResult(7, secretInStderr ? "" : SECRET, secretInStderr ? SECRET : ""));
 
@@ -81,8 +87,9 @@ class AdDiagnosticsIntegrationTest {
         assertStoppedAfterDomainCommand(action);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "rejection marker={0}")
     @CsvSource({"failed", "ERROR"})
+    @DisplayName("Rejected join output stops before restart and hides credentials")
     void rejectedJoinOutputDoesNotExposeCredentialsOrRestartService(String marker) throws Exception {
         respondToDomainCommand(new CommandResult(0, marker + ": " + SECRET, ""));
 
@@ -94,6 +101,7 @@ class AdDiagnosticsIntegrationTest {
     }
 
     @Test
+    @DisplayName("Successful domain join restarts Winbind before reading membership status")
     void successfulJoinStillRestartsServiceThenReadsStatus() throws Exception {
         respondToDomainCommand(new CommandResult(0, "Joined domain", ""));
 
@@ -110,6 +118,7 @@ class AdDiagnosticsIntegrationTest {
     }
 
     @Test
+    @DisplayName("Successful leave reads status without claiming confirmed non-membership")
     void successfulLeaveReadsStatusWithoutClaimingConfirmedNonMembership() throws Exception {
         statusResult = new CommandResult(0, "", "");
         respondToDomainCommand(new CommandResult(0, "Left domain", ""));
@@ -121,8 +130,9 @@ class AdDiagnosticsIntegrationTest {
                 .containsExactly(LinuxCommands.netAdsLeave("Administrator", SECRET), LinuxCommands.netAdsTestJoin());
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "operation={0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"join", "leave"})
+    @DisplayName("A failed status read after a domain operation returns a sanitized error")
     void statusFailureAfterDomainOperationDoesNotReturnSuccess(String action) throws Exception {
         statusResult = new CommandResult(1, "Join is OK", SECRET);
         respondToDomainCommand(new CommandResult(0, "Domain operation completed", ""));
@@ -135,6 +145,7 @@ class AdDiagnosticsIntegrationTest {
     }
 
     @Test
+    @DisplayName("Confirmed membership leaves other diagnostics and domain name unknown")
     void confirmedMembershipDoesNotConfirmOtherChecksOrDomainName() throws Exception {
         respondToDomainCommand(new CommandResult(0, "", ""));
         var data = new ObjectMapper()
@@ -151,9 +162,9 @@ class AdDiagnosticsIntegrationTest {
         assertThat(commands).containsExactly(LinuxCommands.netAdsTestJoin());
     }
 
-    @ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(
-            strings = {"unrecognized response", "Not joined", "Error: Join is OK", ""})
+    @ParameterizedTest(name = "status output={0}")
+    @MethodSource("unconfirmedMembershipOutputs")
+    @DisplayName("Unrecognized successful status output leaves membership unknown")
     void unrecognizedSuccessfulOutputDoesNotConfirmNonMembership(String output) throws Exception {
         statusResult = new CommandResult(0, output, "");
         respondToDomainCommand(new CommandResult(0, "", ""));
@@ -167,8 +178,9 @@ class AdDiagnosticsIntegrationTest {
         assertThat(data.get("isJoined").isNull()).isTrue();
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "exit status={0}")
     @org.junit.jupiter.params.provider.ValueSource(ints = {1, 7, 127})
+    @DisplayName("A failed status exit code overrides the membership success marker")
     void failedStatusCannotBecomeMembershipEvenWhenOutputContainsSuccessMarker(int exitCode) throws Exception {
         statusResult = new CommandResult(exitCode, "Join is OK", SECRET);
         respondToDomainCommand(new CommandResult(0, "", ""));
@@ -179,6 +191,22 @@ class AdDiagnosticsIntegrationTest {
                 .getContentAsString();
         assertSafeDiagnostics(body);
         assertThat(commands).containsExactly(LinuxCommands.netAdsTestJoin());
+    }
+
+    private static Stream<Arguments> domainFailureStreams() {
+        return Stream.of(
+                Arguments.of("join", Named.of("stderr", true)),
+                Arguments.of("join", Named.of("stdout", false)),
+                Arguments.of("leave", Named.of("stderr", true)),
+                Arguments.of("leave", Named.of("stdout", false)));
+    }
+
+    private static Stream<Named<String>> unconfirmedMembershipOutputs() {
+        return Stream.of(
+                Named.of("unrecognized response", "unrecognized response"),
+                Named.of("negative text without classified status", "Not joined"),
+                Named.of("success marker embedded in an error", "Error: Join is OK"),
+                Named.of("empty output", ""));
     }
 
     private void respondToDomainCommand(CommandResult result) throws Exception {

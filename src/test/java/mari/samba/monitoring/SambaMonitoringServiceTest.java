@@ -12,6 +12,7 @@ import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.LinuxCommands;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,8 +39,9 @@ class SambaMonitoringServiceTest {
     // isServiceRunning Tests
     // ==========================================
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "exit status={0}, state={1}, expected running={2}")
     @CsvSource({"0,active,true", "0,inactive,false", "3,inactive,false", "3,failed,false"})
+    @DisplayName("Service running state requires a confirmed command result")
     void serviceStateRequiresConfirmedCommandResult(int exitCode, String state, boolean running) {
         when(commandExecutor.executeCommand(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
                 .thenReturn(new CommandResult(exitCode, state + "\n", ""));
@@ -47,8 +49,9 @@ class SambaMonitoringServiceTest {
         assertEquals(running, monitoringService.isServiceRunning(SESSION_ID));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "exit status={0}, state={1}")
     @CsvSource({"1,active", "4,unknown", "127,missing", "0,unexpected"})
+    @DisplayName("Unusable service results raise an unavailable-data error")
     void unusableServiceStateIsUnavailableInsteadOfStopped(int exitCode, String state) {
         when(commandExecutor.executeCommand(SESSION_ID, LinuxCommands.systemctl("is-active", "smbd")))
                 .thenReturn(new CommandResult(exitCode, state, "synthetic-sensitive-output"));
@@ -56,8 +59,9 @@ class SambaMonitoringServiceTest {
         assertThrows(SambaCommandException.class, () -> monitoringService.isServiceRunning(SESSION_ID));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "operation={0}")
     @ValueSource(strings = {"state", "connections", "files", "disk"})
+    @DisplayName("Command failures raise sanitized monitoring errors")
     void commandFailureCannotBecomeSuccessfulMonitoringData(String operation) {
         if (operation.equals("state")) {
             when(commandExecutor.executeCommand(eq(SESSION_ID), anyString()))
@@ -70,8 +74,9 @@ class SambaMonitoringServiceTest {
         assertFalse(failure.getMessage().contains("synthetic-sensitive-output"));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "operation={0}")
     @ValueSource(strings = {"state", "connections", "files", "disk"})
+    @DisplayName("Expired sessions propagate unchanged for authentication handling")
     void expiredSessionIsPreservedForAuthenticationHandling(String operation) {
         var expired = new SshSessionExpiredException("SSH session expired.");
         if (operation.equals("state")) {
@@ -97,6 +102,7 @@ class SambaMonitoringServiceTest {
     // ==========================================
 
     @Test
+    @DisplayName("Connection parsing extracts process, user and machine from two rows")
     void testGetActiveConnections_ShouldParseOutputCorrectly() throws Exception {
         String mockOutput = "Samba version 4.15.13-Ubuntu\n"
                 + "PID     Username     Group        Machine                                   Protocol Version  Encryption           Signing\n"
@@ -120,6 +126,7 @@ class SambaMonitoringServiceTest {
     }
 
     @Test
+    @DisplayName("Empty connection output produces an empty list")
     void testGetActiveConnections_WhenEmptyOutput_ShouldReturnEmptyList() throws Exception {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.smbstatus("-b"))).thenReturn("");
 
@@ -132,6 +139,7 @@ class SambaMonitoringServiceTest {
     // ==========================================
 
     @Test
+    @DisplayName("Open-file parsing preserves spaces and read-write modes")
     void testGetOpenFiles_ShouldParseOutputCorrectly() throws Exception {
         String mockOutput = "\nLocked files:\n"
                 + "Pid          Uid        DenyMode   Access      R/W        Oplock           SharePath   Name   Time\n"
@@ -161,12 +169,14 @@ class SambaMonitoringServiceTest {
     // ==========================================
 
     @Test
+    @DisplayName("Restart executes the expected service control command")
     void testControlService_ValidAction_ShouldExecute() throws Exception {
         monitoringService.controlService(SESSION_ID, "restart");
         verify(commandExecutor).execute(SESSION_ID, LinuxCommands.systemctl("restart", "smbd"));
     }
 
     @Test
+    @DisplayName("Unsupported service actions fail without executing commands")
     void testControlService_InvalidAction_ShouldThrowException() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class, () -> monitoringService.controlService(SESSION_ID, "delete"));
@@ -180,12 +190,14 @@ class SambaMonitoringServiceTest {
     // ==========================================
 
     @Test
+    @DisplayName("A numeric session process ID executes the kill command")
     void testKillSession_ValidPid_ShouldExecuteKill() throws Exception {
         monitoringService.killSession(SESSION_ID, "12345");
         verify(commandExecutor).execute(SESSION_ID, LinuxCommands.kill("12345"));
     }
 
     @Test
+    @DisplayName("An invalid session process ID fails without executing commands")
     void testKillSession_InvalidPid_ShouldThrowException() {
         IllegalArgumentException ex =
                 assertThrows(IllegalArgumentException.class, () -> monitoringService.killSession(SESSION_ID, "1234a"));
@@ -199,6 +211,7 @@ class SambaMonitoringServiceTest {
     // ==========================================
 
     @Test
+    @DisplayName("Disk usage parsing extracts mount, percentage and size")
     void testGetDiskUsage_ShouldParseDfOutput() throws Exception {
         String mockOutput = "Filesystem      Size  Used Avail Use% Mounted on\n"
                 + "tmpfs           1.6G  2.0M  1.6G   1% /run\n"

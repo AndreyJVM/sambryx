@@ -21,7 +21,7 @@ class FstecRuleEvaluatorTest {
         evaluator = new FstecRuleEvaluator();
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "current mask={0}, required mask={1}, expected pass={2}")
     @CsvSource({
         "0640, 0640, true",
         "0600, 0640, true",
@@ -52,7 +52,7 @@ class FstecRuleEvaluatorTest {
         assertThat(evaluator.isEqualsOrStricterMask("0640", null)).isFalse();
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "current protocol={0}, minimum protocol={1}, expected pass={2}")
     @CsvSource({
         "SMB2, SMB2, true",
         "SMB2_02, SMB2, true",

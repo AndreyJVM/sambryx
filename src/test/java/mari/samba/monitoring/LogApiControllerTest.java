@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -27,6 +28,7 @@ class LogApiControllerTest {
     private SambaLogService logService;
 
     @Test
+    @DisplayName("The log endpoint returns the mocked 50-line log text")
     void testFetchRawLogs_ShouldReturnString() throws Exception {
         when(logService.getRecentLogs(anyString(), eq(50))).thenReturn("syslog line 1\nsyslog line 2");
 

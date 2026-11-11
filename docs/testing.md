@@ -46,11 +46,10 @@ security chain, HTTP без фильтров или local shell component. Ис�
 иерархию Epic → Feature; **Suites** и **Packages** оставляем техническим представлением
 Java-классов. Не добавляем параллельную иерархию suite labels.
 
-`@DisplayName` описывает конкретный проверяемый результат на английском. В config/backup,
-auth/session, SSH, shares/access, users/groups и filesystem сценариях заданы читаемые
-заголовки. Оформление заголовков пока не завершено для Monitoring/readiness, AD,
-SmbConfParser*, LinuxCommandsTest и общих configuration/HTTP error tests; их существующая
-группировка сохранена. Для `@ParameterizedTest(name = "{0}")`
+`@DisplayName` описывает конкретный проверяемый результат на английском. Во всех корневых backend-сценариях заданы читаемые
+заголовки, включая Monitoring/readiness, AD, parser, shell command construction и общие
+configuration/HTTP error tests. Существующие заголовки Compliance сохранены.
+Для `@ParameterizedTest(name = "{0}")`
 используем короткий case label через JUnit `Named`/`MethodSource`, если исходный аргумент —
 конфигурация, credential, большой вывод, пустое значение или неоднозначный boolean.
 Короткие безопасные значения (например, failed stage, timeout или форма Samba boolean)
@@ -94,7 +93,7 @@ Frontend, browser, отдельные smoke Maven-проекты и real SSH sui
 
 API оформления: [Allure JUnit reference](https://allurereport.org/docs/junit-jupiter-reference/),
 [исходники адаптера 2.29.1](https://github.com/allure-framework/allure-java/blob/2.29.1/allure-junit-platform/src/main/java/io/qameta/allure/junitplatform/AllureJunitPlatform.java),
-[JUnit named arguments](https://docs.junit.org/5.12.0/user-guide/#writing-tests-parameterized-tests-argument-sources).
+[JUnit named arguments](https://docs.junit.org/5.11.3/user-guide/#writing-tests-parameterized-tests-argument-sources).
 
 Версии и команды: [JUnit 5 adapter](https://github.com/allure-framework/allure-java/releases/tag/2.29.1),
 [Maven plugin 2.x](https://github.com/allure-framework/allure-maven/tree/2.15.2),

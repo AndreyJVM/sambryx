@@ -11,6 +11,7 @@ import io.qameta.allure.Feature;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Set;
 import mari.samba.ad.AdJoinException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("Expired SSH sessions map to HTTP 401")
     void testHandleSshSessionExpiredException_ShouldReturn401() throws Exception {
         mockMvc.perform(get("/dummy/ssh-expired"))
                 .andExpect(status().isUnauthorized())
@@ -47,6 +49,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Invalid arguments map to HTTP 400")
     void testHandleIllegalArgumentException_ShouldReturn400() throws Exception {
         mockMvc.perform(get("/dummy/invalid-arg"))
                 .andExpect(status().isBadRequest())
@@ -55,6 +58,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Samba command failures map to HTTP 500")
     void testHandleSambaCommandException_ShouldReturn500() throws Exception {
         mockMvc.perform(get("/dummy/samba-cmd"))
                 .andExpect(status().isInternalServerError())
@@ -63,6 +67,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Missing required parameters map to HTTP 400")
     void testHandleMissingParams_ShouldReturn400() throws Exception {
         mockMvc.perform(get("/dummy/missing-param"))
                 .andExpect(status().isBadRequest())
@@ -71,6 +76,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Malformed request bodies map to HTTP 400")
     void testHandleMessageNotReadable_ShouldReturn400() throws Exception {
         mockMvc.perform(post("/dummy/malformed")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,6 +87,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Access denial maps to HTTP 403")
     void testHandleAccessDenied_ShouldReturn403() throws Exception {
         mockMvc.perform(get("/dummy/access-denied"))
                 .andExpect(status().isForbidden())
@@ -89,6 +96,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Constraint violations map to HTTP 400")
     void testHandleConstraintViolation_ShouldReturn400() throws Exception {
         mockMvc.perform(get("/dummy/constraint"))
                 .andExpect(status().isBadRequest())
@@ -97,6 +105,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Unexpected errors return a safe message without exception details")
     void unexpectedFailureReturnsSafeMessage(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/dummy/general-exception"))
                 .andExpect(status().isInternalServerError())
@@ -109,6 +118,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Unexpected error logs omit sensitive exception messages and causes")
     void unexpectedFailureLogOmitsExceptionMessagesAndCauses(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/dummy/general-exception")).andExpect(status().isInternalServerError());
 
@@ -118,6 +128,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Domain join failures retain the safe public message and hide credentials")
     void domainJoinFailureKeepsSafePublicMessage(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/dummy/domain-join-failure"))
                 .andExpect(status().isInternalServerError())

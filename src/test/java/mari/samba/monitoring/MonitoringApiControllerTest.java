@@ -14,6 +14,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -34,6 +35,7 @@ class MonitoringApiControllerTest {
     private SambaMonitoringService monitoringService;
 
     @Test
+    @DisplayName("A running dashboard serializes disk, connection and open-file statistics")
     void testGetDashboard_WhenRunning_ShouldReturnFullStats() throws Exception {
         when(monitoringService.isServiceRunning(anyString())).thenReturn(true);
         when(monitoringService.getDiskUsage(anyString())).thenReturn(List.of("/ 50% 100G"));
@@ -51,6 +53,7 @@ class MonitoringApiControllerTest {
     }
 
     @Test
+    @DisplayName("A stopped dashboard returns empty connections and open files")
     void testGetDashboard_WhenNotRunning_ShouldReturnEmptyData() throws Exception {
         when(monitoringService.isServiceRunning(anyString())).thenReturn(false);
         when(monitoringService.getDiskUsage(anyString())).thenReturn(List.of("/ 50% 100G"));
@@ -64,6 +67,7 @@ class MonitoringApiControllerTest {
     }
 
     @Test
+    @DisplayName("Service control delegates restart and returns a success message")
     void testControlService_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/monitoring/control").param("action", "restart"))
                 .andExpect(status().isOk())
@@ -74,6 +78,7 @@ class MonitoringApiControllerTest {
     }
 
     @Test
+    @DisplayName("Session deletion delegates the process ID and returns a success message")
     void testKillSession_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(delete("/api/monitoring/sessions/1234"))
                 .andExpect(status().isOk())

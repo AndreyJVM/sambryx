@@ -6,29 +6,34 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @Epic("SSH execution and host trust")
 @Feature("Unit: shell command construction and quoting (no execution)")
 class LinuxCommandsTest {
     @Test
+    @DisplayName("Account deletion constructs userdel without recursive removal")
     void deleteAccountPreservesHomeAndMail() {
         assertEquals("sudo userdel -- 'alice'", LinuxCommands.deleteSystemUser("alice"));
     }
 
     @Test
+    @DisplayName("Shell escaping rejects carriage returns and newlines")
     void testEscapeRejectsNewlines() {
         assertThrows(SecurityException.class, () -> LinuxCommands.escape("some\ncommand"));
         assertThrows(SecurityException.class, () -> LinuxCommands.escape("some\rcommand"));
     }
 
     @Test
+    @DisplayName("Shell escaping safely quotes embedded apostrophes")
     void testEscapeHandlesSingleQuotes() {
         String escaped = LinuxCommands.escape("O'Connor");
         assertEquals("'O'\\''Connor'", escaped);
     }
 
     @Test
+    @DisplayName("Username validation accepts supported names and rejects unsafe names")
     void testRequireValidUsername() {
 
         assertDoesNotThrow(() -> LinuxCommands.checkUserExists("validuser_123"));
@@ -41,6 +46,7 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Path validation rejects traversal and shell injection characters")
     void testRequireValidPath() {
         assertDoesNotThrow(() -> LinuxCommands.cat("/etc/samba/smb.conf"));
         assertDoesNotThrow(() -> LinuxCommands.cat("/mnt/Data_Drive"));
@@ -58,6 +64,7 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Service control construction rejects unsupported and injected actions")
     void testRequireValidSystemctlAction() {
         assertDoesNotThrow(() -> LinuxCommands.systemctl("restart", "smbd"));
         assertDoesNotThrow(() -> LinuxCommands.systemctl("stop", "nmbd"));
@@ -68,6 +75,7 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Process command construction rejects nonnumeric and injected IDs")
     void testRequireValidPid() {
         assertDoesNotThrow(() -> LinuxCommands.kill("1234"));
         assertThrows(SecurityException.class, () -> LinuxCommands.kill("1234; rm -rf /"));
@@ -75,6 +83,7 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Backup listing validates and quotes the directory with stable locale and timestamps")
     void testListBackupsDetailed_validatesAndEscapesDirectory() {
         String expected =
                 "test -d '/etc/samba' && LC_ALL=C find -H '/etc/samba' -maxdepth 1 -name 'smb.conf.backup_*' -exec ls -ldh --time-style=\"+%Y-%m-%d %H:%M:%S\" -- {} +";
@@ -84,6 +93,7 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Group commands quote accepted names and reject injection attempts")
     void testGroupCommands_ValidateAndFormat() {
         assertEquals("getent group", LinuxCommands.getentGroup());
         assertEquals("sudo groupadd 'smb_developers'", LinuxCommands.addGroup("smb_developers"));
@@ -103,11 +113,13 @@ class LinuxCommandsTest {
     }
 
     @Test
+    @DisplayName("Effective configuration inspection constructs the verbose testparm dump command")
     void testTestparmDump() {
         assertEquals("testparm -sv 2>/dev/null", LinuxCommands.testparmDump());
     }
 
     @Test
+    @DisplayName("Directory usage construction includes unprivileged, sudo and zero-size fallbacks")
     void testDuCommand() {
         String cmd = LinuxCommands.du("/srv/samba/share");
         assertEquals(

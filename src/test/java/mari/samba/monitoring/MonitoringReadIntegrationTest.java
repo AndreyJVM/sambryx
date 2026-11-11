@@ -14,6 +14,7 @@ import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -42,13 +43,15 @@ class MonitoringReadIntegrationTest {
     }
 
     @Test
+    @DisplayName("Anonymous dashboard requests return HTTP 401 without SSH calls")
     void anonymousDashboardReadCannotReachSsh() throws Exception {
         mvc.perform(get("/api/monitoring/dashboard")).andExpect(status().isUnauthorized());
         verifyNoInteractions(ssh);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "endpoint={0}")
     @ValueSource(strings = {"dashboard", "status", "connections", "locks", "disk"})
+    @DisplayName("Failed monitoring reads return HTTP 500 without data or sensitive output")
     void failedReadCannotReturnSuccessfulEmptyData(String endpoint) throws Exception {
         var session = login();
         when(ssh.execute(anyString(), anyString())).thenThrow(new SambaCommandException("synthetic-sensitive-output"));
@@ -66,6 +69,7 @@ class MonitoringReadIntegrationTest {
     }
 
     @Test
+    @DisplayName("An expired SSH read returns HTTP 401 and invalidates the HTTP session")
     void expiredReadInvalidatesHttpSession() throws Exception {
         var session = login();
         when(ssh.execute(anyString(), anyString())).thenThrow(new SshSessionExpiredException("SSH session expired."));
@@ -77,6 +81,7 @@ class MonitoringReadIntegrationTest {
     }
 
     @Test
+    @DisplayName("Unavailable service status recovers on the next read without another login")
     void unavailableStatusCanRecoverWithoutRelogin() throws Exception {
         var session = login();
         when(ssh.executeCommand(anyString(), anyString(), isNull()))
@@ -90,6 +95,7 @@ class MonitoringReadIntegrationTest {
     }
 
     @Test
+    @DisplayName("Confirmed inactive service status remains a successful HTTP response")
     void confirmedInactiveStateRemainsSuccessful() throws Exception {
         var session = login();
         when(ssh.executeCommand(anyString(), anyString(), isNull())).thenReturn(new CommandResult(3, "inactive\n", ""));

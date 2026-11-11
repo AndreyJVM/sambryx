@@ -6,6 +6,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -21,6 +22,7 @@ class SambaPropertiesTest {
     private SambaProperties properties;
 
     @Test
+    @DisplayName("Spring binds the default SSH, path, security and group properties")
     void testDefaultValuesAreBoundCorrectly() {
         assertThat(properties).isNotNull();
 

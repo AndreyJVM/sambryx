@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
+import java.util.stream.Stream;
 import mari.samba.share.SambaShare;
 import mari.samba.share.SambaShareCreateDto;
 import mari.samba.smbconfig.SambaGlobalConfigDto;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @Epic("Configuration and backups")
 @Feature("Unit: configuration text round trips")
@@ -17,6 +20,7 @@ class SmbConfParserRoundTripTest {
     private final SmbConfParser parser = new SmbConfParser();
 
     @Test
+    @DisplayName("Generated share sections preserve advanced fields when parsed again")
     void preservesAdvancedShareFieldsWhenGeneratedSectionIsReadAgain() {
         var dto = SambaShareCreateDto.builder()
                 .name("team")
@@ -60,6 +64,7 @@ class SmbConfParserRoundTripTest {
     }
 
     @Test
+    @DisplayName("Blank optional share fields are omitted and remain absent on read")
     void omitsBlankOptionalShareFieldsWithoutInventingValuesOnRead() {
         String section = parser.buildShareSection(SambaShareCreateDto.builder()
                 .name("team")
@@ -77,8 +82,9 @@ class SmbConfParserRoundTripTest {
         });
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("shareBooleanSettings")
+    @DisplayName("Generated share booleans use explicit Samba forms and survive parsing")
     void emitsExplicitShareBooleansAndReadsThemBack(boolean enabled) {
         String section = parser.buildShareSection(SambaShareCreateDto.builder()
                 .name("team")
@@ -97,7 +103,13 @@ class SmbConfParserRoundTripTest {
         });
     }
 
+    private static Stream<Named<Boolean>> shareBooleanSettings() {
+        return Stream.of(
+                Named.of("all managed share flags enabled", true), Named.of("all managed share flags disabled", false));
+    }
+
     @Test
+    @DisplayName("Global replacement preserves managed domain settings on read")
     void preservesManagedDomainSettingsAcrossGlobalReplacementAndRead() {
         var dto = SambaGlobalConfigDto.builder()
                 .workgroup("EXAMPLE")
@@ -128,6 +140,7 @@ class SmbConfParserRoundTripTest {
     }
 
     @Test
+    @DisplayName("The last repeated parameter wins while global replacement preserves shares")
     void lastRepeatedParameterWinsBeforeAndAfterGlobalReplacement() {
         String config = "[global]\nworkgroup = FIRST\nworkgroup = LAST\n"
                 + "[team]\npath = /srv/old\npath = /srv/team\nread only = yes\nread only = no\n";
@@ -143,6 +156,7 @@ class SmbConfParserRoundTripTest {
     }
 
     @Test
+    @DisplayName("Global replacement removes repeated global sections and preserves interleaved shares")
     void replacesAllRepeatedGlobalSectionsWithoutRemovingInterleavedShares() {
         String config = "[global]\nworkgroup = FIRST\n[team]\npath = /srv/team\n"
                 + "[global]\nworkgroup = LAST\n[archive]\npath = /srv/archive\n";
