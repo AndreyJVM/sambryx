@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
@@ -14,6 +15,8 @@ import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SmbConfParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class BackupComparisonTest {
@@ -60,29 +63,46 @@ class BackupComparisonTest {
         verifyNoInteractions(commands);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"bytes", "lines", "null", "binary", "encoding", "ssh", "secondRead"})
-    void failsSafelyWithoutReturningPartialComparison(String mode) {
-        String content =
-                switch (mode) {
-                    case "bytes" -> "a".repeat(262145);
-                    case "lines" -> "x\n".repeat(1001);
-                    case "binary" -> "sensitive\0text";
-                    case "encoding" -> "sensitive\uFFFDtext";
-                    default -> null;
-                };
-        if (mode.equals("ssh"))
-            when(commands.execute(anyString(), anyString())).thenThrow(new SambaCommandException("sensitive"));
-        else if (mode.equals("secondRead"))
-            when(commands.execute(anyString(), anyString()))
-                    .thenReturn("valid")
-                    .thenThrow(new SambaCommandException("sensitive"));
-        else when(commands.execute(anyString(), anyString())).thenReturn(content);
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unusableContents")
+    void rejectsUnusableContentWithoutReturningPartialComparison(String description, String content) {
+        when(commands.execute(anyString(), anyString())).thenReturn(content);
+        assertComparisonUnavailable();
+        verify(commands).execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf"));
+        verifyNoMoreInteractions(commands);
+    }
+
+    private static Stream<Arguments> unusableContents() {
+        return Stream.of(
+                Arguments.of("byte limit exceeded", "a".repeat(262145)),
+                Arguments.of("line limit exceeded", "x\n".repeat(1001)),
+                Arguments.of("missing output", null),
+                Arguments.of("binary content", "sensitive\0text"),
+                Arguments.of("invalid encoding", "sensitive\uFFFDtext"));
+    }
+
+    @Test
+    void hidesFailureFromCurrentConfigurationRead() {
+        when(commands.execute(anyString(), anyString())).thenThrow(new SambaCommandException("sensitive"));
+        assertComparisonUnavailable();
+        verify(commands).execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf"));
+        verifyNoMoreInteractions(commands);
+    }
+
+    @Test
+    void hidesPartialContentWhenBackupReadFails() {
+        when(commands.execute(anyString(), anyString()))
+                .thenReturn("sensitive")
+                .thenThrow(new SambaCommandException("sensitive"));
+        assertComparisonUnavailable();
+        verifyReads();
+    }
+
+    private void assertComparisonUnavailable() {
         assertThatThrownBy(() -> service.compareBackup("session", NAME))
                 .isInstanceOf(SambaCommandException.class)
                 .hasMessageContaining("comparison is unavailable")
                 .hasMessageNotContaining("sensitive");
-        verify(commands, atMost(2)).execute(eq("session"), anyString());
     }
 
     @Test
@@ -119,29 +139,46 @@ class BackupComparisonTest {
         verifyReads();
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {1, 2})
-    void releasesCapacityAfterRepeatedReadFailures(int failedRead) {
+    @Test
+    void releasesCapacityAfterRepeatedCurrentReadFailures() {
+        when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf")))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenReturn("recovered");
+        when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/backups/" + NAME)))
+                .thenReturn("recovered");
+        assertRepeatedFailuresThenRecovery(0);
+    }
+
+    @Test
+    void releasesCapacityAfterRepeatedBackupReadFailures() {
+        when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf")))
+                .thenReturn("private configuration", "private configuration", "private configuration", "recovered");
+        when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/backups/" + NAME)))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenThrow(new SambaCommandException("private configuration"))
+                .thenReturn("recovered");
+        assertRepeatedFailuresThenRecovery(1);
+    }
+
+    private void assertRepeatedFailuresThenRecovery(int backupReadsPerFailure) {
         for (int attempt = 0; attempt < 3; attempt++) {
-            reset(commands);
-            if (failedRead == 1) {
-                when(commands.execute(anyString(), anyString()))
-                        .thenThrow(new SambaCommandException("private configuration"));
-            } else {
-                when(commands.execute(anyString(), anyString()))
-                        .thenReturn("private configuration")
-                        .thenThrow(new SambaCommandException("private configuration"));
-            }
             assertThatThrownBy(() -> service.compareBackup("session", NAME))
                     .isInstanceOf(SambaCommandException.class)
                     .hasMessageNotContaining("private configuration");
-            verify(commands, times(failedRead)).execute(eq("session"), anyString());
+            verify(commands, times(attempt + 1))
+                    .execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf"));
+            verify(commands, times((attempt + 1) * backupReadsPerFailure))
+                    .execute("session", LinuxCommands.readComparisonFile("/etc/samba/backups/" + NAME));
             verifyNoMoreInteractions(commands);
         }
-        reset(commands);
-        when(commands.execute(anyString(), anyString())).thenReturn("recovered");
         assertThat(service.compareBackup("session", NAME).equal()).isTrue();
-        verifyReads();
+        verify(commands, times(4)).execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf"));
+        verify(commands, times(3 * backupReadsPerFailure + 1))
+                .execute("session", LinuxCommands.readComparisonFile("/etc/samba/backups/" + NAME));
+        verifyNoMoreInteractions(commands);
     }
 
     @Test

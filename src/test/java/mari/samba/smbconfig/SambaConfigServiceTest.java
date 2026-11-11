@@ -248,44 +248,74 @@ class SambaConfigServiceTest {
             verifyNoInteractions(commandExecutor);
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"safety-copy", "restore-copy", "restart"})
-        void restoreBackup_stopsOnFailureWithoutContinuingDestructiveSteps(String stage) {
-            String sessionId = "restore-session";
-            String filename = "smb.conf.backup_20301015_143000";
-            String restore = LinuxCommands.copy("/etc/samba/backups/" + filename, "/etc/samba/smb.conf");
-            String restart = LinuxCommands.systemctl("restart", "smbd");
-            SambaCommandException failure = new SambaCommandException("Synthetic " + stage + " failure");
-            when(commandExecutor.execute(eq(sessionId), anyString())).thenAnswer(invocation -> {
-                String command = invocation.getArgument(1);
-                boolean shouldFail =
-                        switch (stage) {
-                            case "safety-copy" -> command.startsWith("bash -c ");
-                            case "restore-copy" -> command.equals(restore);
-                            case "restart" -> command.equals(restart);
-                            default -> false;
-                        };
-                if (shouldFail) {
-                    throw failure;
-                }
-                return "";
-            });
+        private static final String RESTORE_SESSION = "restore-session";
+        private static final String RESTORE_NAME = "smb.conf.backup_20301015_143000";
 
-            assertThatThrownBy(() -> sambaConfigService.restoreBackup(sessionId, filename))
+        @Test
+        void restoreBackup_stopsAfterFailedSafetyBackup() {
+            when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(eq(RESTORE_SESSION), startsWith("bash -c ")))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.restoreBackup(RESTORE_SESSION, RESTORE_NAME))
                     .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor)
+                    .execute(RESTORE_SESSION, LinuxCommands.testparmSilent("/etc/samba/backups/" + RESTORE_NAME));
+            order.verify(commandExecutor).execute(RESTORE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(RESTORE_SESSION), startsWith("bash -c "));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(3)).execute(eq(RESTORE_SESSION), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
 
-            if (stage.equals("safety-copy")) {
-                verify(commandExecutor, never()).execute(sessionId, restore);
-                verify(commandExecutor, never())
-                        .execute(sessionId, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
-            } else {
-                verify(commandExecutor).execute(sessionId, restore);
-            }
-            if (!stage.equals("restart")) {
-                verify(commandExecutor, never()).execute(sessionId, restart);
-            } else {
-                verify(commandExecutor).execute(sessionId, restart);
-            }
+        @Test
+        void restoreBackup_stopsAfterFailedRestoreCopy() {
+            when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(
+                            eq(RESTORE_SESSION),
+                            eq(LinuxCommands.copy("/etc/samba/backups/" + RESTORE_NAME, "/etc/samba/smb.conf"))))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.restoreBackup(RESTORE_SESSION, RESTORE_NAME))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor)
+                    .execute(RESTORE_SESSION, LinuxCommands.testparmSilent("/etc/samba/backups/" + RESTORE_NAME));
+            order.verify(commandExecutor).execute(RESTORE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(RESTORE_SESSION), startsWith("bash -c "));
+            order.verify(commandExecutor)
+                    .execute(
+                            RESTORE_SESSION,
+                            LinuxCommands.copy("/etc/samba/backups/" + RESTORE_NAME, "/etc/samba/smb.conf"));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(4)).execute(eq(RESTORE_SESSION), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @Test
+        void restoreBackup_stopsAfterFailedRestart() {
+            when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(eq(RESTORE_SESSION), eq(LinuxCommands.systemctl("restart", "smbd"))))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.restoreBackup(RESTORE_SESSION, RESTORE_NAME))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor)
+                    .execute(RESTORE_SESSION, LinuxCommands.testparmSilent("/etc/samba/backups/" + RESTORE_NAME));
+            order.verify(commandExecutor).execute(RESTORE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(RESTORE_SESSION), startsWith("bash -c "));
+            order.verify(commandExecutor)
+                    .execute(
+                            RESTORE_SESSION,
+                            LinuxCommands.copy("/etc/samba/backups/" + RESTORE_NAME, "/etc/samba/smb.conf"));
+            order.verify(commandExecutor)
+                    .execute(RESTORE_SESSION, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
+            order.verify(commandExecutor).execute(RESTORE_SESSION, LinuxCommands.systemctl("restart", "smbd"));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(6)).execute(eq(RESTORE_SESSION), anyString());
+            verifyNoMoreInteractions(commandExecutor);
         }
     }
 
@@ -345,40 +375,111 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"backup", "backup-copy", "cleanup", "install", "restart"})
-        void updateSmbConf_stopsAfterFailedStage(String failedStage) {
-            String sessionId = "session-failure";
-            String content = "[global]";
-            String install = LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf");
-            String restart = LinuxCommands.systemctl("restart", "smbd");
+        private static final String UPDATE_SESSION = "session-failure";
+        private static final String UPDATE_CONTENT = "[global]";
+
+        @Test
+        void updateSmbConf_stopsAfterFailedBackupDirectory() {
             var failure = new SambaCommandException("Synthetic failure");
-            if (failedStage.equals("install")) {
-                lenient()
-                        .when(commandExecutor.execute(sessionId, install, content))
-                        .thenThrow(failure);
-            } else {
-                when(commandExecutor.execute(eq(sessionId), anyString())).thenAnswer(call -> {
-                    String command = call.getArgument(1);
-                    boolean fails =
-                            switch (failedStage) {
-                                case "backup" -> command.equals(LinuxCommands.mkdir("/etc/samba/backups"));
-                                case "backup-copy" -> command.startsWith("bash -c ");
-                                case "cleanup" -> command.equals(
-                                        LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
-                                case "restart" -> command.equals(restart);
-                                default -> false;
-                            };
-                    if (fails) throw failure;
-                    return "";
-                });
-            }
-            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(sessionId, content))
+            when(commandExecutor.execute(eq(UPDATE_SESSION), eq(LinuxCommands.mkdir("/etc/samba/backups"))))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(UPDATE_SESSION, UPDATE_CONTENT))
                     .isSameAs(failure);
-            if (!failedStage.equals("restart")) verify(commandExecutor, never()).execute(sessionId, restart);
-            if (List.of("backup", "backup-copy", "cleanup").contains(failedStage)) {
-                verify(commandExecutor, never()).execute(sessionId, install, content);
-            }
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(UPDATE_SESSION, LinuxCommands.configSavePermissionProbe());
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(1)).execute(eq(UPDATE_SESSION), anyString());
+            verify(commandExecutor, times(0)).execute(eq(UPDATE_SESSION), anyString(), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @Test
+        void updateSmbConf_stopsAfterFailedSafetyBackup() {
+            when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(eq(UPDATE_SESSION), startsWith("bash -c ")))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(UPDATE_SESSION, UPDATE_CONTENT))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(UPDATE_SESSION, LinuxCommands.configSavePermissionProbe());
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(UPDATE_SESSION), startsWith("bash -c "));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(2)).execute(eq(UPDATE_SESSION), anyString());
+            verify(commandExecutor, times(0)).execute(eq(UPDATE_SESSION), anyString(), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @Test
+        void updateSmbConf_stopsAfterFailedCleanup() {
+            when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(
+                            eq(UPDATE_SESSION), eq(LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10))))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(UPDATE_SESSION, UPDATE_CONTENT))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(UPDATE_SESSION, LinuxCommands.configSavePermissionProbe());
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(UPDATE_SESSION), startsWith("bash -c "));
+            order.verify(commandExecutor)
+                    .execute(UPDATE_SESSION, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(3)).execute(eq(UPDATE_SESSION), anyString());
+            verify(commandExecutor, times(0)).execute(eq(UPDATE_SESSION), anyString(), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @Test
+        void updateSmbConf_stopsAfterFailedInstall() {
+            when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(
+                            UPDATE_SESSION, LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf"), UPDATE_CONTENT))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(UPDATE_SESSION, UPDATE_CONTENT))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(UPDATE_SESSION, LinuxCommands.configSavePermissionProbe());
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(UPDATE_SESSION), startsWith("bash -c "));
+            order.verify(commandExecutor)
+                    .execute(UPDATE_SESSION, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
+            order.verify(commandExecutor)
+                    .execute(UPDATE_SESSION, LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf"), UPDATE_CONTENT);
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(3)).execute(eq(UPDATE_SESSION), anyString());
+            verify(commandExecutor, times(1)).execute(eq(UPDATE_SESSION), anyString(), anyString());
+            verifyNoMoreInteractions(commandExecutor);
+        }
+
+        @Test
+        void updateSmbConf_stopsAfterFailedRestart() {
+            when(commandExecutor.execute(
+                            UPDATE_SESSION, LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf"), UPDATE_CONTENT))
+                    .thenReturn("");
+            when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
+            var failure = new SambaCommandException("Synthetic failure");
+            when(commandExecutor.execute(eq(UPDATE_SESSION), eq(LinuxCommands.systemctl("restart", "smbd"))))
+                    .thenThrow(failure);
+            assertThatThrownBy(() -> sambaConfigService.updateSmbConf(UPDATE_SESSION, UPDATE_CONTENT))
+                    .isSameAs(failure);
+            var order = inOrder(commandExecutor);
+            order.verify(commandExecutor).executeCommand(UPDATE_SESSION, LinuxCommands.configSavePermissionProbe());
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.mkdir("/etc/samba/backups"));
+            order.verify(commandExecutor).execute(eq(UPDATE_SESSION), startsWith("bash -c "));
+            order.verify(commandExecutor)
+                    .execute(UPDATE_SESSION, LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
+            order.verify(commandExecutor)
+                    .execute(UPDATE_SESSION, LinuxCommands.installSmbConfStdin("/etc/samba/smb.conf"), UPDATE_CONTENT);
+            order.verify(commandExecutor).execute(UPDATE_SESSION, LinuxCommands.systemctl("restart", "smbd"));
+            order.verifyNoMoreInteractions();
+            verify(commandExecutor, times(4)).execute(eq(UPDATE_SESSION), anyString());
+            verify(commandExecutor, times(1)).execute(eq(UPDATE_SESSION), anyString(), anyString());
+            verifyNoMoreInteractions(commandExecutor);
         }
 
         @Test
