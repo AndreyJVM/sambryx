@@ -1,0 +1,58 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories:
+      - /
+      - /tools/browser
+      - /tools/smoke
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Moscow
+    open-pull-requests-limit: 3
+    groups:
+      allure:
+        applies-to: version-updates
+        patterns: ["io.qameta.allure:*"]
+        update-types: [minor, patch]
+      junit:
+        applies-to: version-updates
+        patterns: ["org.junit:*", "org.junit.jupiter:*", "org.junit.platform:*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Moscow
+    open-pull-requests-limit: 3
+    groups:
+      react:
+        applies-to: version-updates
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+        update-types: [minor, patch]
+      production:
+        applies-to: version-updates
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        applies-to: version-updates
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Moscow
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
