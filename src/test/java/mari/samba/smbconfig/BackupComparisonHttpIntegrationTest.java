@@ -1,13 +1,17 @@
 package mari.samba.smbconfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.stream.Stream;
 import mari.samba.auth.AuthApiController;
 import mari.samba.auth.AuthServiceImpl;
 import mari.samba.auth.BruteForceProtectionServiceImpl;
@@ -21,9 +25,11 @@ import mari.samba.infra.SmbConfParser;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -44,6 +50,8 @@ import org.springframework.test.web.servlet.MockMvc;
     SmbConfParser.class
 })
 @EnableConfigurationProperties(SambaProperties.class)
+@Epic("Configuration and backups")
+@Feature("HTTP security chain: literal backup comparison (mock SSH)")
 class BackupComparisonHttpIntegrationTest {
     private static final String FILENAME = "smb.conf.backup_20301015_143000_2";
     private static final String ROUTE = "/api/config/backups/" + FILENAME + "/compare";
@@ -75,14 +83,22 @@ class BackupComparisonHttpIntegrationTest {
         SecurityContextHolder.clearContext();
     }
 
+    @DisplayName("Anonymous comparison cannot reach SSH")
     @Test
     void anonymousComparisonCannotReachSsh() throws Exception {
         mvc.perform(get(ROUTE)).andExpect(status().isUnauthorized()).andExpect(header().doesNotExist("Location"));
         verifyNoInteractions(ssh);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    private static Stream<Arguments> comparisonOutcomes() {
+        return Stream.of(
+                Arguments.of(named("identical literal content", true)),
+                Arguments.of(named("different literal content", false)));
+    }
+
+    @DisplayName("Authenticated comparison returns literal contract without writes")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("comparisonOutcomes")
     void authenticatedComparisonReturnsLiteralContractWithoutWrites(boolean equal) throws Exception {
         MockHttpSession session = login();
         when(ssh.execute(session.getId(), CURRENT)).thenReturn("[global]\nname = current\n");
@@ -107,6 +123,7 @@ class BackupComparisonHttpIntegrationTest {
         verifyReads(session, true);
     }
 
+    @DisplayName("Authenticated invalid filename is rejected before SSH")
     @Test
     void authenticatedInvalidFilenameIsRejectedBeforeSsh() throws Exception {
         MockHttpSession session = login();
@@ -119,6 +136,7 @@ class BackupComparisonHttpIntegrationTest {
         verifyNoInteractions(ssh);
     }
 
+    @DisplayName("Expired administrator session rejects comparison before reads")
     @Test
     void expiredAdministratorSessionRejectsComparisonBeforeReads() throws Exception {
         MockHttpSession session = login();
@@ -129,6 +147,7 @@ class BackupComparisonHttpIntegrationTest {
         verifyNoMoreInteractions(ssh);
     }
 
+    @DisplayName("Disconnected execution session rejects comparison before reads")
     @Test
     void disconnectedExecutionSessionRejectsComparisonBeforeReads() throws Exception {
         MockHttpSession session = login();
@@ -138,6 +157,7 @@ class BackupComparisonHttpIntegrationTest {
         verifyNoInteractions(ssh);
     }
 
+    @DisplayName("SSH expiry during read uses unauthorized handler and invalidates session")
     @Test
     void sshExpiryDuringReadUsesUnauthorizedHandlerAndInvalidatesSession() throws Exception {
         MockHttpSession session = login();
@@ -153,8 +173,15 @@ class BackupComparisonHttpIntegrationTest {
         verifyReads(session, false);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    private static Stream<Arguments> backupFailures() {
+        return Stream.of(
+                Arguments.of(named("binary backup content", true)),
+                Arguments.of(named("backup read exception", false)));
+    }
+
+    @DisplayName("Backup failure does not expose current content or raw failure")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("backupFailures")
     void backupFailureDoesNotExposeCurrentContentOrRawFailure(boolean malformed) throws Exception {
         MockHttpSession session = login();
         when(ssh.execute(session.getId(), CURRENT)).thenReturn("[global]\nsecret = current-sensitive\n");

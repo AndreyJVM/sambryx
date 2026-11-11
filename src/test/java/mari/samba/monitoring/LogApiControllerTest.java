@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(LogApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Epic("Monitoring and readiness")
+@Feature("HTTP without filters: log endpoint (mock service)")
 class LogApiControllerTest {
 
     @Autowired

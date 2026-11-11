@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Epic("Monitoring and readiness")
+@Feature("Unit: readiness decisions (mock commands)")
 class ServerReadinessServiceTest {
     private final CommandExecutor executor = mock(CommandExecutor.class);
     private final SambaProperties properties = new SambaProperties(

@@ -3,6 +3,8 @@ package mari.samba.monitoring;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.Map;
 import mari.samba.core.SambaCommandException;
@@ -20,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Monitoring and readiness")
+@Feature("Unit: monitoring command results (mock commands)")
 class SambaMonitoringServiceTest {
 
     @Mock

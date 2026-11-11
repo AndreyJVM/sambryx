@@ -3,6 +3,8 @@ package mari.samba.infra;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,6 +20,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @ResourceLock(Resources.LOCALE)
+@Epic("Configuration and backups")
+@Feature("Unit: configuration parsing and generation")
 class SmbConfParserTest {
 
     private SmbConfParser parser;

@@ -3,16 +3,21 @@ package mari.samba.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.Duration;
 import java.util.List;
 import mari.samba.config.SambaProperties;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Authentication and sessions")
+@Feature("Unit: IP and username lockout")
 class BruteForceProtectionServiceImplTest {
 
     @Mock
@@ -27,6 +32,7 @@ class BruteForceProtectionServiceImplTest {
         bruteForceService = new BruteForceProtectionServiceImpl(properties);
     }
 
+    @DisplayName("Register failed login should block after max attempts")
     @Test
     void testRegisterFailedLogin_ShouldBlockAfterMaxAttempts() {
         String ip = "192.168.1.100";
@@ -42,6 +48,7 @@ class BruteForceProtectionServiceImplTest {
         assertThat(bruteForceService.isBlocked(ip, user)).isTrue();
     }
 
+    @DisplayName("Reset failed login should unblock")
     @Test
     void testResetFailedLogin_ShouldUnblock() {
         String ip = "10.0.0.1";
@@ -57,6 +64,7 @@ class BruteForceProtectionServiceImplTest {
         assertThat(bruteForceService.isBlocked(ip, user)).isFalse();
     }
 
+    @DisplayName("Different ips should not affect each other")
     @Test
     void testDifferentIps_ShouldNotAffectEachOther() {
         String ip1 = "10.0.0.10";
@@ -75,6 +83,7 @@ class BruteForceProtectionServiceImplTest {
         assertThat(bruteForceService.isBlocked(ip2, "user2")).isFalse();
     }
 
+    @DisplayName("Username lockout")
     @Test
     void testUsernameLockout() {
         String user = "targetUser";

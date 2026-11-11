@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import org.junit.jupiter.api.Test;
 
+@Epic("SSH execution and host trust")
+@Feature("Unit: shell command construction and quoting (no execution)")
 class LinuxCommandsTest {
     @Test
     void deleteAccountPreservesHomeAndMail() {

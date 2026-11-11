@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshSessionExpiredException;
@@ -19,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Users and groups")
+@Feature("Unit: user command orchestration (mock commands)")
 class SambaUserServiceTest {
 
     @Mock

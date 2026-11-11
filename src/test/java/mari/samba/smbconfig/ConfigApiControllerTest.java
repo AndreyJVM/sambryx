@@ -12,7 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,6 +26,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ConfigApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Epic("Configuration and backups")
+@Feature("HTTP without filters: configuration endpoints (mock service)")
 class ConfigApiControllerTest {
 
     @Autowired
@@ -34,6 +39,7 @@ class ConfigApiControllerTest {
     @MockitoBean
     private SambaConfigService configService;
 
+    @DisplayName("Get global config should return DTO")
     @Test
     void testGetGlobalConfig_ShouldReturnDto() throws Exception {
         SambaGlobalConfigDto configDto =
@@ -46,6 +52,7 @@ class ConfigApiControllerTest {
                 .andExpect(jsonPath("$.data.workgroup").value("WORKGROUP"));
     }
 
+    @DisplayName("Update global config should return success")
     @Test
     void testUpdateGlobalConfig_ShouldReturnSuccess() throws Exception {
         SambaGlobalConfigDto payload =
@@ -61,6 +68,7 @@ class ConfigApiControllerTest {
         verify(configService).updateGlobalConfig(anyString(), any(SambaGlobalConfigDto.class));
     }
 
+    @DisplayName("Get raw config should return content")
     @Test
     void testGetRawConfig_ShouldReturnContent() throws Exception {
         when(configService.getSmbConfContent(anyString())).thenReturn("[global]\nworkgroup = WORKGROUP");
@@ -71,6 +79,7 @@ class ConfigApiControllerTest {
                 .andExpect(jsonPath("$.data").value("[global]\nworkgroup = WORKGROUP"));
     }
 
+    @DisplayName("Update raw config should return success")
     @Test
     void testUpdateRawConfig_ShouldReturnSuccess() throws Exception {
         SambaRawConfigDto dto = new SambaRawConfigDto("[global]\nworkgroup = WORKGROUP");
@@ -85,6 +94,7 @@ class ConfigApiControllerTest {
         verify(configService).updateSmbConf(anyString(), eq("[global]\nworkgroup = WORKGROUP"));
     }
 
+    @DisplayName("List backups should return list")
     @Test
     void testListBackups_ShouldReturnList() throws Exception {
         SambaBackupDto backup = new SambaBackupDto("smb.conf.backup", "2023-10-10", "1KB");
@@ -96,6 +106,7 @@ class ConfigApiControllerTest {
                 .andExpect(jsonPath("$.data[0].filename").value("smb.conf.backup"));
     }
 
+    @DisplayName("Create backup should return success")
     @Test
     void testCreateBackup_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/config/backups"))
@@ -106,6 +117,7 @@ class ConfigApiControllerTest {
         verify(configService).createBackup(anyString());
     }
 
+    @DisplayName("Restore backup by path should return success")
     @Test
     void testRestoreBackupByPath_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/config/backups/smb.conf.bak/restore"))
@@ -116,6 +128,7 @@ class ConfigApiControllerTest {
         verify(configService).restoreBackup(anyString(), eq("smb.conf.bak"));
     }
 
+    @DisplayName("Restore backup by param should return success")
     @Test
     void testRestoreBackupByParam_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/config/backups/restore").param("filename", "smb.conf.old"))

@@ -2,6 +2,8 @@ package mari.samba.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
 
 @SpringBootTest(classes = SambaPropertiesTest.TestConfiguration.class)
+@Epic("Application configuration and HTTP errors")
+@Feature("Spring component: default property binding")
 class SambaPropertiesTest {
 
     @Autowired

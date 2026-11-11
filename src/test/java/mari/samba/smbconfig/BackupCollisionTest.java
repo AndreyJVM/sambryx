@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -12,11 +14,14 @@ import mari.samba.core.SambaCommandException;
 import mari.samba.infra.*;
 import mari.samba.support.ShellCommandFixture;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 
+@Epic("Configuration and backups")
+@Feature("Local shell component: backup creation and collision recovery (stub utilities)")
 class BackupCollisionTest {
     private static final String STAMP = "20301015_143000";
 
@@ -57,6 +62,7 @@ class BackupCollisionTest {
         time.close();
     }
 
+    @DisplayName("Creates backup when sudo rejects privileged shells")
     @Test
     void createsBackupWhenSudoRejectsPrivilegedShells() throws Exception {
         shell.stub(
@@ -76,6 +82,7 @@ class BackupCollisionTest {
         assertThat(restart).doesNotExist();
     }
 
+    @DisplayName("Cleanup failure is reported even when the backup was already published")
     @Test
     void cleanupFailureIsReportedEvenWhenTheBackupWasAlreadyPublished() throws Exception {
         shell.stub("rm", "exit 29");
@@ -87,6 +94,7 @@ class BackupCollisionTest {
         assertThat(Files.readString(config)).isEqualTo("current");
     }
 
+    @DisplayName("Creates and lists legacy backup without changing current config")
     @Test
     void createsAndListsLegacyBackupWithoutChangingCurrentConfig() throws Exception {
         service.createBackup("session");
@@ -97,6 +105,7 @@ class BackupCollisionTest {
                 .containsExactly(backup().getFileName().toString());
     }
 
+    @DisplayName("Repeated same second creation preserves every snapshot")
     @Test
     void repeatedSameSecondCreationPreservesEverySnapshot() throws Exception {
         service.createBackup("session");
@@ -107,6 +116,7 @@ class BackupCollisionTest {
         assertBackupContents("current", "second", "third");
     }
 
+    @DisplayName("Restore preserves selected backup and captures current state on name collision")
     @Test
     void restorePreservesSelectedBackupAndCapturesCurrentStateOnNameCollision() throws Exception {
         Files.writeString(backup(), "selected");
@@ -117,7 +127,8 @@ class BackupCollisionTest {
         assertThat(restart).exists();
     }
 
-    @ParameterizedTest
+    @DisplayName("Safety creation failure leaves selected and active files untouched")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"mktemp", "cp", "ln"})
     void safetyCreationFailureLeavesSelectedAndActiveFilesUntouched(String utility) throws Exception {
         Files.writeString(backup(), "selected");
@@ -135,6 +146,7 @@ class BackupCollisionTest {
         verify(executor, never()).execute("session", LinuxCommands.copy(backup().toString(), config.toString()));
     }
 
+    @DisplayName("Exhausted names abort restore without changing any backup")
     @Test
     void exhaustedNamesAbortRestoreWithoutChangingAnyBackup() throws Exception {
         Files.writeString(backup(), "selected");
@@ -155,6 +167,7 @@ class BackupCollisionTest {
         verify(executor, never()).execute("session", LinuxCommands.cleanupOldBackups(backups.toString(), 10));
     }
 
+    @DisplayName("Suffixed backup can be listed and restored")
     @Test
     void suffixedBackupCanBeListedAndRestored() throws Exception {
         Files.writeString(backup(), "older");
@@ -171,6 +184,7 @@ class BackupCollisionTest {
                 .isEqualTo("changed");
     }
 
+    @DisplayName("Skips directory and dangling symlink without following them")
     @Test
     void skipsDirectoryAndDanglingSymlinkWithoutFollowingThem() throws Exception {
         Files.createDirectory(backup());
@@ -184,6 +198,7 @@ class BackupCollisionTest {
                 .isEqualTo("current");
     }
 
+    @DisplayName("Retention still keeps ten completed backups")
     @Test
     void retentionStillKeepsTenCompletedBackups() throws Exception {
         for (int i = 0; i < 12; i++) {
@@ -198,6 +213,7 @@ class BackupCollisionTest {
         }
     }
 
+    @DisplayName("Rejects unsafe command paths before execution")
     @Test
     void rejectsUnsafeCommandPathsBeforeExecution() {
         for (String unsafe : new String[] {null, "", "relative", "/tmp/../etc", "/tmp/;id", "/tmp/\nname"}) {
@@ -209,11 +225,13 @@ class BackupCollisionTest {
         verifyNoInteractions(executor);
     }
 
+    @DisplayName("Lists accessible empty directory successfully")
     @Test
     void listsAccessibleEmptyDirectorySuccessfully() {
         assertThat(service.listBackups("session")).isEmpty();
     }
 
+    @DisplayName("Reports missing directory without creating it")
     @Test
     void reportsMissingDirectoryWithoutCreatingIt() throws Exception {
         Files.delete(backups);
@@ -223,6 +241,7 @@ class BackupCollisionTest {
         assertThat(restart).doesNotExist();
     }
 
+    @DisplayName("Reports listing failure instead of empty result")
     @Test
     void reportsListingFailureInsteadOfEmptyResult() throws Exception {
         shell.stub("ls", "echo 'synthetic-sensitive-output' >&2; exit 13");
@@ -234,6 +253,7 @@ class BackupCollisionTest {
         assertThat(restart).doesNotExist();
     }
 
+    @DisplayName("Rejects backup path that is not adirectory")
     @Test
     void rejectsBackupPathThatIsNotADirectory() throws Exception {
         Files.delete(backups);
@@ -242,6 +262,7 @@ class BackupCollisionTest {
         assertThat(Files.readString(backups)).isEqualTo("unexpected file");
     }
 
+    @DisplayName("Lists configured directory symlink instead of reporting it empty")
     @Test
     void listsConfiguredDirectorySymlinkInsteadOfReportingItEmpty() throws Exception {
         Path actual = Files.createDirectory(temporary.resolve("actual backups"));
@@ -253,6 +274,7 @@ class BackupCollisionTest {
                 .containsExactly(backup().getFileName().toString());
     }
 
+    @DisplayName("Missing selected backup stops before creating safety copy")
     @Test
     void missingSelectedBackupStopsBeforeCreatingSafetyCopy() throws Exception {
         shell.stub("testparm", "test -s \"$3\"");
@@ -267,6 +289,7 @@ class BackupCollisionTest {
         verify(executor, times(1)).execute(anyString(), anyString());
     }
 
+    @DisplayName("Rejected selected content stops before safety copy and preserves both files")
     @Test
     void rejectedSelectedContentStopsBeforeSafetyCopyAndPreservesBothFiles() throws Exception {
         Files.writeString(backup(), "invalid selected");
@@ -283,6 +306,7 @@ class BackupCollisionTest {
         verify(executor, times(1)).execute(anyString(), anyString());
     }
 
+    @DisplayName("Retention enumeration failure leaves installed selection and safety copy without restart")
     @Test
     void retentionEnumerationFailureLeavesInstalledSelectionAndSafetyCopyWithoutRestart() throws Exception {
         Files.writeString(backup(), "selected");
@@ -299,6 +323,7 @@ class BackupCollisionTest {
         verify(executor).execute("session", LinuxCommands.copy(backup().toString(), config.toString()));
     }
 
+    @DisplayName("Retention deletion failure leaves installed selection and safety copy without restart")
     @Test
     void retentionDeletionFailureLeavesInstalledSelectionAndSafetyCopyWithoutRestart() throws Exception {
         seedFullRetentionWindowWithSelectedOldest();
@@ -320,6 +345,7 @@ class BackupCollisionTest {
         assertThat(restart).doesNotExist();
     }
 
+    @DisplayName("Partial restore copy failure preserves recovery files without restart or rollback")
     @Test
     void partialRestoreCopyFailurePreservesRecoveryFilesWithoutRestartOrRollback() throws Exception {
         Files.writeString(backup(), "selected");
@@ -339,6 +365,7 @@ class BackupCollisionTest {
         verify(executor, never()).execute("session", LinuxCommands.cleanupOldBackups(backups.toString(), 10));
     }
 
+    @DisplayName("Restore restart failure leaves installed selection and safety copy available")
     @Test
     void restoreRestartFailureLeavesInstalledSelectionAndSafetyCopyAvailable() throws Exception {
         Files.writeString(backup(), "selected");
@@ -355,6 +382,7 @@ class BackupCollisionTest {
         verify(executor, times(1)).execute("session", LinuxCommands.systemctl("restart", "smbd"));
     }
 
+    @DisplayName("Save restart failure leaves validated installation and original safety copy")
     @Test
     void saveRestartFailureLeavesValidatedInstallationAndOriginalSafetyCopy() throws Exception {
         when(executor.executeCommand(anyString(), anyString())).thenReturn(new CommandResult(0, "", ""));
@@ -376,6 +404,7 @@ class BackupCollisionTest {
         verify(executor, times(1)).execute("session", LinuxCommands.systemctl("restart", "smbd"));
     }
 
+    @DisplayName("Restoring oldest retained backup does not delete its own source")
     @Test
     void restoringOldestRetainedBackupDoesNotDeleteItsOwnSource() throws Exception {
         seedFullRetentionWindowWithSelectedOldest();

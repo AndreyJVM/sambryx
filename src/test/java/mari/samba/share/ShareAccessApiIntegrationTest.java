@@ -6,6 +6,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Epic("Shares and access")
+@Feature("HTTP security chain: share access workflows (mock SSH)")
 class ShareAccessApiIntegrationTest {
     @Autowired
     MockMvc mvc;

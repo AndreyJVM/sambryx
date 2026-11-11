@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(GroupApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Epic("Users and groups")
+@Feature("HTTP without filters: group endpoints (mock service)")
 class GroupApiControllerTest {
 
     @Autowired

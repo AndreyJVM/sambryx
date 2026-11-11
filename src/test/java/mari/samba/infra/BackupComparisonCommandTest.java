@@ -2,14 +2,19 @@ package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import mari.samba.support.ShellCommandFixture;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+@Epic("Configuration and backups")
+@Feature("Local shell component: bounded literal file reads (stub sudo)")
 class BackupComparisonCommandTest {
     @TempDir
     Path temporary;
@@ -22,6 +27,7 @@ class BackupComparisonCommandTest {
         shell.stub("sudo", "[ \"$1\" = '-n' ] && shift\n[ \"$1\" = 'cat' ] || exit 23\nexec \"$@\"");
     }
 
+    @DisplayName("Reads literal content without changing files and bounds output")
     @Test
     void readsLiteralContentWithoutChangingFilesAndBoundsOutput() throws Exception {
         Path file = Files.writeString(temporary.resolve("config's file"), "include = /missing\n<html>\n");
@@ -38,6 +44,7 @@ class BackupComparisonCommandTest {
         assertThat(Files.size(file)).isEqualTo(400000);
     }
 
+    @DisplayName("Rejects missing files directories and symlinks without reading targets")
     @Test
     void rejectsMissingFilesDirectoriesAndSymlinksWithoutReadingTargets() throws Exception {
         Path target = Files.writeString(temporary.resolve("target"), "private");

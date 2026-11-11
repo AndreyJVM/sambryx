@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import jakarta.servlet.http.Cookie;
 import java.util.concurrent.atomic.AtomicReference;
 import mari.samba.auth.AuthApiController;
@@ -16,6 +18,7 @@ import mari.samba.config.SecurityConfig;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.ExecutionSessionManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -36,6 +39,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 @WebMvcTest({AuthApiController.class, ShareApiController.class, mari.samba.smbconfig.ConfigApiController.class})
 @Import({SecurityConfig.class, AuthServiceImpl.class})
+@Epic("Authentication and sessions")
+@Feature("HTTP security chain: authentication, CSRF and session cookies (mock sessions)")
 class HttpSecurityIntegrationTest {
     private static final String LOGIN =
             """
@@ -66,7 +71,8 @@ class HttpSecurityIntegrationTest {
         SecurityContextHolder.clearContext();
     }
 
-    @ParameterizedTest
+    @DisplayName("Invalid SSH coordinates are rejected before connecting")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @CsvSource({"bad/host, 22, qa-user", "samba-node, 65536, qa-user", "samba-node, 22, '   '"})
     void invalidSshCoordinatesAreRejectedBeforeConnecting(String host, int port, String username) throws Exception {
         MvcResult result = mvc.perform(withCsrf(post("/api/auth/login"))
@@ -85,7 +91,8 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(sessions, bruteForce, shares);
     }
 
-    @ParameterizedTest
+    @DisplayName("Host key failure cannot authenticate or reach protected resources")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"UNKNOWN", "CHANGED", "UNAVAILABLE"})
     void hostKeyFailureCannotAuthenticateOrReachProtectedResources(String reason) throws Exception {
         var failure = new mari.samba.core.SshHostKeyException(
@@ -108,6 +115,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Comparison requires authentication and allows authenticated read")
     @Test
     void comparisonRequiresAuthenticationAndAllowsAuthenticatedRead() throws Exception {
         String path = "/api/config/backups/smb.conf.backup_20301015_143000/compare";
@@ -119,6 +127,7 @@ class HttpSecurityIntegrationTest {
         verifyNoMoreInteractions(configs);
     }
 
+    @DisplayName("Anonymous reads require authentication without redirect")
     @Test
     void anonymousReadsRequireAuthenticationWithoutRedirect() throws Exception {
         for (String path : new String[] {"/api/shares", "/api/auth/me"}) {
@@ -127,6 +136,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Anonymous login without CSRF does not attempt authentication")
     @Test
     void anonymousLoginWithoutCsrfDoesNotAttemptAuthentication() throws Exception {
         mvc.perform(post("/api/auth/login")
@@ -136,7 +146,8 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(sessions, bruteForce, shares);
     }
 
-    @ParameterizedTest
+    @DisplayName("Rejected auth CSRF does not change existing authentication")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @CsvSource({
         "login, missing", "login, cookie-only", "login, header-only", "login, mismatch",
         "logout, missing", "logout, cookie-only", "logout, header-only", "logout, mismatch"
@@ -165,6 +176,7 @@ class HttpSecurityIntegrationTest {
         mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk());
     }
 
+    @DisplayName("Login with CSRF persists authentication for reads")
     @Test
     void loginWithCsrfPersistsAuthenticationForReads() throws Exception {
         MockHttpSession session = login();
@@ -178,6 +190,7 @@ class HttpSecurityIntegrationTest {
         verify(shares).getAllShares(session.getId());
     }
 
+    @DisplayName("SSH failure rejects login and registers failure")
     @Test
     void sshFailureRejectsLoginAndRegistersFailure() throws Exception {
         doThrow(new SambaCommandException("SSH rejected test connection"))
@@ -193,6 +206,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Blocked login does not attempt SSH")
     @Test
     void blockedLoginDoesNotAttemptSsh() throws Exception {
         when(bruteForce.isBlocked("127.0.0.1", "qa-user")).thenReturn(true);
@@ -206,13 +220,15 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Authenticated write without CSRF is forbidden")
     @Test
     void authenticatedWriteWithoutCsrfIsForbidden() throws Exception {
         mvc.perform(write("POST").session(login())).andExpect(status().isForbidden());
         verifyNoInteractions(shares);
     }
 
-    @ParameterizedTest
+    @DisplayName("Mismatched CSRF rejects writes")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void mismatchedCsrfRejectsWrites(String method) throws Exception {
         MockHttpSession session = login();
@@ -222,7 +238,8 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
-    @ParameterizedTest
+    @DisplayName("Matching cookie and header allow exactly one write")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"POST", "PUT", "DELETE"})
     void matchingCookieAndHeaderAllowExactlyOneWrite(String method) throws Exception {
         MockHttpSession session = login();
@@ -239,6 +256,7 @@ class HttpSecurityIntegrationTest {
         verifyNoMoreInteractions(shares);
     }
 
+    @DisplayName("Valid CSRF does not authenticate anonymous write")
     @Test
     void validCsrfDoesNotAuthenticateAnonymousWrite() throws Exception {
         Cookie token = csrfCookie(login());
@@ -247,6 +265,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Logout with CSRF invalidates session and disconnects once")
     @Test
     void logoutWithCsrfInvalidatesSessionAndDisconnectsOnce() throws Exception {
         MockHttpSession session = login();
@@ -259,6 +278,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Anonymous logout disconnects and invalidates session created by mvc")
     @Test
     void anonymousLogoutDisconnectsAndInvalidatesSessionCreatedByMvc() throws Exception {
         AtomicReference<MockHttpSession> createdSession = new AtomicReference<>();
@@ -286,6 +306,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Anonymous client can discover remote environment")
     @Test
     void anonymousClientCanDiscoverRemoteEnvironment() throws Exception {
         mvc.perform(get("/api/auth/environment"))
@@ -294,6 +315,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(sessions, shares, bruteForce);
     }
 
+    @DisplayName("Login without host does not authenticate or allow protected requests")
     @Test
     void loginWithoutHostDoesNotAuthenticateOrAllowProtectedRequests() throws Exception {
         MvcResult result = mvc.perform(withCsrf(post("/api/auth/login"))
@@ -314,6 +336,7 @@ class HttpSecurityIntegrationTest {
         return session;
     }
 
+    @DisplayName("Login rotates existing anonymous session before opening connection")
     @Test
     void loginRotatesExistingAnonymousSessionBeforeOpeningConnection() throws Exception {
         MockHttpSession anonymous = new MockHttpSession();
@@ -331,6 +354,7 @@ class HttpSecurityIntegrationTest {
         mvc.perform(get("/api/auth/me").session(authenticated)).andExpect(status().isOk());
     }
 
+    @DisplayName("Failed relogin removes previous authentication and connection")
     @Test
     void failedReloginRemovesPreviousAuthenticationAndConnection() throws Exception {
         MockHttpSession session = login();
@@ -350,6 +374,7 @@ class HttpSecurityIntegrationTest {
         verifyNoInteractions(shares);
     }
 
+    @DisplayName("Successful relogin disconnects old connection before opening new one")
     @Test
     void successfulReloginDisconnectsOldConnectionBeforeOpeningNewOne() throws Exception {
         MockHttpSession session = login();
@@ -365,6 +390,7 @@ class HttpSecurityIntegrationTest {
         mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk());
     }
 
+    @DisplayName("Blocked relogin also revokes previous authentication without opening connection")
     @Test
     void blockedReloginAlsoRevokesPreviousAuthenticationWithoutOpeningConnection() throws Exception {
         MockHttpSession session = login();

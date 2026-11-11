@@ -1,30 +1,45 @@
 package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import java.util.stream.Stream;
 import mari.samba.auth.ConnectionRequestDto;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshSessionExpiredException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+@Epic("Authentication and sessions")
+@Feature("Unit: execution session authorization and draining (mock SSH)")
 class ExecutionSessionManagerTest {
     private final SshSessionManager ssh = mock(SshSessionManager.class);
     private final ExecutionSessionManager manager = new ExecutionSessionManager(ssh);
     private final ConnectionRequestDto request =
             new ConnectionRequestDto("server", 22, "admin", "password", "secret", null, null);
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"synthetic-http-session-token"})
+    private static Stream<Arguments> unknownSessions() {
+        return Stream.of(
+                Arguments.of(named("null session ID", null)),
+                Arguments.of(named("empty session ID", "")),
+                Arguments.of(named("unknown synthetic session ID", "synthetic-http-session-token")));
+    }
+
+    @DisplayName("Unknown session cannot execute commands")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unknownSessions")
     void unknownSessionCannotExecuteCommands(String sessionId) {
         assertCommandsRejected(sessionId);
         verifyNoInteractions(ssh);
     }
 
+    @DisplayName("Failed SSH login does not allow commands")
     @Test
     void failedSshLoginDoesNotAllowCommands() throws Exception {
         doThrow(new SambaCommandException("Connection rejected")).when(ssh).createSession("session", request);
@@ -33,6 +48,7 @@ class ExecutionSessionManagerTest {
         verifyNoCommandExecution();
     }
 
+    @DisplayName("Failed replacement closes old connection and revokes access")
     @Test
     void failedReplacementClosesOldConnectionAndRevokesAccess() throws Exception {
         manager.createSession("session", request);
@@ -46,6 +62,7 @@ class ExecutionSessionManagerTest {
         verifyNoCommandExecution();
     }
 
+    @DisplayName("Logout closes connection only once and revokes access")
     @Test
     void logoutClosesConnectionOnlyOnceAndRevokesAccess() throws Exception {
         manager.createSession("session", request);
@@ -57,6 +74,7 @@ class ExecutionSessionManagerTest {
         verifyNoCommandExecution();
     }
 
+    @DisplayName("Disconnect during accepted command defers SSH closure until command returns")
     @Test
     void disconnectDuringAcceptedCommandDefersSshClosureUntilCommandReturns() throws Exception {
         manager.createSession("session", request);
@@ -71,6 +89,7 @@ class ExecutionSessionManagerTest {
         assertCommandsRejected("session");
     }
 
+    @DisplayName("Accepted workflow completes multiple commands but another thread cannot enter after revocation")
     @Test
     void acceptedWorkflowCompletesMultipleCommandsButAnotherThreadCannotEnterAfterRevocation() throws Exception {
         manager.createSession("session", request);
@@ -88,6 +107,7 @@ class ExecutionSessionManagerTest {
         verify(ssh).disconnect("session");
     }
 
+    @DisplayName("Revoked workflow cannot start another command at drain limit even before cleanup tick")
     @Test
     void revokedWorkflowCannotStartAnotherCommandAtDrainLimitEvenBeforeCleanupTick() throws Exception {
         var clock = new AdministratorSessionIntegrationTest.TestClock();
@@ -103,6 +123,7 @@ class ExecutionSessionManagerTest {
         verify(ssh).disconnect("session");
     }
 
+    @DisplayName("Cleanup closes hung workflow at drain limit and release does not disconnect twice")
     @Test
     void cleanupClosesHungWorkflowAtDrainLimitAndReleaseDoesNotDisconnectTwice() throws Exception {
         var clock = new AdministratorSessionIntegrationTest.TestClock();

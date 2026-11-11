@@ -7,6 +7,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandResult;
@@ -25,6 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Epic("Monitoring and readiness")
+@Feature("HTTP security chain: monitoring read failures (mock SSH)")
 class MonitoringReadIntegrationTest {
     @Autowired
     private MockMvc mvc;

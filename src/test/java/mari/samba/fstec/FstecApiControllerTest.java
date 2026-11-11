@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(FstecApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @WithMockUser
+@Epic("Compliance")
+@Feature("HTTP without filters: compliance endpoint (mock service)")
 class FstecApiControllerTest {
 
     @Autowired

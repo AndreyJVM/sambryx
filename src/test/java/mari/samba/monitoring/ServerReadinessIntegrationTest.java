@@ -7,6 +7,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Epic("Monitoring and readiness")
+@Feature("HTTP security chain: readiness after login (mock SSH)")
 class ServerReadinessIntegrationTest {
     @Autowired
     MockMvc mvc;

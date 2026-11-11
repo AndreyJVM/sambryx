@@ -1,20 +1,26 @@
 package mari.samba.smbconfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import java.util.stream.Stream;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SmbConfParser;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +39,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc(addFilters = false)
 @Import({SambaConfigService.class, SmbConfParser.class})
 @EnableConfigurationProperties(SambaProperties.class)
+@Epic("Configuration and backups")
+@Feature("HTTP without filters: configuration workflows (real service, mock commands)")
 class ConfigWorkflowIntegrationTest {
     @Autowired
     private MockMvc mvc;
@@ -43,6 +51,7 @@ class ConfigWorkflowIntegrationTest {
     @MockitoBean
     private CommandExecutor commands;
 
+    @DisplayName("Comparison read failure returns safe error and no partial content")
     @Test
     void comparisonReadFailureReturnsSafeErrorAndNoPartialContent(
             org.springframework.boot.test.system.CapturedOutput output) throws Exception {
@@ -62,6 +71,7 @@ class ConfigWorkflowIntegrationTest {
         assertThat(output.getAll()).doesNotContain("sensitive-config-content");
     }
 
+    @DisplayName("Comparison rejects invalid name without commands")
     @Test
     void comparisonRejectsInvalidNameWithoutCommands() throws Exception {
         mvc.perform(get("/api/config/backups/not-a-backup/compare"))
@@ -70,6 +80,7 @@ class ConfigWorkflowIntegrationTest {
         verifyNoInteractions(commands);
     }
 
+    @DisplayName("Comparison reports changes from current file to selected backup without mutations")
     @Test
     void comparisonReportsChangesFromCurrentFileToSelectedBackupWithoutMutations() throws Exception {
         MockHttpSession session = new MockHttpSession();
@@ -94,6 +105,7 @@ class ConfigWorkflowIntegrationTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Listing failure is safe and retry can confirm an empty directory")
     @Test
     void listingFailureIsSafeAndRetryCanConfirmAnEmptyDirectory() throws Exception {
         MockHttpSession session = new MockHttpSession();
@@ -116,6 +128,7 @@ class ConfigWorkflowIntegrationTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Updating global settings preserves shares and validates before replacing config")
     @Test
     void updatingGlobalSettingsPreservesSharesAndValidatesBeforeReplacingConfig() throws Exception {
         when(commands.executeCommand(anyString(), anyString()))
@@ -145,6 +158,7 @@ class ConfigWorkflowIntegrationTest {
                 .doesNotContain("workgroup = OLD");
     }
 
+    @DisplayName("Rejected configuration returns error without replacing file or restarting Samba")
     @Test
     void rejectedConfigurationReturnsErrorWithoutReplacingFileOrRestartingSamba() throws Exception {
         when(commands.executeCommand(anyString(), anyString()))
@@ -167,6 +181,7 @@ class ConfigWorkflowIntegrationTest {
         verify(commands, never()).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
     }
 
+    @DisplayName("Invalid backup returns error without replacing file or restarting Samba")
     @Test
     void invalidBackupReturnsErrorWithoutReplacingFileOrRestartingSamba() throws Exception {
         MockHttpSession session = new MockHttpSession();
@@ -183,6 +198,7 @@ class ConfigWorkflowIntegrationTest {
         verify(commands, never()).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
     }
 
+    @DisplayName("Restore copy failure returns error and does not restart Samba")
     @Test
     void restoreCopyFailureReturnsErrorAndDoesNotRestartSamba() throws Exception {
         MockHttpSession session = new MockHttpSession();
@@ -198,6 +214,7 @@ class ConfigWorkflowIntegrationTest {
         verify(commands, never()).execute(session.getId(), LinuxCommands.systemctl("restart", "smbd"));
     }
 
+    @DisplayName("Restore rejects path traversal before executing commands")
     @Test
     void restoreRejectsPathTraversalBeforeExecutingCommands() throws Exception {
         mvc.perform(post("/api/config/backups/restore").param("filename", "../smb.conf.backup_20301015_143000"))
@@ -207,8 +224,16 @@ class ConfigWorkflowIntegrationTest {
         verifyNoInteractions(commands);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"content\":\"\"}", "{\"content\":\"   \"}"})
+    private static Stream<Arguments> emptyConfigurations() {
+        return Stream.of(
+                Arguments.of(named("missing content property", "{}")),
+                Arguments.of(named("empty content", "{\"content\":\"\"}")),
+                Arguments.of(named("blank content", "{\"content\":\"   \"}")));
+    }
+
+    @DisplayName("Empty configuration is rejected before any system command")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("emptyConfigurations")
     void emptyConfigurationIsRejectedBeforeAnySystemCommand(String body) throws Exception {
         mvc.perform(put("/api/config/raw")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(MonitoringApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Epic("Monitoring and readiness")
+@Feature("HTTP without filters: monitoring endpoints (mock service)")
 class MonitoringApiControllerTest {
 
     @Autowired

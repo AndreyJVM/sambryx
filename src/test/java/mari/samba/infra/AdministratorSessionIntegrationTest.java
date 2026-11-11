@@ -1,14 +1,22 @@
 package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,6 +32,8 @@ import org.springframework.test.web.servlet.MockMvc;
     AdministratorSessionIntegrationTest.TimeConfiguration.class,
     AdministratorSessionIntegrationTest.RegistrationProbe.class
 })
+@Epic("Authentication and sessions")
+@Feature("HTTP security chain: administrator session expiry (mock SSH)")
 class AdministratorSessionIntegrationTest {
     @Autowired
     MockMvc mvc;
@@ -50,6 +60,7 @@ class AdministratorSessionIntegrationTest {
         clock.now.set(start);
     }
 
+    @DisplayName("Polling does not extend deadline and expired requests never reach SSH")
     @Test
     void pollingDoesNotExtendDeadlineAndExpiredRequestsNeverReachSsh() throws Exception {
         MockHttpSession session = login();
@@ -67,6 +78,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh, never()).executeCommand(anyString(), anyString(), any());
     }
 
+    @DisplayName("Explicit activity extends only before deadline")
     @Test
     void explicitActivityExtendsOnlyBeforeDeadline() throws Exception {
         MockHttpSession session = login();
@@ -79,6 +91,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh).disconnect(session.getId());
     }
 
+    @DisplayName("Activity requires CSRF and cannot be restored by an anonymous request")
     @Test
     void activityRequiresCsrfAndCannotBeRestoredByAnAnonymousRequest() throws Exception {
         MockHttpSession session = login();
@@ -88,6 +101,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh, times(1)).disconnect(session.getId());
     }
 
+    @DisplayName("Cleanup expires idle session without any browser request")
     @Test
     void cleanupExpiresIdleSessionWithoutAnyBrowserRequest() throws Exception {
         MockHttpSession session = login();
@@ -98,8 +112,14 @@ class AdministratorSessionIntegrationTest {
         verify(ssh, times(1)).disconnect(session.getId());
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    private static Stream<Arguments> revocationCauses() {
+        return Stream.of(
+                Arguments.of(named("idle deadline expiry", false)), Arguments.of(named("explicit logout", true)));
+    }
+
+    @DisplayName("Accepted restore finishes after revocation and rejects another request before the next command")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("revocationCauses")
     void acceptedRestoreFinishesAfterRevocationAndRejectsAnotherRequestBeforeNextCommand(boolean logout)
             throws Exception {
         MockHttpSession session = login();
@@ -128,6 +148,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh).disconnect(session.getId());
     }
 
+    @DisplayName("Options does not count as administrator activity")
     @Test
     void optionsDoesNotCountAsAdministratorActivity() throws Exception {
         MockHttpSession session = login();
@@ -137,6 +158,7 @@ class AdministratorSessionIntegrationTest {
         mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isUnauthorized());
     }
 
+    @DisplayName("Delayed cleanup cannot grant extra drain time beyond original idle deadline")
     @Test
     void delayedCleanupCannotGrantExtraDrainTimeBeyondOriginalIdleDeadline() throws Exception {
         MockHttpSession session = login();
@@ -150,6 +172,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh, times(1)).disconnect(session.getId());
     }
 
+    @DisplayName("Expired mutation cannot start remote workflow")
     @Test
     void expiredMutationCannotStartRemoteWorkflow() throws Exception {
         MockHttpSession session = login();
@@ -159,6 +182,7 @@ class AdministratorSessionIntegrationTest {
         verify(ssh).disconnect(session.getId());
     }
 
+    @DisplayName("Successful login registers deadline before response body is written")
     @Test
     void successfulLoginRegistersDeadlineBeforeResponseBodyIsWritten() throws Exception {
         probe.enabled = true;
@@ -170,6 +194,7 @@ class AdministratorSessionIntegrationTest {
         }
     }
 
+    @DisplayName("Previous deadline cannot invalidate successfully reauthenticated session")
     @Test
     void previousDeadlineCannotInvalidateSuccessfullyReauthenticatedSession() throws Exception {
         MockHttpSession session = login();
@@ -230,6 +255,7 @@ class AdministratorSessionIntegrationTest {
         }
     }
 
+    @DisplayName("Session invalidated during SSH connect cannot leave an orphan connection")
     @Test
     void sessionInvalidatedDuringSshConnectCannotLeaveAnOrphanConnection() throws Exception {
         MockHttpSession session = new MockHttpSession();

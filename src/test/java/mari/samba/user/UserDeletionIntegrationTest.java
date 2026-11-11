@@ -5,6 +5,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.auth.ConnectionRequestDto;
 import mari.samba.config.SecurityConfig;
 import mari.samba.core.SambaCommandException;
@@ -23,6 +25,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(UserApiController.class)
 @Import({SecurityConfig.class, SambaUserService.class, ExecutionSessionManager.class})
+@Epic("Users and groups")
+@Feature("HTTP security chain: user deletion (mock SSH)")
 class UserDeletionIntegrationTest {
     @Autowired
     private MockMvc mvc;

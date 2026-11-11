@@ -6,12 +6,15 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import jakarta.servlet.http.Cookie;
 import mari.samba.config.SambaProperties;
 import mari.samba.config.SecurityConfig;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.ExecutionSessionManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +35,8 @@ import org.springframework.test.web.servlet.MockMvc;
     LoginThrottleIntegrationTest.PropertiesConfiguration.class
 })
 @TestPropertySource(properties = "samba.security.max-login-attempts=2")
+@Epic("Authentication and sessions")
+@Feature("HTTP security chain: login throttling (mock SSH)")
 class LoginThrottleIntegrationTest {
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -51,7 +56,8 @@ class LoginThrottleIntegrationTest {
                 .createSession(anyString(), any(ConnectionRequestDto.class));
     }
 
-    @ParameterizedTest
+    @DisplayName("Changing forwarded headers and usernames does not bypass IP limit")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"X-Forwarded-For", "Forwarded"})
     void changingForwardedHeadersAndUsernamesDoesNotBypassIpLimit(String header) throws Exception {
         String suffix = header.equals("Forwarded") ? "forwarded" : "xff";

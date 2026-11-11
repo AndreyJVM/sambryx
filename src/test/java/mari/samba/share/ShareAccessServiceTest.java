@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.time.Duration;
 import java.util.List;
 import mari.samba.config.SambaProperties;
@@ -12,6 +14,8 @@ import mari.samba.infra.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@Epic("Shares and access")
+@Feature("Unit: access validation and updates (mock commands)")
 class ShareAccessServiceTest {
     private final CommandExecutor executor = mock(CommandExecutor.class);
     private final SambaShareService shares = mock(SambaShareService.class);

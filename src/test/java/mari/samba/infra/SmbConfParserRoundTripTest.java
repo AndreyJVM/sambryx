@@ -2,6 +2,8 @@ package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.share.SambaShare;
 import mari.samba.share.SambaShareCreateDto;
 import mari.samba.smbconfig.SambaGlobalConfigDto;
@@ -9,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Epic("Configuration and backups")
+@Feature("Unit: configuration text round trips")
 class SmbConfParserRoundTripTest {
     private final SmbConfParser parser = new SmbConfParser();
 

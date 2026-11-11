@@ -38,8 +38,29 @@ Allure Report 2.32.0. Maven загружает их при первом испо
 Исходные результаты находятся в `target/allure-results/`, HTML — в
 `target/site/allure-maven-plugin/`. Каталоги генерируются и игнорируются Git.
 Результаты накапливаются между запусками, поэтому перед новым набором удаляйте их,
-как показано выше. Навигация использует package, class и method; параметризованные
-вызовы отображаются отдельно.
+как показано выше.
+
+Основная навигация — **Behaviors**: `@Epic` задаёт область (например, Configuration and
+backups), `@Feature` — предмет и границу проверки: unit с mock commands, HTTP с реальной
+security chain, HTTP без фильтров или local shell component. Используем одну настраиваемую
+иерархию Epic → Feature; **Suites** и **Packages** оставляем техническим представлением
+Java-классов. Не добавляем параллельную иерархию suite labels.
+
+`@DisplayName` описывает конкретный проверяемый результат на английском. В config/backup,
+auth/session и SSH сценариях заданы читаемые заголовки; остальные области пока сохраняют
+существующие методные имена под общей группировкой. Для `@ParameterizedTest(name = "{0}")`
+используем короткий case label через JUnit `Named`/`MethodSource`, если исходный аргумент —
+конфигурация, credential, большой вывод, пустое значение или неоднозначный boolean.
+Короткие безопасные значения (например, failed stage, timeout или форма Samba boolean)
+можно показывать непосредственно с именем параметра. Адаптер 2.29.1 добавляет имя сценария
+перед именем invocation: повторять `{displayName}` в pattern не нужно. Не заменяем
+различающиеся cases одним общим заголовком и не меняем assertions ради оформления.
+
+Mock SSH/JSch проверяет работу с подменённой границей, а не реальное SSH/Samba/AD окружение.
+Local shell использует временные файлы и указанные в feature stub utilities; это не проверка
+production sudo policy или установленного Samba. Literal backup comparison сравнивает текст,
+не раскрывает include и не подтверждает семантическую эквивалентность Samba-конфигураций.
+Число invocations показывает размер запущенного набора, а не процент покрытия.
 
 Существующая CI-job **Backend Checks** после тестов, включая отказ, генерирует HTML,
 если есть `*-result.json`. Артефакты `backend-allure-results` и `backend-allure-report`
@@ -62,7 +83,12 @@ Spring/SSH logs, конфигурации, ключей, запросов, от�
 В отчёт входят имена тестов, статусы, метаданные и сообщения/stack traces ошибок;
 используйте синтетические данные в тестах и не добавляйте секреты в assertions,
 параметры, display names или явные report entries/attachments.
-Frontend, browser и отдельные smoke Maven-проекты в этот отчёт не включены.
+Frontend, browser, отдельные smoke Maven-проекты и real SSH suite (`BackupSshIT`)
+в корневой запуск `test` не включены.
+
+API оформления: [Allure JUnit reference](https://allurereport.org/docs/junit-jupiter-reference/),
+[исходники адаптера 2.29.1](https://github.com/allure-framework/allure-java/blob/2.29.1/allure-junit-platform/src/main/java/io/qameta/allure/junitplatform/AllureJunitPlatform.java),
+[JUnit named arguments](https://docs.junit.org/5.12.0/user-guide/#writing-tests-parameterized-tests-argument-sources).
 
 Версии и команды: [JUnit 5 adapter](https://github.com/allure-framework/allure-java/releases/tag/2.29.1),
 [Maven plugin 2.x](https://github.com/allure-framework/allure-maven/tree/2.15.2),

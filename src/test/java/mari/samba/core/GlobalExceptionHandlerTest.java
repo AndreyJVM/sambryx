@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Set;
 import mari.samba.ad.AdJoinException;
@@ -29,6 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.DummyController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @ExtendWith(OutputCaptureExtension.class)
+@Epic("Application configuration and HTTP errors")
+@Feature("HTTP without filters: exception mapping and safe diagnostics")
 class GlobalExceptionHandlerTest {
 
     @Autowired

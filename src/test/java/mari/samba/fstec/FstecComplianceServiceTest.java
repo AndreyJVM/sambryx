@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
@@ -17,6 +19,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Compliance")
+@Feature("Unit: compliance report evaluation (mock commands)")
 class FstecComplianceServiceTest {
 
     @Mock

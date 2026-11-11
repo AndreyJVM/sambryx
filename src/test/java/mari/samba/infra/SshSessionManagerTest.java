@@ -2,6 +2,7 @@ package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.Mockito.*;
 
 import ch.qos.logback.classic.Logger;
@@ -11,6 +12,8 @@ import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
@@ -21,19 +24,24 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import mari.samba.auth.ConnectionRequestDto;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshSessionExpiredException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
+@Epic("SSH execution and host trust")
+@Feature("Unit: command channels, timeouts and diagnostics (mock JSch)")
 class SshSessionManagerTest {
 
     @org.junit.jupiter.api.io.TempDir
@@ -77,8 +85,13 @@ class SshSessionManagerTest {
         events.stop();
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    private static Stream<Arguments> sensitiveOutputStreams() {
+        return Stream.of(Arguments.of(named("sensitive stderr", true)), Arguments.of(named("sensitive stdout", false)));
+    }
+
+    @DisplayName("Failed command does not expose command or remote output")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sensitiveOutputStreams")
     void failedCommandDoesNotExposeCommandOrRemoteOutput(boolean secretInStderr) throws Exception {
         when(channel.isClosed()).thenReturn(true);
         when(channel.getExitStatus()).thenReturn(7);
@@ -94,6 +107,7 @@ class SshSessionManagerTest {
         verify(channel).disconnect();
     }
 
+    @DisplayName("Channel failure does not retain sensitive exception cause")
     @Test
     void channelFailureDoesNotRetainSensitiveExceptionCause() throws Exception {
         when(session.openChannel("exec")).thenThrow(new JSchException("failed " + COMMAND));
@@ -107,6 +121,7 @@ class SshSessionManagerTest {
         assertSafeLogs();
     }
 
+    @DisplayName("Channel connect failure disconnects and does not expose sensitive details")
     @Test
     void channelConnectFailureDisconnectsAndDoesNotExposeSensitiveDetails() throws Exception {
         String originalMessage = "synthetic-connect-failure " + COMMAND;
@@ -125,7 +140,8 @@ class SshSessionManagerTest {
         verify(channel, never()).getOutputStream();
     }
 
-    @ParameterizedTest
+    @DisplayName("Disconnected session rejects commands before opening channel")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"execute", "executeWithInput", "executeCommand", "executeCommandWithInput"})
     void disconnectedSessionRejectsCommandsBeforeOpeningChannel(String variant) throws Exception {
         var file = java.nio.file.Files.writeString(directory.resolve("known_hosts"), "");
@@ -161,7 +177,8 @@ class SshSessionManagerTest {
         }
     }
 
-    @ParameterizedTest
+    @DisplayName("Keepalive settings reach transport before connect")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @CsvSource({"30000,3", "17000,5", "0,3"})
     void keepaliveSettingsReachTransportBeforeConnect(int intervalMillis, int countMax) throws Exception {
         var trust = java.nio.file.Files.writeString(directory.resolve("known_hosts"), "");
@@ -195,6 +212,7 @@ class SshSessionManagerTest {
         }
     }
 
+    @DisplayName("Timeout does not expose command and disconnects channel")
     @Test
     void timeoutDoesNotExposeCommandAndDisconnectsChannel() {
         when(channel.isClosed()).thenReturn(false);
@@ -208,6 +226,7 @@ class SshSessionManagerTest {
         verify(channel, org.mockito.Mockito.atLeastOnce()).disconnect();
     }
 
+    @DisplayName("Blocked input cannot bypass command timeout")
     @Test
     void blockedInputCannotBypassCommandTimeout() throws Exception {
         var release = new CountDownLatch(1);
@@ -244,6 +263,7 @@ class SshSessionManagerTest {
         assertSafeLogs();
     }
 
+    @DisplayName("Interrupted command preserves interrupt flag and releases resources")
     @Test
     void interruptedCommandPreservesInterruptFlagAndReleasesResources() {
         when(channel.isClosed()).thenReturn(false);
@@ -259,6 +279,7 @@ class SshSessionManagerTest {
         }
     }
 
+    @DisplayName("Expired deadline still rejects buffered output")
     @Test
     void expiredDeadlineStillRejectsBufferedOutput() throws Exception {
         useOutput(SECRET, "");
@@ -269,6 +290,7 @@ class SshSessionManagerTest {
         assertSafeLogs();
     }
 
+    @DisplayName("Input is configured before connect and preserves UTF-8")
     @Test
     void inputIsConfiguredBeforeConnectAndPreservesUtf8() throws Exception {
         String input = "synthetic-input-\u00e9\n";
@@ -296,6 +318,7 @@ class SshSessionManagerTest {
         assertSafeLogs();
     }
 
+    @DisplayName("Successful command preserves output without logging it")
     @Test
     void successfulCommandPreservesOutputWithoutLoggingIt() throws Exception {
         when(channel.isClosed()).thenReturn(true);
@@ -308,9 +331,16 @@ class SshSessionManagerTest {
         verify(channel).disconnect();
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"synthetic-http-session-token"})
+    private static Stream<Arguments> missingSessions() {
+        return Stream.of(
+                Arguments.of(named("null session ID", null)),
+                Arguments.of(named("empty session ID", "")),
+                Arguments.of(named("unknown synthetic session ID", "synthetic-http-session-token")));
+    }
+
+    @DisplayName("Missing session does not expose session token")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("missingSessions")
     void missingSessionDoesNotExposeSessionToken(String sessionId) {
         SshSessionManager manager = new SshSessionManager(null);
 

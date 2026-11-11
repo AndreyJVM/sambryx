@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.nio.file.*;
 import java.util.List;
 import java.util.concurrent.*;
@@ -12,10 +14,13 @@ import mari.samba.core.SambaCommandException;
 import mari.samba.infra.*;
 import mari.samba.support.ShellCommandFixture;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Epic("Configuration and backups")
+@Feature("Local shell component: staged configuration replacement (stub utilities)")
 class ConfigStagingTest {
     @TempDir
     Path root;
@@ -52,6 +57,7 @@ class ConfigStagingTest {
         service = new SambaConfigService(executor, new SmbConfParser(), properties);
     }
 
+    @DisplayName("Installs validated content preserves mode and does not follow planted symlink")
     @Test
     void installsValidatedContentPreservesModeAndDoesNotFollowPlantedSymlink() throws Exception {
         Path victim = Files.writeString(root.resolve("victim"), "untouched");
@@ -66,7 +72,8 @@ class ConfigStagingTest {
         assertOnlyStaging(planted);
     }
 
-    @ParameterizedTest
+    @DisplayName("Failed stage cleans only its own file and never restarts")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"mktemp", "tee", "testparm", "mv", "metadata"})
     void failedStageCleansOnlyItsOwnFileAndNeverRestarts(String stage) throws Exception {
         Path foreign = Files.writeString(root.resolve(".smb.conf.update.foreign"), "foreign");
@@ -86,6 +93,7 @@ class ConfigStagingTest {
         assertThat(restarted).doesNotExist();
     }
 
+    @DisplayName("Cleanup failure reports failure after installation without claiming rollback")
     @Test
     void cleanupFailureReportsFailureAfterInstallationWithoutClaimingRollback() throws Exception {
         shell.stub("rm", "case \"$*\" in *update*) exit 29;; esac; exec /usr/bin/rm \"$@\"");
@@ -96,6 +104,7 @@ class ConfigStagingTest {
         assertThat(restarted).doesNotExist();
     }
 
+    @DisplayName("Validation and cleanup failure leaves only own residue and reports cleanup error")
     @Test
     void validationAndCleanupFailureLeavesOnlyOwnResidueAndReportsCleanupError() throws Exception {
         Path foreign = Files.writeString(root.resolve(".smb.conf.update.foreign"), "foreign");
@@ -114,6 +123,7 @@ class ConfigStagingTest {
         }
     }
 
+    @DisplayName("Intersecting updates validate and install their own contents")
     @Test
     void intersectingUpdatesValidateAndInstallTheirOwnContents() throws Exception {
         for (String name : List.of("first", "second")) {

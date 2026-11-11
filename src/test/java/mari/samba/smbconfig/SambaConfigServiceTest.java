@@ -2,11 +2,15 @@ package mari.samba.smbconfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
+import java.util.stream.Stream;
 import mari.samba.config.SambaProperties;
 import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
@@ -15,11 +19,13 @@ import mari.samba.infra.SmbConfParser;
 import mari.samba.share.SambaShare;
 import mari.samba.share.SambaShareCreateDto;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -27,6 +33,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Configuration and backups")
+@Feature("Unit: configuration and backup command orchestration (mock commands)")
 class SambaConfigServiceTest {
 
     @Mock
@@ -58,6 +66,7 @@ class SambaConfigServiceTest {
     @Nested
     class ContentOperations {
 
+        @DisplayName("Get smb.conf content returns file content")
         @Test
         void getSmbConfContent_returnsFileContent() throws Exception {
             // given
@@ -71,6 +80,7 @@ class SambaConfigServiceTest {
             assertThat(content).isEqualTo("[global]\nworkgroup = WORKGROUP");
         }
 
+        @DisplayName("Parse shares delegates to parser")
         @Test
         void parseShares_delegatesToParser() {
             // given
@@ -87,6 +97,7 @@ class SambaConfigServiceTest {
             assertThat(shares.get(0).getName()).isEqualTo("share");
         }
 
+        @DisplayName("Build share section delegates to parser")
         @Test
         void buildShareSection_delegatesToParser() {
             // given
@@ -100,6 +111,7 @@ class SambaConfigServiceTest {
             assertThat(section).isEqualTo("[new_share]");
         }
 
+        @DisplayName("Remove share section delegates to parser")
         @Test
         void removeShareSection_delegatesToParser() {
             // given
@@ -117,6 +129,7 @@ class SambaConfigServiceTest {
     @Nested
     class BackupOperations {
 
+        @DisplayName("Create backup executes commands successfully")
         @Test
         void createBackup_executesCommandsSuccessfully() throws Exception {
             // given
@@ -139,6 +152,7 @@ class SambaConfigServiceTest {
             assertThat(executedCommands.get(2)).isEqualTo(LinuxCommands.cleanupOldBackups("/etc/samba/backups", 10));
         }
 
+        @DisplayName("List backups returns parsed backup list")
         @Test
         void listBackups_returnsParsedBackupList() throws Exception {
             // given
@@ -159,7 +173,8 @@ class SambaConfigServiceTest {
             assertThat(backups.get(0).size()).isEqualTo("1200");
         }
 
-        @ParameterizedTest
+        @DisplayName("List backups when command fails reports safe failure")
+        @ParameterizedTest(name = "{argumentsWithNames}")
         @ValueSource(strings = {"Permission denied", "SSH timeout", "Listing failed"})
         void listBackups_whenCommandFails_reportsSafeFailure(String diagnostic) {
             when(commandExecutor.execute(eq("sess-1"), anyString())).thenThrow(new SambaCommandException(diagnostic));
@@ -171,18 +186,26 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
-        @ParameterizedTest
-        @NullSource
-        @ValueSource(
-                strings = {
-                    "\n",
-                    "\r\n",
-                    "garbled output",
-                    "total 0",
-                    "   ",
-                    "-rw-r--r-- 1 root root 12 2024-99-99 14:30:00 /etc/samba/backups/smb.conf.backup_20241015_143000",
-                    "-rw-r--r-- 1 root root 12 2024-10-15 14:30:00 /etc/samba/backups/unexpected"
-                })
+        private static Stream<Arguments> unusableListings() {
+            return Stream.of(
+                    Arguments.of(named("missing command output", null)),
+                    Arguments.of(named("LF only", "\n")),
+                    Arguments.of(named("CRLF only", "\r\n")),
+                    Arguments.of(named("unparseable row", "garbled output")),
+                    Arguments.of(named("unexpected total header", "total 0")),
+                    Arguments.of(named("whitespace only", "   ")),
+                    Arguments.of(
+                            named(
+                                    "invalid timestamp",
+                                    "-rw-r--r-- 1 root root 12 2024-99-99 14:30:00 /etc/samba/backups/smb.conf.backup_20241015_143000")),
+                    Arguments.of(named(
+                            "unexpected filename",
+                            "-rw-r--r-- 1 root root 12 2024-10-15 14:30:00 /etc/samba/backups/unexpected")));
+        }
+
+        @DisplayName("List backups rejects unusable output")
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("unusableListings")
         void listBackups_rejectsUnusableOutput(String output) {
             when(commandExecutor.execute(eq("sess-1"), anyString())).thenReturn(output);
             assertThatThrownBy(() -> sambaConfigService.listBackups("sess-1"))
@@ -190,12 +213,14 @@ class SambaConfigServiceTest {
                     .hasMessage("Configuration backup list is unavailable.");
         }
 
+        @DisplayName("List backups accepts confirmed empty output")
         @Test
         void listBackups_acceptsConfirmedEmptyOutput() {
             when(commandExecutor.execute(eq("sess-1"), anyString())).thenReturn("");
             assertThat(sambaConfigService.listBackups("sess-1")).isEmpty();
         }
 
+        @DisplayName("Restore backup with valid name executes restore and restarts service")
         @Test
         void restoreBackup_withValidName_executesRestoreAndRestartsService() throws Exception {
             // given
@@ -217,6 +242,7 @@ class SambaConfigServiceTest {
             order.verify(commandExecutor).execute(sessionId, LinuxCommands.systemctl("restart", "smbd"));
         }
 
+        @DisplayName("Restore backup with invalid name throws illegal argument exception")
         @Test
         void restoreBackup_withInvalidName_throwsIllegalArgumentException() {
             // given
@@ -228,19 +254,22 @@ class SambaConfigServiceTest {
                     .hasMessage("Invalid backup filename format.");
         }
 
-        @ParameterizedTest
-        @ValueSource(
-                strings = {
-                    "../smb.conf.backup_20301015_143000",
-                    "/tmp/smb.conf.backup_20301015_143000",
-                    "smb.conf.backup_20301015_143000;id",
-                    "",
-                    "smb.conf.backup_20301015_143000.bak",
-                    "smb.conf.backup_20301015_143000_0",
-                    "smb.conf.backup_20301015_143000_01",
-                    "smb.conf.backup_20301015_143000_100",
-                    "smb.conf.backup_20301015_143000_1;id"
-                })
+        private static Stream<Arguments> unsafeBackupNames() {
+            return Stream.of(
+                    Arguments.of(named("path traversal", "../smb.conf.backup_20301015_143000")),
+                    Arguments.of(named("absolute path", "/tmp/smb.conf.backup_20301015_143000")),
+                    Arguments.of(named("shell separator", "smb.conf.backup_20301015_143000;id")),
+                    Arguments.of(named("empty filename", "")),
+                    Arguments.of(named("extra extension", "smb.conf.backup_20301015_143000.bak")),
+                    Arguments.of(named("zero suffix", "smb.conf.backup_20301015_143000_0")),
+                    Arguments.of(named("leading-zero suffix", "smb.conf.backup_20301015_143000_01")),
+                    Arguments.of(named("out-of-range suffix", "smb.conf.backup_20301015_143000_100")),
+                    Arguments.of(named("suffix with shell separator", "smb.conf.backup_20301015_143000_1;id")));
+        }
+
+        @DisplayName("Restore backup rejects unsafe names before executing commands")
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("unsafeBackupNames")
         void restoreBackup_rejectsUnsafeNamesBeforeExecutingCommands(String filename) {
             assertThatThrownBy(() -> sambaConfigService.restoreBackup("session-1", filename))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -251,6 +280,7 @@ class SambaConfigServiceTest {
         private static final String RESTORE_SESSION = "restore-session";
         private static final String RESTORE_NAME = "smb.conf.backup_20301015_143000";
 
+        @DisplayName("Restore backup stops after failed safety backup")
         @Test
         void restoreBackup_stopsAfterFailedSafetyBackup() {
             when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
@@ -269,6 +299,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Restore backup stops after failed restore copy")
         @Test
         void restoreBackup_stopsAfterFailedRestoreCopy() {
             when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
@@ -293,6 +324,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Restore backup stops after failed restart")
         @Test
         void restoreBackup_stopsAfterFailedRestart() {
             when(commandExecutor.execute(eq(RESTORE_SESSION), anyString())).thenReturn("");
@@ -322,6 +354,7 @@ class SambaConfigServiceTest {
     @Nested
     class UpdateOperations {
 
+        @DisplayName("Incompatible save permissions are reported before any mutation")
         @Test
         void incompatibleSavePermissionsAreReportedBeforeAnyMutation() {
             when(commandExecutor.executeCommand(eq("session"), anyString()))
@@ -333,6 +366,7 @@ class SambaConfigServiceTest {
             verify(commandExecutor, never()).execute(anyString(), anyString(), anyString());
         }
 
+        @DisplayName("Overlapping updates do not use shared legacy path")
         @Test
         void overlappingUpdatesDoNotUseSharedLegacyPath() {
             var writtenPaths = new java.util.ArrayList<String>();
@@ -351,6 +385,7 @@ class SambaConfigServiceTest {
             assertThat(writtenPaths).noneMatch(command -> command.contains("/tmp/smb.conf.tmp"));
         }
 
+        @DisplayName("Update smb.conf writes checks and moves")
         @Test
         void updateSmbConf_writesChecksAndMoves() throws Exception {
             // given
@@ -378,6 +413,7 @@ class SambaConfigServiceTest {
         private static final String UPDATE_SESSION = "session-failure";
         private static final String UPDATE_CONTENT = "[global]";
 
+        @DisplayName("Update smb.conf stops after failed backup directory")
         @Test
         void updateSmbConf_stopsAfterFailedBackupDirectory() {
             var failure = new SambaCommandException("Synthetic failure");
@@ -394,6 +430,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Update smb.conf stops after failed safety backup")
         @Test
         void updateSmbConf_stopsAfterFailedSafetyBackup() {
             when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
@@ -412,6 +449,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Update smb.conf stops after failed cleanup")
         @Test
         void updateSmbConf_stopsAfterFailedCleanup() {
             when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
@@ -433,6 +471,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Update smb.conf stops after failed install")
         @Test
         void updateSmbConf_stopsAfterFailedInstall() {
             when(commandExecutor.execute(eq(UPDATE_SESSION), anyString())).thenReturn("");
@@ -456,6 +495,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Update smb.conf stops after failed restart")
         @Test
         void updateSmbConf_stopsAfterFailedRestart() {
             when(commandExecutor.execute(
@@ -482,6 +522,7 @@ class SambaConfigServiceTest {
             verifyNoMoreInteractions(commandExecutor);
         }
 
+        @DisplayName("Get global config parses and returns config DTO")
         @Test
         void getGlobalConfig_parsesAndReturnsConfigDto() throws Exception {
             // given
@@ -499,6 +540,7 @@ class SambaConfigServiceTest {
             assertThat(result).isSameAs(dto);
         }
 
+        @DisplayName("Update global config updates and saves configuration")
         @Test
         void updateGlobalConfig_updatesAndSavesConfiguration() throws Exception {
             // given

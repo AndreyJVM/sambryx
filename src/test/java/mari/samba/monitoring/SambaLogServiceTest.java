@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.config.SambaProperties;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
@@ -16,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Monitoring and readiness")
+@Feature("Unit: log parsing and retrieval (mock commands)")
 class SambaLogServiceTest {
 
     @Mock

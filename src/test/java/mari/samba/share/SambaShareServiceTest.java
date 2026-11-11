@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.Collections;
 import mari.samba.filesystem.FileSystemService;
 import mari.samba.infra.CommandExecutor;
@@ -19,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Epic("Shares and access")
+@Feature("Unit: share command orchestration (mock collaborators)")
 class SambaShareServiceTest {
 
     @Mock

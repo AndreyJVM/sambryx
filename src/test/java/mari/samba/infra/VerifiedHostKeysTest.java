@@ -1,13 +1,17 @@
 package mari.samba.infra;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.Mockito.*;
 
 import com.jcraft.jsch.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.stream.Stream;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import mari.samba.auth.ConnectionRequestDto;
@@ -15,11 +19,15 @@ import mari.samba.config.SambaProperties;
 import mari.samba.core.SshHostKeyException;
 import mari.samba.core.SshSessionExpiredException;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+@Epic("SSH execution and host trust")
+@Feature("Component: local known-hosts files and key verification (mock transport)")
 class VerifiedHostKeysTest {
     @TempDir
     Path directory;
@@ -45,6 +53,7 @@ class VerifiedHostKeysTest {
         return host + " ssh-rsa " + Base64.getEncoder().encodeToString(bytes) + "\n";
     }
 
+    @DisplayName("Trusted key matches but never authorizes another port or host")
     @Test
     void trustedKeyMatchesButNeverAuthorizesAnotherPortOrHost() throws Exception {
         Path path = file(entry("fixture.test", key) + entry("[fixture.test]:2222", differentKey));
@@ -57,6 +66,7 @@ class VerifiedHostKeysTest {
         assertThat(Files.readAllBytes(path)).isEqualTo(original);
     }
 
+    @DisplayName("Hashed entries and multiple keys are supported")
     @Test
     void hashedEntriesAndMultipleKeysAreSupported() throws Exception {
         byte[] salt = new byte[20];
@@ -74,6 +84,7 @@ class VerifiedHostKeysTest {
         assertThat(repository.check("[fixture.test]:2223", key)).isEqualTo(HostKeyRepository.NOT_INCLUDED);
     }
 
+    @DisplayName("Revoked key cannot be rescued by another trusted entry")
     @Test
     void revokedKeyCannotBeRescuedByAnotherTrustedEntry() throws Exception {
         var repository = VerifiedHostKeys.configure(
@@ -85,6 +96,7 @@ class VerifiedHostKeysTest {
         assertThat(repository.rejection().fingerprint()).matches("SHA256:[A-Za-z0-9+/]{43}");
     }
 
+    @DisplayName("Trust store is read only and rejects incorrect key type")
     @Test
     void trustStoreIsReadOnlyAndRejectsIncorrectKeyType() throws Exception {
         Path path = file(entry("fixture.test", key).replace("ssh-rsa", "ssh-ed25519"));
@@ -98,6 +110,7 @@ class VerifiedHostKeysTest {
         assertThat(Files.readAllBytes(path)).isEqualTo(original);
     }
 
+    @DisplayName("Missing trust store fails without path or underlying exception")
     @Test
     void missingTrustStoreFailsWithoutPathOrUnderlyingException() {
         String path = directory.resolve("private-location").toString();
@@ -107,6 +120,7 @@ class VerifiedHostKeysTest {
                 .hasMessageNotContaining(path);
     }
 
+    @DisplayName("Missing trust store cannot create transport")
     @Test
     void missingTrustStoreCannotCreateTransport() throws Exception {
         var manager = new SshSessionManager(new SambaProperties(
@@ -129,6 +143,7 @@ class VerifiedHostKeysTest {
         }
     }
 
+    @DisplayName("Transport failure does not leak details or retain partial session")
     @Test
     void transportFailureDoesNotLeakDetailsOrRetainPartialSession() throws Exception {
         Path path = file(entry("fixture.test", key));
@@ -160,8 +175,13 @@ class VerifiedHostKeysTest {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    private static Stream<Arguments> untrustedKeys() {
+        return Stream.of(Arguments.of(named("changed host key", true)), Arguments.of(named("unknown host key", false)));
+    }
+
+    @DisplayName("Untrusted key closes connection and does not publish session")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("untrustedKeys")
     void untrustedKeyClosesConnectionAndDoesNotPublishSession(boolean changed) throws Exception {
         Path path = file(changed ? entry("fixture.test", differentKey) : "");
         Session session = mock(Session.class);

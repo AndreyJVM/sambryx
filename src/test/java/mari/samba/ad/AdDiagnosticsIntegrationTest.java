@@ -14,6 +14,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.Session;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -34,6 +36,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /** Component test for diagnostics; HTTP authentication filters are covered separately. */
+@Epic("Active Directory")
+@Feature("Standalone HTTP without filters: domain diagnostics (mock JSch)")
 class AdDiagnosticsIntegrationTest {
 
     private static final String SECRET = "synthetic-ad-password-for-regression";

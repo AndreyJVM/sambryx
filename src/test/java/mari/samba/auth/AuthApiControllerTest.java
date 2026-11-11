@@ -6,8 +6,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import mari.samba.infra.ExecutionSessionManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -23,6 +26,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @WebMvcTest(AuthApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @org.springframework.context.annotation.Import(mari.samba.config.SecurityConfig.class)
+@Epic("Authentication and sessions")
+@Feature("HTTP without filters: login validation and session attributes (mock sessions)")
 class AuthApiControllerTest {
 
     @Autowired
@@ -37,6 +42,7 @@ class AuthApiControllerTest {
     @MockitoBean
     private mari.samba.auth.BruteForceProtectionService bruteForceService;
 
+    @DisplayName("Reports remote environment")
     @Test
     void reportsRemoteEnvironment() throws Exception {
         mockMvc.perform(get("/api/auth/environment"))
@@ -49,7 +55,8 @@ class AuthApiControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    @ParameterizedTest
+    @DisplayName("Valid host authenticates")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @CsvSource({"192.168.1.100, root", "samba-node, admin"})
     void validHostAuthenticates(String host, String username) throws Exception {
         ConnectionRequestDto dto = new ConnectionRequestDto(host, 22, username, "password", "synthetic", null, null);
@@ -61,6 +68,7 @@ class AuthApiControllerTest {
         verify(sessionManager).createSession(anyString(), eq(dto));
     }
 
+    @DisplayName("Login without host is rejected before opening connection")
     @Test
     void loginWithoutHostIsRejectedBeforeOpeningConnection() throws Exception {
         ConnectionRequestDto dto = new ConnectionRequestDto(null, 22, "admin", "password", "secret", null, null);
@@ -68,7 +76,8 @@ class AuthApiControllerTest {
         verifyNoInteractions(sessionManager);
     }
 
-    @ParameterizedTest
+    @DisplayName("Missing credential is rejected")
+    @ParameterizedTest(name = "{0} authentication")
     @CsvSource({
         "password, Password is required when not using key authentication.",
         "key, Private key is required when using key authentication."
@@ -84,6 +93,7 @@ class AuthApiControllerTest {
         verifyNoInteractions(sessionManager);
     }
 
+    @DisplayName("Get current user")
     @Test
     void testGetCurrentUser() throws Exception {
         mockMvc.perform(get("/api/auth/me")
@@ -95,6 +105,7 @@ class AuthApiControllerTest {
                 .andExpect(jsonPath("$.data.user").value("root"));
     }
 
+    @DisplayName("Logout")
     @Test
     void testLogout() throws Exception {
         mockMvc.perform(post("/api/auth/logout").sessionAttr("dummy", "dummy"))

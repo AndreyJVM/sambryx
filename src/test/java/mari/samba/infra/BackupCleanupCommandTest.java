@@ -6,17 +6,22 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Epic("Configuration and backups")
+@Feature("Local shell component: backup retention and unsafe names")
 class BackupCleanupCommandTest {
     @TempDir
     Path temporary;
@@ -31,6 +36,7 @@ class BackupCleanupCommandTest {
         stub("sudo", "#!/bin/sh\nexec \"$@\"\n");
     }
 
+    @DisplayName("Preserves argument boundaries for untrusted file names")
     @Test
     void preservesArgumentBoundariesForUntrustedFileNames() throws Exception {
         Path victim = Files.writeString(temporary.resolve("victim"), "keep");
@@ -42,6 +48,7 @@ class BackupCleanupCommandTest {
         assertEquals(0, status);
     }
 
+    @DisplayName("Enumeration failure stops deletion and returns failure")
     @Test
     void enumerationFailureStopsDeletionAndReturnsFailure() throws Exception {
         Path old = backup("old", 1000);
@@ -52,7 +59,8 @@ class BackupCleanupCommandTest {
         assertTrue(Files.exists(old), "Partial enumeration must not trigger deletion");
     }
 
-    @ParameterizedTest
+    @DisplayName("Removes only the selected backup with special characters")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"quote'", "double\"quote", "line\nbreak", "tab\tname", "$(touch injected);&", "-rf"})
     void removesOnlyTheSelectedBackupWithSpecialCharacters(String suffix) throws Exception {
         Path old = backup(suffix, 1000);
@@ -63,6 +71,7 @@ class BackupCleanupCommandTest {
         assertFalse(Files.exists(temporary.resolve("injected")));
     }
 
+    @DisplayName("Deletion failure is reported without removing backup")
     @Test
     void deletionFailureIsReportedWithoutRemovingBackup() throws Exception {
         Path old = backup("old", 1000);
@@ -72,6 +81,7 @@ class BackupCleanupCommandTest {
         assertTrue(Files.exists(old));
     }
 
+    @DisplayName("Empty directory succeeds without privileged deletion")
     @Test
     void emptyDirectorySucceedsWithoutPrivilegedDeletion() throws Exception {
         stub("sudo", "#!/bin/sh\ntouch \"$DELETE_MARKER\"\nexit 31\n");
@@ -79,6 +89,7 @@ class BackupCleanupCommandTest {
         assertFalse(Files.exists(temporary.resolve("delete-marker")));
     }
 
+    @DisplayName("Rejects invalid inputs before execution")
     @Test
     void rejectsInvalidInputsBeforeExecution() {
         for (String path : new String[] {"", "relative", "/tmp/../etc", "/tmp/;id", "/tmp/\nname"}) {
@@ -90,6 +101,7 @@ class BackupCleanupCommandTest {
         }
     }
 
+    @DisplayName("Retains newest backups and unrelated files")
     @Test
     void retainsNewestBackupsAndUnrelatedFiles() throws Exception {
         Path oldest = backup("old", 1000);
@@ -103,6 +115,7 @@ class BackupCleanupCommandTest {
         assertTrue(Files.exists(unrelated));
     }
 
+    @DisplayName("Supports quoted backup directory")
     @Test
     void supportsQuotedBackupDirectory() throws Exception {
         backups = Files.createDirectory(temporary.resolve("backup dir's"));
@@ -112,7 +125,8 @@ class BackupCleanupCommandTest {
         assertFalse(Files.exists(old));
     }
 
-    @ParameterizedTest
+    @DisplayName("Preparation failure stops deletion")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"mktemp", "sort"})
     void preparationFailureStopsDeletion(String utility) throws Exception {
         Path old = backup("old", 1000);
@@ -122,12 +136,14 @@ class BackupCleanupCommandTest {
         assertTrue(Files.exists(old));
     }
 
+    @DisplayName("Missing directory returns failure")
     @Test
     void missingDirectoryReturnsFailure() throws Exception {
         Files.delete(backups);
         assertNotEquals(0, runCleanup(1));
     }
 
+    @DisplayName("Ignores directories and symbolic links")
     @Test
     void ignoresDirectoriesAndSymbolicLinks() throws Exception {
         Path target = Files.writeString(temporary.resolve("target"), "keep");

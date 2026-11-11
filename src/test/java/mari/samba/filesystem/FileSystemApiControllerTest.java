@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(FileSystemApiController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Epic("Filesystem")
+@Feature("HTTP without filters: filesystem endpoints (mock service)")
 class FileSystemApiControllerTest {
 
     @Autowired

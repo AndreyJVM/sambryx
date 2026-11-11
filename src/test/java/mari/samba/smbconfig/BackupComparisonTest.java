@@ -1,9 +1,12 @@
 package mari.samba.smbconfig;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Named.named;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -13,12 +16,15 @@ import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SmbConfParser;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Epic("Configuration and backups")
+@Feature("Unit: literal backup comparison (mock commands)")
 class BackupComparisonTest {
     private static final String NAME = "smb.conf.backup_20301015_143000_1";
     private final CommandExecutor commands = mock(CommandExecutor.class);
@@ -31,14 +37,24 @@ class BackupComparisonTest {
                     null,
                     null));
 
-    @ParameterizedTest
-    @ValueSource(strings = {"", "[global]\ninclude = /private/file\n", "x\r\ny\n", "x"})
+    @DisplayName("Reports literal equality without expanding includes")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("literalContents")
     void reportsLiteralEqualityWithoutExpandingIncludes(String content) {
         when(commands.execute(eq("session"), anyString())).thenReturn(content);
         assertThat(service.compareBackup("session", NAME)).isEqualTo(new BackupComparison(NAME, true, List.of()));
         verifyReads();
     }
 
+    private static Stream<Arguments> literalContents() {
+        return Stream.of(
+                Arguments.of(named("empty files", "")),
+                Arguments.of(named("include directive stays literal", "[global]\ninclude = /private/file\n")),
+                Arguments.of(named("mixed CRLF and LF", "x\r\ny\n")),
+                Arguments.of(named("no final newline", "x")));
+    }
+
+    @DisplayName("Distinguishes missing final newline and repeated lines")
     @Test
     void distinguishesMissingFinalNewlineAndRepeatedLines() {
         when(commands.execute(eq("session"), anyString())).thenReturn("x\nx\n", "x\nx");
@@ -48,21 +64,25 @@ class BackupComparisonTest {
         verifyReads();
     }
 
-    @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "../smb.conf",
-                "/etc/samba/smb.conf",
-                "smb.conf.backup_20301015_143000;id",
-                "smb.conf.backup_20301015_143000_0",
-                ""
-            })
+    @DisplayName("Rejects invalid backup names before executing commands")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidNames")
     void rejectsInvalidNameBeforeAnyCommand(String filename) {
         assertThatThrownBy(() -> service.compareBackup("session", filename))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(commands);
     }
 
+    private static Stream<Arguments> invalidNames() {
+        return Stream.of(
+                Arguments.of(named("path traversal", "../smb.conf")),
+                Arguments.of(named("absolute path", "/etc/samba/smb.conf")),
+                Arguments.of(named("shell separator", "smb.conf.backup_20301015_143000;id")),
+                Arguments.of(named("zero collision suffix", "smb.conf.backup_20301015_143000_0")),
+                Arguments.of(named("empty name", "")));
+    }
+
+    @DisplayName("Rejects unusable content without returning partial comparison")
     @ParameterizedTest(name = "{0}")
     @MethodSource("unusableContents")
     void rejectsUnusableContentWithoutReturningPartialComparison(String description, String content) {
@@ -81,6 +101,7 @@ class BackupComparisonTest {
                 Arguments.of("invalid encoding", "sensitive\uFFFDtext"));
     }
 
+    @DisplayName("Hides failure from current configuration read")
     @Test
     void hidesFailureFromCurrentConfigurationRead() {
         when(commands.execute(anyString(), anyString())).thenThrow(new SambaCommandException("sensitive"));
@@ -89,6 +110,7 @@ class BackupComparisonTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Hides partial content when backup read fails")
     @Test
     void hidesPartialContentWhenBackupReadFails() {
         when(commands.execute(anyString(), anyString()))
@@ -105,6 +127,7 @@ class BackupComparisonTest {
                 .hasMessageNotContaining("sensitive");
     }
 
+    @DisplayName("Accepts maximum size without truncating")
     @Test
     void acceptsMaximumSizeWithoutTruncating() {
         String text = "a".repeat(262144);
@@ -113,7 +136,8 @@ class BackupComparisonTest {
         verifyReads();
     }
 
-    @ParameterizedTest
+    @DisplayName("Measures unicode limit in UTF-8 bytes")
+    @ParameterizedTest(name = "UTF-8 character: {0}")
     @ValueSource(strings = {"é", "😀"})
     void measuresUnicodeLimitInUtf8Bytes(String character) {
         int width = character.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
@@ -130,8 +154,9 @@ class BackupComparisonTest {
         verifyNoMoreInteractions(commands);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @DisplayName("Accepts exactly one thousand lines")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("lineEndings")
     void acceptsExactlyOneThousandLines(boolean finalNewline) {
         String content = "x\n".repeat(999) + (finalNewline ? "x\n" : "x");
         when(commands.execute(anyString(), anyString())).thenReturn(content);
@@ -139,6 +164,7 @@ class BackupComparisonTest {
         verifyReads();
     }
 
+    @DisplayName("Releases capacity after repeated current read failures")
     @Test
     void releasesCapacityAfterRepeatedCurrentReadFailures() {
         when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf")))
@@ -151,6 +177,7 @@ class BackupComparisonTest {
         assertRepeatedFailuresThenRecovery(0);
     }
 
+    @DisplayName("Releases capacity after repeated backup read failures")
     @Test
     void releasesCapacityAfterRepeatedBackupReadFailures() {
         when(commands.execute("session", LinuxCommands.readComparisonFile("/etc/samba/smb.conf")))
@@ -181,6 +208,7 @@ class BackupComparisonTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Bounds concurrent comparisons and releases slots")
     @Test
     void boundsConcurrentComparisonsAndReleasesSlots() throws Exception {
         var entered = new CountDownLatch(2);
@@ -205,6 +233,11 @@ class BackupComparisonTest {
             assertThat(second.get().equal()).isTrue();
         }
         assertThat(service.compareBackup("session", NAME).equal()).isTrue();
+    }
+
+    private static Stream<Arguments> lineEndings() {
+        return Stream.of(
+                Arguments.of(named("final newline present", true)), Arguments.of(named("final newline absent", false)));
     }
 
     private void verifyReads() {
