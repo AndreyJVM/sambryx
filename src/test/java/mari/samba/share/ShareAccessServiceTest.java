@@ -12,10 +12,11 @@ import mari.samba.config.SambaProperties;
 import mari.samba.filesystem.FileSystemService;
 import mari.samba.infra.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @Epic("Shares and access")
-@Feature("Unit: access validation and updates (mock commands)")
+@Feature("Unit: access diagnostics and validation (mock commands)")
 class ShareAccessServiceTest {
     private final CommandExecutor executor = mock(CommandExecutor.class);
     private final SambaShareService shares = mock(SambaShareService.class);
@@ -43,6 +44,7 @@ class ShareAccessServiceTest {
         });
     }
 
+    @DisplayName("Access diagnostics report observed facts and unresolved limits")
     @Test
     void baselineReportsFactsWithoutPromisingAccess() {
         var report = service.check("session", "team", "alice");
@@ -55,6 +57,7 @@ class ShareAccessServiceTest {
         assertThat(report.findings()).anyMatch(f -> f.status().equals("UNKNOWN"));
     }
 
+    @DisplayName("Unavailable effective share setting produces a blocking finding")
     @Test
     void effectiveUnavailableIsAConfirmedBlocker() {
         when(executor.executeCommand("session", "testparm -sv -- '/etc/samba/smb.conf' 2>/dev/null"))
@@ -63,6 +66,7 @@ class ShareAccessServiceTest {
                 .anyMatch(f -> f.code().equals("UNAVAILABLE") && f.status().equals("BLOCKING"));
     }
 
+    @DisplayName("Literal user exclusion blocks while group expressions remain unknown")
     @Test
     void literalExclusionBlocksButGroupExpressionsRemainUnknown() {
         for (String rule : List.of("bob", "@admins", "alice, @admins")) {
@@ -76,6 +80,7 @@ class ShareAccessServiceTest {
         }
     }
 
+    @DisplayName("Excluded user and regular file produce separate blocking findings")
     @Test
     void invalidUserIsBlockedAndNonDirectoryIsNotAMissingDirectoryGuess() {
         when(executor.executeCommand("session", "testparm -sv -- '/etc/samba/smb.conf' 2>/dev/null"))
@@ -87,6 +92,7 @@ class ShareAccessServiceTest {
                 .anyMatch(f -> f.code().equals("NOT_DIRECTORY") && f.status().equals("BLOCKING"));
     }
 
+    @DisplayName("Failed command results remain unknown and omit remote output")
     @Test
     void failedCommandsDoNotLeakOrProduceSuccess() {
         when(executor.executeCommand(eq("session"), anyString()))
@@ -96,6 +102,7 @@ class ShareAccessServiceTest {
         assertThat(findings.toString()).doesNotContain("sensitive remote output");
     }
 
+    @DisplayName("Mock SSH execution failure leaves all findings unknown")
     @Test
     void sshFailureRemainsUnknown() {
         when(executor.executeCommand(eq("session"), anyString()))
@@ -104,6 +111,7 @@ class ShareAccessServiceTest {
                 .allMatch(f -> f.status().equals("UNKNOWN"));
     }
 
+    @DisplayName("Unsafe usernames are rejected before share lookup or commands")
     @Test
     void unsafeUsernamesNeverReachSsh() {
         for (String name : List.of("-root", "alice;id", "$(id)", "alice\nroot", "DOMAIN\\alice")) {
@@ -113,6 +121,7 @@ class ShareAccessServiceTest {
         verifyNoInteractions(executor, shares);
     }
 
+    @DisplayName("Canonical path outside allowed roots prevents stat inspection")
     @Test
     void escapedSymlinkOutsideRootsIsNotInspected() {
         when(executor.executeCommand("session", "realpath -e -- '/srv/team'")).thenReturn(ok("/etc/private\n"));
@@ -122,6 +131,7 @@ class ShareAccessServiceTest {
         verify(executor, never()).execute(anyString(), anyString());
     }
 
+    @DisplayName("Canonical path keeps its trailing space in the stat argument")
     @Test
     void canonicalPathWithTrailingSpaceIsInspectedWithoutChangingItsIdentity() {
         when(executor.executeCommand("session", "realpath -e -- '/srv/team'")).thenReturn(ok("/srv/team \n"));
@@ -132,6 +142,7 @@ class ShareAccessServiceTest {
         verify(executor).executeCommand("session", "LC_ALL=C stat -L -c '%F' -- '/srv/team '");
     }
 
+    @DisplayName("Domain security and username mapping leave literal user rules unknown")
     @Test
     void domainOrMappedIdentityDoesNotProduceLiteralUserVerdicts() {
         for (String global : List.of("security = ads", "security = user\nusername map = /etc/samba/map")) {
@@ -145,6 +156,7 @@ class ShareAccessServiceTest {
         }
     }
 
+    @DisplayName("Unknown share is rejected before diagnostic commands")
     @Test
     void unknownShareCannotTriggerDiagnosticCommands() {
         when(shares.getShareByName("session", "team")).thenThrow(new IllegalArgumentException("Share not found"));
@@ -153,6 +165,7 @@ class ShareAccessServiceTest {
         verifyNoInteractions(executor);
     }
 
+    @DisplayName("Quoted canonical path stays one argument in read commands")
     @Test
     void quotedPathRemainsASingleArgumentAndOnlyReadCommandsAreUsed() {
         when(executor.executeCommand("session", "realpath -e -- '/srv/team'")).thenReturn(ok("/srv/team's data\n"));
@@ -170,6 +183,7 @@ class ShareAccessServiceTest {
         verify(executor, never()).execute(anyString(), anyString(), anyString());
     }
 
+    @DisplayName("Failed or oversized effective configuration leaves findings unconfirmed")
     @Test
     void failedOrOversizedEffectiveDumpCannotBecomeAConfirmedFinding() {
         for (CommandResult result : List.of(
@@ -183,6 +197,7 @@ class ShareAccessServiceTest {
         }
     }
 
+    @DisplayName("Unsafe or unsupported configured paths prevent filesystem inspection")
     @Test
     void unsafeOrUnsupportedConfiguredPathsNeverReachFilesystemCommands() {
         for (String path :

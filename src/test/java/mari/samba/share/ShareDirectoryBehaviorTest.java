@@ -14,18 +14,22 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import mari.samba.core.SambaCommandException;
 import mari.samba.filesystem.FileSystemService;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.smbconfig.SambaConfigService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -52,7 +56,8 @@ class ShareDirectoryBehaviorTest {
         service = new SambaShareService(config, commands, filesystem);
     }
 
-    @ParameterizedTest
+    @DisplayName("Updating Samba options issues directory preparation without permission commands")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @CsvSource({"alice,smb_team,bob", ",smb_team,@other", ",,@smb_team", ",,bob", ",,"})
     void editingSambaOptionsDoesNotChangeFilesystemPermissions(
             String forcedUser, String forcedGroup, String validUsers) {
@@ -79,8 +84,9 @@ class ShareDirectoryBehaviorTest {
         verifyNoMoreInteractions(commands);
     }
 
-    @ParameterizedTest
-    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    @DisplayName("Directory preparation failure prevents configuration changes")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("preparationFailures")
     void preparationFailureStopsConfigurationChanges(boolean deniedPath, boolean createShare) {
         var failure = new SambaCommandException("Synthetic directory failure");
         var request = SambaShareCreateDto.builder().name("team").path(PATH).build();
@@ -105,8 +111,9 @@ class ShareDirectoryBehaviorTest {
         } else verifyNoInteractions(config);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @DisplayName("Saving a share preserves local tree content and Unix metadata")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("shareSaveOperations")
     void savingExistingTreePreservesContentsModesAndOwners(boolean createShare, @TempDir Path temporary)
             throws Exception {
         var target = Files.createDirectory(temporary.resolve("other-existing"));
@@ -152,6 +159,7 @@ class ShareDirectoryBehaviorTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Updating a share creates the missing local directory without permission commands")
     @Test
     void selectingMissingPathCreatesDirectoryWithoutPermissionCommands(@TempDir Path temporary) throws Exception {
         var target = temporary.resolve("new-parent/new-share");
@@ -177,5 +185,17 @@ class ShareDirectoryBehaviorTest {
         when(config.getSmbConfContent(SESSION)).thenReturn("current");
         when(config.removeShareSection("current", "team")).thenReturn("remaining");
         when(config.buildShareSection(any())).thenReturn("[team]");
+    }
+
+    private static Stream<Arguments> preparationFailures() {
+        return Stream.of(
+                Arguments.of(Named.of("update: mkdir failure", false), false),
+                Arguments.of(Named.of("create: mkdir failure", false), true),
+                Arguments.of(Named.of("update: denied path", true), false),
+                Arguments.of(Named.of("create: denied path", true), true));
+    }
+
+    private static Stream<Named<Boolean>> shareSaveOperations() {
+        return Stream.of(Named.of("update existing share", false), Named.of("create new share", true));
     }
 }

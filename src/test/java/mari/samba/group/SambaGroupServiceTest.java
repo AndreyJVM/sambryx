@@ -7,12 +7,15 @@ import static org.mockito.Mockito.*;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
+import java.util.stream.Stream;
 import mari.samba.config.SambaProperties;
 import mari.samba.infra.CommandExecutor;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,8 +36,9 @@ class SambaGroupServiceTest {
 
     private static final String SESSION_ID = "test-session";
 
-    @ParameterizedTest
-    @ValueSource(strings = {"smb_", "team_", ""})
+    @DisplayName("Group listing preserves system name and removes the configured display prefix")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("groupPrefixes")
     void exposesActualSystemNameWithoutChangingDisplayName(String prefix) {
         String actualName = prefix + "engineering";
         when(commandExecutor.execute(SESSION_ID, "getent group")).thenReturn(actualName + ":x:1001:alice,bob\n");
@@ -53,6 +57,7 @@ class SambaGroupServiceTest {
                         .asText());
     }
 
+    @DisplayName("Group listing filters unrelated groups and parses populated and empty memberships")
     @Test
     void getAllGroups_ShouldFilterAndParseCorrectly() throws Exception {
         String mockGetentOutput = "root:x:0:\n"
@@ -77,6 +82,7 @@ class SambaGroupServiceTest {
         assertTrue(group2.members().isEmpty());
     }
 
+    @DisplayName("Creating a group issues groupadd with the configured prefix")
     @Test
     void createGroup_ShouldExecuteCorrectCommand() throws Exception {
         SambaGroupCreateDto dto = new SambaGroupCreateDto("developers", "Developers group");
@@ -86,6 +92,7 @@ class SambaGroupServiceTest {
         verify(commandExecutor).execute(eq(SESSION_ID), eq("sudo groupadd 'smb_developers'"));
     }
 
+    @DisplayName("Deleting a group issues groupdel with the configured prefix")
     @Test
     void deleteGroup_ShouldExecuteCorrectCommand() throws Exception {
         sambaGroupService.deleteGroup(SESSION_ID, "developers");
@@ -93,10 +100,15 @@ class SambaGroupServiceTest {
         verify(commandExecutor).execute(eq(SESSION_ID), eq("sudo groupdel 'smb_developers'"));
     }
 
+    @DisplayName("Adding a group member issues gpasswd with the prefixed group")
     @Test
     void addUserToGroup_ShouldExecuteCorrectCommand() throws Exception {
         sambaGroupService.addUserToGroup(SESSION_ID, "john.doe", "developers");
 
         verify(commandExecutor).execute(eq(SESSION_ID), eq("sudo gpasswd -a 'john.doe' 'smb_developers'"));
+    }
+
+    private static Stream<Named<String>> groupPrefixes() {
+        return Stream.of(Named.of("smb_ prefix", "smb_"), Named.of("team_ prefix", "team_"), Named.of("no prefix", ""));
     }
 }

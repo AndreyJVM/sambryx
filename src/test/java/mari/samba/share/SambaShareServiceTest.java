@@ -12,6 +12,7 @@ import mari.samba.filesystem.FileSystemService;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.smbconfig.SambaConfigService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,7 +40,8 @@ class SambaShareServiceTest {
 
     private final String SESSION_ID = "test-session-id";
 
-    @ParameterizedTest
+    @DisplayName("Directory mask variants issue only mkdir at the command boundary")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"0700", "0755", "0770", "0777"})
     void directoryMaskIsOnlyUsedInSambaConfiguration(String directoryMask) {
         SambaShareCreateDto dto = SambaShareCreateDto.builder()
@@ -58,6 +60,7 @@ class SambaShareServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Creating a share prepares its directory and appends configuration without permission commands")
     @Test
     void createShareEnsuresDirectoryWithoutChangingPermissions() throws Exception {
         // Arrange
@@ -87,6 +90,7 @@ class SambaShareServiceTest {
         verify(configService).updateSmbConf(SESSION_ID, "\n[testShare]\n  path = /srv/samba/test\n");
     }
 
+    @DisplayName("Duplicate share creation fails before directory commands")
     @Test
     void createShare_ShouldThrowException_WhenShareAlreadyExists() throws Exception {
         // Arrange
@@ -108,6 +112,7 @@ class SambaShareServiceTest {
         verify(commandExecutor, never()).execute(anyString(), anyString());
     }
 
+    @DisplayName("Share size formats kilobytes from mock du output")
     @Test
     void getShareSize_ShouldReturnFormattedSize() throws Exception {
         SambaShare share =
@@ -120,6 +125,7 @@ class SambaShareServiceTest {
         assertThat(size).isEqualTo("24 KB");
     }
 
+    @DisplayName("Zero mock du output returns zero bytes")
     @Test
     void getShareSize_ShouldReturnZeroBytes_WhenDuReturnsZero() throws Exception {
         SambaShare share =
@@ -132,6 +138,7 @@ class SambaShareServiceTest {
         assertThat(size).isEqualTo("0 B");
     }
 
+    @DisplayName("Blank share path returns unavailable size")
     @Test
     void getShareSize_ShouldReturnNA_WhenPathIsBlank() {
         SambaShare share = SambaShare.builder().name("nopath").path("").build();

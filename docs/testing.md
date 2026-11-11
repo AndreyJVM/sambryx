@@ -47,14 +47,20 @@ security chain, HTTP без фильтров или local shell component. Ис�
 Java-классов. Не добавляем параллельную иерархию suite labels.
 
 `@DisplayName` описывает конкретный проверяемый результат на английском. В config/backup,
-auth/session и SSH сценариях заданы читаемые заголовки; остальные области пока сохраняют
-существующие методные имена под общей группировкой. Для `@ParameterizedTest(name = "{0}")`
+auth/session, SSH, shares/access, users/groups и filesystem сценариях заданы читаемые
+заголовки. Оформление заголовков пока не завершено для Monitoring/readiness, AD,
+SmbConfParser*, LinuxCommandsTest и общих configuration/HTTP error tests; их существующая
+группировка сохранена. Для `@ParameterizedTest(name = "{0}")`
 используем короткий case label через JUnit `Named`/`MethodSource`, если исходный аргумент —
 конфигурация, credential, большой вывод, пустое значение или неоднозначный boolean.
 Короткие безопасные значения (например, failed stage, timeout или форма Samba boolean)
 можно показывать непосредственно с именем параметра. Адаптер 2.29.1 добавляет имя сценария
 перед именем invocation: повторять `{displayName}` в pattern не нужно. Не заменяем
 различающиеся cases одним общим заголовком и не меняем assertions ради оформления.
+
+Удаление account в unit/HTTP проверках подтверждается составом и порядком mock-команд
+без рекурсивного удаления; сохранность реальных файлов эти проверки не доказывают.
+Share directory local shell cases отдельно проверяют временные файлы, mode и owner.
 
 Mock SSH/JSch проверяет работу с подменённой границей, а не реальное SSH/Samba/AD окружение.
 Local shell использует временные файлы и указанные в feature stub utilities; это не проверка

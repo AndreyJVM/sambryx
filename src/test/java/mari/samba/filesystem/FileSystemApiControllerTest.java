@@ -16,6 +16,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -41,6 +42,7 @@ class FileSystemApiControllerTest {
     @MockitoBean
     private FileSystemService fileSystemService;
 
+    @DisplayName("Directory browsing returns the current path from the mock service")
     @Test
     void testBrowseDirectories_ShouldReturnResult() throws Exception {
         DirectoryBrowseResultDto result = new DirectoryBrowseResultDto("/srv/samba", "/srv", List.of());
@@ -52,6 +54,7 @@ class FileSystemApiControllerTest {
                 .andExpect(jsonPath("$.data.currentPath").value("/srv/samba"));
     }
 
+    @DisplayName("Directory creation accepts query parameters and returns success")
     @Test
     void testMakeDirectoryParams_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/fs/mkdir").param("parentPath", "/srv/samba").param("name", "newfolder"))
@@ -62,6 +65,7 @@ class FileSystemApiControllerTest {
         verify(fileSystemService).createDirectory(anyString(), eq("/srv/samba"), eq("newfolder"));
     }
 
+    @DisplayName("Directory creation accepts a JSON request and returns success")
     @Test
     void testMakeDirectoryBody_ShouldReturnSuccess() throws Exception {
         CreateDirectoryDto dto = new CreateDirectoryDto("/srv/samba", "newfolder");
@@ -76,6 +80,7 @@ class FileSystemApiControllerTest {
         verify(fileSystemService).createDirectory(anyString(), eq("/srv/samba"), eq("newfolder"));
     }
 
+    @DisplayName("Directory creation accepts the JSON name alias and returns success")
     @Test
     void testMakeDirectoryBodyWithNameAlias_ShouldReturnSuccess() throws Exception {
         String jsonPayload = "{\"parentPath\":\"/srv/samba\",\"name\":\"aliasfolder\"}";
@@ -90,6 +95,7 @@ class FileSystemApiControllerTest {
         verify(fileSystemService).createDirectory(anyString(), eq("/srv/samba"), eq("aliasfolder"));
     }
 
+    @DisplayName("Disk usage endpoint returns usage from the mock service")
     @Test
     void testGetDiskUsage_ShouldReturnUsage() throws Exception {
         DiskUsageDto dto = new DiskUsageDto("/", "100G", "50G", "50G", 50, "/");
@@ -102,6 +108,7 @@ class FileSystemApiControllerTest {
                 .andExpect(jsonPath("$.data.usePercent").value(50));
     }
 
+    @DisplayName("File download returns service bytes with attachment disposition")
     @Test
     void testDownloadFile_ShouldReturnOctetStream() throws Exception {
         byte[] content = "file data".getBytes();

@@ -7,14 +7,17 @@ import static org.mockito.Mockito.*;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
+import java.util.stream.Stream;
 import mari.samba.core.SambaCommandException;
 import mari.samba.core.SshSessionExpiredException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -33,6 +36,7 @@ class SambaUserServiceTest {
 
     private static final String SESSION_ID = "test-session";
 
+    @DisplayName("System user listing returns sorted distinct names and ignores malformed records")
     @Test
     void systemUsernamesExposeOnlySortedDistinctNames() {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.listSystemUsers()))
@@ -46,9 +50,9 @@ class SambaUserServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"   "})
+    @DisplayName("Empty account database output returns no username suggestions")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("emptyAccountOutputs")
     void emptySystemUserDatabaseReturnsEmptySuggestions(String output) {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.listSystemUsers()))
                 .thenReturn(output);
@@ -56,6 +60,7 @@ class SambaUserServiceTest {
         assertEquals(List.of(), sambaUserService.getSystemUsernames(SESSION_ID));
     }
 
+    @DisplayName("System user lookup propagates command execution failure")
     @Test
     void systemUserLookupDoesNotHideExecutionFailure() {
         RuntimeException failure = new RuntimeException("Lookup failed");
@@ -66,6 +71,7 @@ class SambaUserServiceTest {
                 failure, assertThrows(RuntimeException.class, () -> sambaUserService.getSystemUsernames(SESSION_ID)));
     }
 
+    @DisplayName("Samba user listing parses names and supplies a placeholder for missing full names")
     @Test
     void getAllUsers_ShouldParsePdbeditOutputCorrectly() throws Exception {
 
@@ -88,6 +94,7 @@ class SambaUserServiceTest {
         assertEquals("alice", users.get(2).getUsername());
     }
 
+    @DisplayName("Creating a user issues account creation, password input and Samba enable commands")
     @Test
     void createUser_ShouldExecuteCorrectSequenceOfCommands() throws Exception {
         String username = "newuser";
@@ -107,6 +114,7 @@ class SambaUserServiceTest {
         verify(commandExecutor).execute(SESSION_ID, LinuxCommands.enableSambaUser(username));
     }
 
+    @DisplayName("Creating a user rejects empty and newline passwords")
     @Test
     void createUser_ShouldRejectBlankOrNewlinePassword() {
         assertThrows(
@@ -119,6 +127,7 @@ class SambaUserServiceTest {
                 () -> sambaUserService.createUser(SESSION_ID, "user1", "pass\rinjection", "User One"));
     }
 
+    @DisplayName("Samba account deletion failure propagates without Linux deletion")
     @Test
     void sambaDeletionFailureStopsBeforeLinuxDeletion() {
         var failure = new SambaCommandException("Samba deletion failed");
@@ -131,6 +140,7 @@ class SambaUserServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Deletion issues only Samba removal then nonrecursive Linux account removal")
     @Test
     void deletionPreservesFilesAndRunsOnlyAccountCommandsInOrder() {
         sambaUserService.deleteUser(SESSION_ID, "alice");
@@ -140,6 +150,7 @@ class SambaUserServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Linux deletion failure reports partial completion and preserves its cause")
     @Test
     void linuxDeletionFailureReportsPartialCompletionAndKeepsCause() {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice")))
@@ -156,6 +167,7 @@ class SambaUserServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Expired session after Samba deletion reports partial completion")
     @Test
     void expiredSessionAfterSambaDeletionReportsPartialCompletion() {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.deleteSambaUser("alice")))
@@ -170,13 +182,15 @@ class SambaUserServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
-    @ParameterizedTest
+    @DisplayName("Protected account deletion is rejected without commands")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"root", "daemon", "sshd", "postgres", "mysql", " ROOT "})
     void protectedAccountDeletionNeverExecutesCommands(String username) {
         assertThrows(SecurityException.class, () -> sambaUserService.deleteUser(SESSION_ID, username));
         verifyNoInteractions(commandExecutor);
     }
 
+    @DisplayName("Password change sends input to both Linux and Samba password commands")
     @Test
     void changePassword_ShouldUpdateBothSystemAndSamba() throws Exception {
         String username = "bob";
@@ -192,11 +206,16 @@ class SambaUserServiceTest {
                         eq("newpassword!\nnewpassword!\n"));
     }
 
+    @DisplayName("Password change rejects blank and newline passwords")
     @Test
     void changePassword_ShouldRejectBlankOrNewlinePassword() {
         assertThrows(IllegalArgumentException.class, () -> sambaUserService.changePassword(SESSION_ID, "bob", "   "));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> sambaUserService.changePassword(SESSION_ID, "bob", "pass\nattack"));
+    }
+
+    private static Stream<Named<String>> emptyAccountOutputs() {
+        return Stream.of(Named.of("null output", null), Named.of("empty output", ""), Named.of("blank output", "   "));
     }
 }

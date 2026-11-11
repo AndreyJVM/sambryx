@@ -14,6 +14,7 @@ import mari.samba.infra.ExecutionSessionManager;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SshSessionManager;
 import mari.samba.session.AdministratorSessions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -40,12 +41,14 @@ class UserDeletionIntegrationTest {
     @Autowired
     private AdministratorSessions lifecycle;
 
+    @DisplayName("Anonymous deletion returns unauthorized without commands")
     @Test
     void anonymousDeletionDoesNotExecuteCommands() throws Exception {
         mvc.perform(delete("/api/users/alice").with(csrf())).andExpect(status().isUnauthorized());
         verifyNoInteractions(commands);
     }
 
+    @DisplayName("Deletion without CSRF returns forbidden without commands")
     @Test
     @WithMockUser
     void deletionRequiresCsrf() throws Exception {
@@ -53,6 +56,7 @@ class UserDeletionIntegrationTest {
         verifyNoInteractions(commands);
     }
 
+    @DisplayName("Protected account deletion returns forbidden without commands")
     @Test
     @WithMockUser
     void protectedUserIsRejectedWithoutCommands() throws Exception {
@@ -61,6 +65,7 @@ class UserDeletionIntegrationTest {
         verifyNoInteractions(commands);
     }
 
+    @DisplayName("Authenticated deletion issues only Samba removal then nonrecursive Linux account removal")
     @Test
     @WithMockUser
     void accountDeletionPreservesFiles() throws Exception {
@@ -74,6 +79,7 @@ class UserDeletionIntegrationTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Samba deletion failure returns an HTTP error without Linux deletion")
     @Test
     @WithMockUser
     void sambaFailureReturnsErrorAndStopsDeletion() throws Exception {
@@ -87,6 +93,7 @@ class UserDeletionIntegrationTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("Linux deletion failure returns an HTTP error describing partial completion")
     @Test
     @WithMockUser
     void linuxFailureReturnsPartialCompletion() throws Exception {

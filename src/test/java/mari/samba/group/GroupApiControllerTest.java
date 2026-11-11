@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -38,6 +39,7 @@ class GroupApiControllerTest {
     @MockitoBean
     private SambaGroupService groupService;
 
+    @DisplayName("Group listing returns display name, system name and members")
     @Test
     void testGetAllGroups_ShouldReturnGroups() throws Exception {
         SambaGroup group = new SambaGroup("developers", List.of("alice", "bob"), "smb_developers");
@@ -51,6 +53,7 @@ class GroupApiControllerTest {
                 .andExpect(jsonPath("$.data[0].members[0]").value("alice"));
     }
 
+    @DisplayName("Creating a group delegates its request and returns success")
     @Test
     void testCreateGroup_ShouldReturnSuccess() throws Exception {
         SambaGroupCreateDto dto = new SambaGroupCreateDto("developers", "Description");
@@ -65,6 +68,7 @@ class GroupApiControllerTest {
         verify(groupService).createGroup(anyString(), any(SambaGroupCreateDto.class));
     }
 
+    @DisplayName("Deleting a group delegates its name and returns success")
     @Test
     void testDeleteGroup_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(delete("/api/groups/developers"))
@@ -75,6 +79,7 @@ class GroupApiControllerTest {
         verify(groupService).deleteGroup(anyString(), eq("developers"));
     }
 
+    @DisplayName("Adding a member delegates user and group names and returns success")
     @Test
     void testAddUserToGroup_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(post("/api/groups/developers/users")
@@ -87,6 +92,7 @@ class GroupApiControllerTest {
         verify(groupService).addUserToGroup(anyString(), eq("alice"), eq("developers"));
     }
 
+    @DisplayName("Removing a member delegates user and group names and returns success")
     @Test
     void testRemoveUserFromGroup_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(delete("/api/groups/developers/users/alice"))

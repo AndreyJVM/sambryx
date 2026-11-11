@@ -10,14 +10,17 @@ import io.qameta.allure.Feature;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.stream.Stream;
 import mari.samba.config.SambaProperties;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -52,6 +55,7 @@ class FileSystemServiceTest {
     // Tests for listDirectories
     // ==========================================
 
+    @DisplayName("Directory listing parses mock command output and returns parent and child paths")
     @Test
     void testListDirectories_ShouldParseGivenOutput() throws Exception {
         String path = "/srv/samba";
@@ -69,6 +73,7 @@ class FileSystemServiceTest {
         assertEquals("/srv/samba/public", result.directories().get(0).fullPath());
     }
 
+    @DisplayName("Virtual root browsing returns allowed roots without commands")
     @Test
     void testListDirectories_RootPath_ShouldReturnAllowedRoots() {
         DirectoryBrowseResultDto result = fileSystemService.listDirectories(SESSION_ID, "/");
@@ -81,6 +86,7 @@ class FileSystemServiceTest {
         verifyNoInteractions(commandExecutor);
     }
 
+    @DisplayName("Directory browsing outside allowed roots throws a security exception")
     @Test
     void testListDirectories_UnauthorizedPath_ShouldThrowSecurityException() {
         assertThrows(SecurityException.class, () -> fileSystemService.listDirectories(SESSION_ID, "/etc/shadow"));
@@ -90,6 +96,7 @@ class FileSystemServiceTest {
     // Tests for createDirectory
     // ==========================================
 
+    @DisplayName("Valid directory creation issues mkdir and chmod commands")
     @Test
     void testCreateDirectory_ValidName_ShouldExecuteMkdirAndChmod() throws Exception {
         fileSystemService.createDirectory(SESSION_ID, "/srv/samba", "new_folder");
@@ -98,6 +105,7 @@ class FileSystemServiceTest {
         verify(commandExecutor).execute(eq(SESSION_ID), eq(LinuxCommands.chmod("0775", "/srv/samba/new_folder")));
     }
 
+    @DisplayName("Unsafe directory name throws an argument exception")
     @Test
     void testCreateDirectory_InvalidName_ShouldThrowIllegalArgumentException() {
         assertThrows(
@@ -105,9 +113,9 @@ class FileSystemServiceTest {
                 () -> fileSystemService.createDirectory(SESSION_ID, "/srv/samba", "bad;folder*name"));
     }
 
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", " ", ".", "..", "nested/folder", "nested\\folder", "bad;name", "bad\nname"})
+    @DisplayName("Invalid entry names prevent directory creation and upload commands")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidEntryNames")
     void invalidEntryNamesAreRejectedBeforeAnyCommand(String name) {
         assertAll(
                 () -> assertThrows(
@@ -119,7 +127,8 @@ class FileSystemServiceTest {
         verifyNoInteractions(commandExecutor);
     }
 
-    @ParameterizedTest
+    @DisplayName("Regular entry names remain valid for directory creation and upload commands")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {".hidden", "archive.tar.gz", "team_2026-10"})
     void regularEntryNamesRemainAllowed(String name) {
         String path = "/srv/" + name;
@@ -132,6 +141,7 @@ class FileSystemServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Directory creation outside allowed parents throws a security exception")
     @Test
     void testCreateDirectory_UnauthorizedParent_ShouldThrowSecurityException() {
         assertThrows(
@@ -142,6 +152,7 @@ class FileSystemServiceTest {
     // Tests for getDiskUsage
     // ==========================================
 
+    @DisplayName("Disk usage parses mock df output into percentage, mount point and formatted size")
     @Test
     void testGetDiskUsage_ValidDfOutput_ShouldParseCorrectly() throws Exception {
         String path = "/srv/samba";
@@ -159,8 +170,9 @@ class FileSystemServiceTest {
         assertTrue(result.total().contains("GB"));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"0 1 1024 0% /srv", "1024 0 1 100% /data"})
+    @DisplayName("Disk usage normalizes the path and parses only the first data row")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("diskUsageRows")
     void diskUsagePreservesSizesAndMountPoint(String row) {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.df("/srv")))
                 .thenReturn("Filesystem 1024-blocks Used Available Capacity Mounted on\r\n/dev/test " + row
@@ -176,9 +188,9 @@ class FileSystemServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", "  ", "header", "header\nshort row", "header\n/dev/test bad 1 2 3% /srv"})
+    @DisplayName("Malformed disk usage output preserves the expected failure and cause")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("malformedDiskUsageOutputs")
     void diskUsagePreservesMalformedOutputFailures(String output) {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.df("/srv"))).thenReturn(output);
 
@@ -202,6 +214,7 @@ class FileSystemServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Disk usage outside allowed roots throws a security exception")
     @Test
     void testGetDiskUsage_UnauthorizedPath_ShouldThrowSecurityException() {
         assertThrows(SecurityException.class, () -> fileSystemService.getDiskUsage(SESSION_ID, "/etc"));
@@ -211,6 +224,7 @@ class FileSystemServiceTest {
     // Tests for downloadFile
     // ==========================================
 
+    @DisplayName("File download decodes mock base64 output into original bytes")
     @Test
     void testDownloadFile_ValidPath_ShouldReturnDecodedBytes() throws Exception {
         String path = "/srv/samba/test.txt";
@@ -226,14 +240,15 @@ class FileSystemServiceTest {
         assertArrayEquals(content.getBytes(StandardCharsets.UTF_8), result);
     }
 
+    @DisplayName("File download outside allowed roots throws a security exception")
     @Test
     void testDownloadFile_UnauthorizedPath_ShouldThrowSecurityException() {
         assertThrows(SecurityException.class, () -> fileSystemService.downloadFile(SESSION_ID, "/etc/shadow"));
     }
 
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", "  ", "/", "//", "/./", "/srv/..", "relative", "/etc", "/srv-other/file"})
+    @DisplayName("Invalid paths reject file operations before commands")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidOperationPaths")
     void fileOperationsRejectInvalidPathsBeforeExecutingCommands(String path) {
         Class<? extends RuntimeException> expected =
                 path == null || path.isBlank() ? IllegalArgumentException.class : SecurityException.class;
@@ -250,7 +265,8 @@ class FileSystemServiceTest {
         verifyNoInteractions(commandExecutor);
     }
 
-    @ParameterizedTest
+    @DisplayName("Allowed root directories cannot be deleted or moved")
+    @ParameterizedTest(name = "{argumentsWithNames}")
     @ValueSource(strings = {"/srv", "/srv/", "/srv/child/..", "/data", "/mnt"})
     void allowedRootsCannotBeDeletedOrMoved(String path) {
         assertThrows(SecurityException.class, () -> fileSystemService.deleteItem(SESSION_ID, path));
@@ -258,6 +274,7 @@ class FileSystemServiceTest {
         verifyNoInteractions(commandExecutor);
     }
 
+    @DisplayName("File operations normalize paths and accept allowed roots as destinations")
     @Test
     void validOperationsNormalizePathsAndAllowRootAsDestinationDirectory() {
         fileSystemService.copyItem(SESSION_ID, "/srv/folder/../file.txt", "/data/");
@@ -272,6 +289,7 @@ class FileSystemServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("Filesystem root disk usage remains available through the mock command")
     @Test
     void rootDiskUsageRemainsAvailable() {
         when(commandExecutor.execute(SESSION_ID, LinuxCommands.df("/")))
@@ -285,10 +303,54 @@ class FileSystemServiceTest {
         verifyNoMoreInteractions(commandExecutor);
     }
 
+    @DisplayName("General directory guard rejects null and virtual root without commands")
     @Test
     void generalPathGuardDoesNotTreatVirtualRootAsAnAllowedDirectory() {
         assertThrows(SecurityException.class, () -> fileSystemService.requireAllowedPath(null));
         assertThrows(SecurityException.class, () -> fileSystemService.requireAllowedPath("/"));
         verifyNoInteractions(commandExecutor);
+    }
+
+    private static Stream<Named<String>> invalidEntryNames() {
+        return Stream.of(
+                Named.of("null name", null),
+                Named.of("empty name", ""),
+                Named.of("blank name", " "),
+                Named.of("current directory", "."),
+                Named.of("parent directory", ".."),
+                Named.of("forward slash", "nested/folder"),
+                Named.of("backslash", "nested\\folder"),
+                Named.of("shell separator", "bad;name"),
+                Named.of("newline", "bad\nname"));
+    }
+
+    private static Stream<Named<String>> malformedDiskUsageOutputs() {
+        return Stream.of(
+                Named.of("null output", null),
+                Named.of("empty output", ""),
+                Named.of("blank output", "  "),
+                Named.of("missing data row", "header"),
+                Named.of("short data row", "header\nshort row"),
+                Named.of("invalid numeric field", "header\n/dev/test bad 1 2 3% /srv"));
+    }
+
+    private static Stream<Named<String>> diskUsageRows() {
+        return Stream.of(
+                Named.of("zero total and zero percent", "0 1 1024 0% /srv"),
+                Named.of("zero used and full percentage", "1024 0 1 100% /data"));
+    }
+
+    private static Stream<Named<String>> invalidOperationPaths() {
+        return Stream.of(
+                Named.of("null path", null),
+                Named.of("empty path", ""),
+                Named.of("blank path", "  "),
+                Named.of("virtual root", "/"),
+                Named.of("repeated root separator", "//"),
+                Named.of("root dot segment", "/./"),
+                Named.of("parent resolves to root", "/srv/.."),
+                Named.of("relative path", "relative"),
+                Named.of("outside allowed roots", "/etc"),
+                Named.of("allowed root prefix collision", "/srv-other/file"));
     }
 }

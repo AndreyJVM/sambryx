@@ -13,6 +13,7 @@ import mari.samba.infra.ExecutionSessionManager;
 import mari.samba.infra.LinuxCommands;
 import mari.samba.infra.SshSessionManager;
 import mari.samba.session.AdministratorSessions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -39,6 +40,7 @@ class SystemUserLookupIntegrationTest {
     @Autowired
     private AdministratorSessions lifecycle;
 
+    @DisplayName("Anonymous system user lookup returns unauthorized without commands")
     @Test
     void anonymousLookupDoesNotExecuteSystemCommands() throws Exception {
         mvc.perform(get("/api/users/system")).andExpect(status().isUnauthorized());
@@ -46,6 +48,7 @@ class SystemUserLookupIntegrationTest {
         verifyNoInteractions(commands);
     }
 
+    @DisplayName("Authenticated lookup returns only account names using the current mock SSH session")
     @Test
     @WithMockUser
     void authenticatedLookupReturnsOnlyAccountNamesForCurrentSession() throws Exception {
@@ -61,6 +64,7 @@ class SystemUserLookupIntegrationTest {
         verifyNoMoreInteractions(commands);
     }
 
+    @DisplayName("System user lookup execution failure returns an HTTP error")
     @Test
     @WithMockUser
     void failedLookupReturnsErrorInsteadOfEmptySuccess() throws Exception {

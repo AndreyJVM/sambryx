@@ -11,6 +11,7 @@ import io.qameta.allure.Feature;
 import mari.samba.infra.CommandResult;
 import mari.samba.infra.SshSessionManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,6 +38,7 @@ class ShareAccessApiIntegrationTest {
         SecurityContextHolder.clearContext();
     }
 
+    @DisplayName("Anonymous access diagnostics return unauthorized without SSH calls")
     @Test
     void anonymousCannotDiagnose() throws Exception {
         mvc.perform(get("/api/shares/team/access-check").param("username", "alice"))
@@ -44,6 +46,7 @@ class ShareAccessApiIntegrationTest {
         verifyNoInteractions(ssh);
     }
 
+    @DisplayName("Authenticated diagnostics report unavailable share using read commands")
     @Test
     void authenticatedReportUsesRealServicesAndOnlyReadCommands() throws Exception {
         var session = login();
@@ -71,6 +74,7 @@ class ShareAccessApiIntegrationTest {
         verify(ssh).execute(session.getId(), "cat -- '/etc/samba/smb.conf'");
     }
 
+    @DisplayName("Invalid username returns bad request before mock SSH inspection")
     @Test
     void invalidUsernameIsRejectedBeforeRemoteInspection() throws Exception {
         var session = login();
@@ -80,6 +84,7 @@ class ShareAccessApiIntegrationTest {
         verifyNoInteractions(ssh);
     }
 
+    @DisplayName("Configuration read failure returns unknown findings without remote details")
     @Test
     void configurationReadFailureIsSanitized() throws Exception {
         var session = login();

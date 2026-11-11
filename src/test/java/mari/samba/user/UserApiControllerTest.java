@@ -16,6 +16,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -39,6 +40,7 @@ class UserApiControllerTest {
     @MockitoBean
     private SambaUserService sambaUserService;
 
+    @DisplayName("User listing returns username and full name from the mock service")
     @Test
     void testGetAllUsers_ShouldReturnUsersList() throws Exception {
         SambaUser testUser = new SambaUser("johndoe", "John Doe", true, "/home/johndoe", "/bin/bash");
@@ -51,6 +53,7 @@ class UserApiControllerTest {
                 .andExpect(jsonPath("$.data[0].fullName").value("John Doe"));
     }
 
+    @DisplayName("Creating a user delegates account fields and returns success")
     @Test
     void testCreateUser_ShouldReturnSuccessMsg() throws Exception {
         SambaUserCreateDto dto = new SambaUserCreateDto("johndoe", "John Doe", "Secret@123");
@@ -65,6 +68,7 @@ class UserApiControllerTest {
         verify(sambaUserService).createUser(anyString(), eq("johndoe"), eq("Secret@123"), eq("John Doe"));
     }
 
+    @DisplayName("Deleting a user delegates its username and returns success")
     @Test
     void testDeleteUser_ShouldReturnSuccessMsg() throws Exception {
         mockMvc.perform(delete("/api/users/johndoe"))
@@ -75,6 +79,7 @@ class UserApiControllerTest {
         verify(sambaUserService).deleteUser(anyString(), eq("johndoe"));
     }
 
+    @DisplayName("Changing a password delegates its value and returns success")
     @Test
     void testChangePassword_ShouldReturnSuccessMsg() throws Exception {
         Map<String, String> body = Map.of("newPassword", "NewSecret@123");

@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -39,6 +40,7 @@ class ShareApiControllerTest {
     @MockitoBean
     private SambaShareService shareService;
 
+    @DisplayName("Share listing returns names and paths from the mock service")
     @Test
     void testGetAllShares_ShouldReturnShares() throws Exception {
         SambaShare share =
@@ -53,6 +55,7 @@ class ShareApiControllerTest {
                 .andExpect(jsonPath("$.data[0].path").value("/srv/samba/public"));
     }
 
+    @DisplayName("Share lookup returns the requested share from the mock service")
     @Test
     void testGetShareByName_ShouldReturnShare() throws Exception {
         SambaShare share =
@@ -66,6 +69,7 @@ class ShareApiControllerTest {
                 .andExpect(jsonPath("$.data.name").value("private"));
     }
 
+    @DisplayName("Share size endpoint returns the mock service size and success message")
     @Test
     void testGetShareSize_ShouldReturnSize() throws Exception {
         when(shareService.getShareSize(anyString(), eq("private"))).thenReturn("15GB");
@@ -77,6 +81,7 @@ class ShareApiControllerTest {
                 .andExpect(jsonPath("$.data").value("15GB"));
     }
 
+    @DisplayName("Creating a share delegates its request and returns success")
     @Test
     void testCreateShare_ShouldReturnSuccess() throws Exception {
         SambaShareCreateDto dto = SambaShareCreateDto.builder()
@@ -95,6 +100,7 @@ class ShareApiControllerTest {
         verify(shareService).createShare(anyString(), any(SambaShareCreateDto.class));
     }
 
+    @DisplayName("Updating a share delegates its name and request and returns success")
     @Test
     void testUpdateShare_ShouldReturnSuccess() throws Exception {
         SambaShareCreateDto dto = SambaShareCreateDto.builder()
@@ -112,6 +118,7 @@ class ShareApiControllerTest {
         verify(shareService).updateShare(anyString(), eq("data-share"), any(SambaShareCreateDto.class));
     }
 
+    @DisplayName("Deleting a share delegates its name and returns a success message")
     @Test
     void testDeleteShare_ShouldReturnSuccess() throws Exception {
         mockMvc.perform(delete("/api/shares/test-delete"))
