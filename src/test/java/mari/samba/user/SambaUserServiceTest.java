@@ -215,6 +215,94 @@ class SambaUserServiceTest {
                 () -> sambaUserService.changePassword(SESSION_ID, "bob", "pass\nattack"));
     }
 
+    @DisplayName("User creation stops at the failed stage without later commands or automatic rollback")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"Linux account", "Linux password", "Samba account", "Samba enable"})
+    void creationFailureStopsRemainingAccountChanges(String stage) {
+        String username = "alice";
+        String password = "synthetic-password";
+        var failure = new SambaCommandException("Account operation failed");
+        if (!stage.equals("Linux account")) {
+            when(commandExecutor.execute(SESSION_ID, LinuxCommands.addSystemUserWithHome(username, "Alice")))
+                    .thenReturn("");
+        }
+        if (stage.equals("Samba account") || stage.equals("Samba enable")) {
+            when(commandExecutor.execute(SESSION_ID, LinuxCommands.chpasswd(), username + ":" + password + "\n"))
+                    .thenReturn("");
+        }
+        if (stage.equals("Samba enable")) {
+            when(commandExecutor.execute(
+                            SESSION_ID, LinuxCommands.addSambaUser(username), password + "\n" + password + "\n"))
+                    .thenReturn("");
+        }
+        switch (stage) {
+            case "Linux account" -> when(commandExecutor.execute(
+                            SESSION_ID, LinuxCommands.addSystemUserWithHome(username, "Alice")))
+                    .thenThrow(failure);
+            case "Linux password" -> when(commandExecutor.execute(
+                            SESSION_ID, LinuxCommands.chpasswd(), username + ":" + password + "\n"))
+                    .thenThrow(failure);
+            case "Samba account" -> when(commandExecutor.execute(
+                            SESSION_ID, LinuxCommands.addSambaUser(username), password + "\n" + password + "\n"))
+                    .thenThrow(failure);
+            case "Samba enable" -> when(commandExecutor.execute(SESSION_ID, LinuxCommands.enableSambaUser(username)))
+                    .thenThrow(failure);
+            default -> throw new IllegalArgumentException("Unknown creation stage");
+        }
+
+        assertSame(
+                failure,
+                assertThrows(
+                        SambaCommandException.class,
+                        () -> sambaUserService.createUser(SESSION_ID, username, password, "Alice")));
+
+        var order = inOrder(commandExecutor);
+        order.verify(commandExecutor).execute(SESSION_ID, LinuxCommands.addSystemUserWithHome(username, "Alice"));
+        if (!stage.equals("Linux account")) {
+            order.verify(commandExecutor)
+                    .execute(SESSION_ID, LinuxCommands.chpasswd(), username + ":" + password + "\n");
+        }
+        if (stage.equals("Samba account") || stage.equals("Samba enable")) {
+            order.verify(commandExecutor)
+                    .execute(SESSION_ID, LinuxCommands.addSambaUser(username), password + "\n" + password + "\n");
+        }
+        if (stage.equals("Samba enable")) {
+            order.verify(commandExecutor).execute(SESSION_ID, LinuxCommands.enableSambaUser(username));
+        }
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
+    @DisplayName("Password rotation propagates a failed stage without subsequent changes or rollback")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"Linux password", "Samba password"})
+    void passwordFailureStopsRemainingChanges(String stage) {
+        String linuxInput = "alice:synthetic-password\n";
+        String sambaInput = "synthetic-password\nsynthetic-password\n";
+        var failure = new SambaCommandException("Password operation failed");
+        if (stage.equals("Linux password")) {
+            when(commandExecutor.execute(SESSION_ID, LinuxCommands.chpasswd(), linuxInput))
+                    .thenThrow(failure);
+        } else {
+            when(commandExecutor.execute(SESSION_ID, LinuxCommands.chpasswd(), linuxInput))
+                    .thenReturn("");
+            when(commandExecutor.execute(SESSION_ID, LinuxCommands.changeSambaPassword("alice"), sambaInput))
+                    .thenThrow(failure);
+        }
+
+        assertSame(
+                failure,
+                assertThrows(
+                        SambaCommandException.class,
+                        () -> sambaUserService.changePassword(SESSION_ID, "alice", "synthetic-password")));
+
+        var order = inOrder(commandExecutor);
+        order.verify(commandExecutor).execute(SESSION_ID, LinuxCommands.chpasswd(), linuxInput);
+        if (stage.equals("Samba password")) {
+            order.verify(commandExecutor).execute(SESSION_ID, LinuxCommands.changeSambaPassword("alice"), sambaInput);
+        }
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
     private static Stream<Named<String>> emptyAccountOutputs() {
         return Stream.of(Named.of("null output", null), Named.of("empty output", ""), Named.of("blank output", "   "));
     }
