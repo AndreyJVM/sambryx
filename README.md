@@ -122,7 +122,30 @@ Vite dev-сервер доступен на `http://localhost:5173/ui/` с ав�
 CI всегда запускает `Select Checks` и итоговый `Quality Gate`, включая изменения только
 документации. Основной путь — прямой fast-forward push в `master`, затем один
 применимый цикл CI. PR и remote feature branch не обязательны; workflows CI и CodeQL
-не запускаются на PR. Для больших работ можно использовать локальную ветку или worktree.
+не выполняют тяжёлые проверки на human PR. Для больших работ можно использовать локальную ветку или worktree.
+
+Исключение — PR с автором `dependabot[bot]`: существующий CI проверяет merge commit
+с read-only `contents` permission, без repository secrets и сохранённых checkout credentials.
+Автор берётся из PR, поэтому ручной rerun не меняет выбор проверок. Для human PR
+`Quality Gate` явно сообщает о проверках после push; предварительную валидацию он не подтверждает.
+
+| Dependabot PR | Проверки до merge |
+|---|---|
+| Root `pom.xml` | Backend, упаковка JAR, disposable Docker/Compose/SSH/SMB smoke |
+| `frontend/package.json`, `frontend/package-lock.json` | Frontend lint/unit/build, JAR, browser smoke |
+| `tools/browser/pom.xml` | Browser smoke и branding render |
+| `tools/smoke/pom.xml` | JAR и disposable integration smoke |
+| Actions, неизвестные пути или ненадёжный diff | Полный набор без публикации |
+
+Каждый bot PR также запускает существующие CI regression guards. Для PR используется
+полный diff от merge-base base/head, включая несколько коммитов; смешанные пути объединяются.
+Выбранные jobs должны успешно пройти gate; неожиданный skip считается ошибкой.
+Registry login, release и write token доступны только отдельной release job при успешном tag push.
+CodeQL и jobs публикации документации/Docker Hub README остаются только на прежних событиях.
+Перед merge вручную проверьте diff, release notes, совместимость и результаты checks.
+Обновления Actions публикации проверяются статическими regression guards и сборкой;
+реальная публикация проверяется отдельно на разрешённом событии. Auto-merge и auto-approval отсутствуют.
+`dependabot.yml` задаёт version updates, но не включает repository Dependabot alerts/security updates.
 
 | Изменения | Проверки CI |
 |---|---|

@@ -9,13 +9,33 @@ ROOT = Path(__file__).resolve().parents[3]
 
 class WorkflowConfigTest(unittest.TestCase):
     def test_primary_and_security_workflows_do_not_duplicate_pr_runs(self):
-        for name in ('ci.yml', 'codeql.yml'):
+        for name in ('codeql.yml',):
             with self.subTest(workflow=name):
                 workflow = (ROOT / '.github/workflows' / name).read_text()
                 events = workflow.split('on:\n', 1)[1].split('\nconcurrency:', 1)[0].split('\npermissions:', 1)[0]
                 self.assertIn('  push:\n', events)
                 self.assertNotIn('  pull_request:', events)
                 self.assertIn('master', events)
+
+    def test_dependency_pr_is_read_only_and_human_pr_has_explicit_gate(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn('  pull_request:\n', workflow)
+        self.assertNotIn('pull_request_target', workflow)
+        classify = re.search(r'\n  classify:\n(.*?)(?=\n  documents:)', workflow, re.S).group(1)
+        self.assertIn("github.event.pull_request.user.login == 'dependabot[bot]'", classify)
+        self.assertIn("github.event_name != 'pull_request'", classify)
+        self.assertIn('Test CI regression guards', classify)
+        gate = re.search(r'\n  quality-gate:\n(.*?)(?=\n  release:)', workflow, re.S).group(1)
+        self.assertIn('Explain human PR policy', gate)
+        self.assertIn("github.event.pull_request.user.login != 'dependabot[bot]'", gate)
+        self.assertIn("github.event_name != 'pull_request'", gate)
+        release = workflow.split('\n  release:', 1)[1]
+        self.assertIn("github.event_name == 'push'", release)
+        self.assertIn("startsWith(github.ref, 'refs/tags/v')", release)
+        self.assertNotIn('secrets.', workflow.split('\n  release:', 1)[0])
+        self.assertNotIn('contents: write', workflow.split('\n  release:', 1)[0])
+        for checkout in re.split(r'uses: actions/checkout@[^\s]+', workflow)[1:]:
+            self.assertIn('persist-credentials: false', checkout.split('      - ', 1)[0])
 
     def test_master_cancellation_and_release_serialization_are_preserved(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
@@ -30,7 +50,7 @@ class WorkflowConfigTest(unittest.TestCase):
         for job in ('production-compose-smoke', 'release'):
             block = re.search(r'\n  ' + job + r':\n(.*?)(?=\n  [a-z][a-z-]*:\n|\Z)', workflow, re.S).group(1)
             with self.subTest(job=job):
-                self.assertIn('uses: actions/setup-java@v4', block)
+                self.assertRegex(block, r'uses: actions/setup-java@[^\s]+')
                 self.assertIn("java-version: '21'", block)
                 self.assertIn('cache-dependency-path: tools/smoke/pom.xml', block)
         self.assertNotIn('smoke-docker.sh', workflow)
@@ -71,7 +91,7 @@ class WorkflowConfigTest(unittest.TestCase):
         report = next((step for step in steps if 'run: bash ./mvnw -B allure:report' in step), '')
         self.assertTrue(report, 'Backend job must generate the Allure HTML report')
         self.assertIn("if: ${{ !cancelled() && hashFiles('target/allure-results/*-result.json') != '' }}", report)
-        uploads = [step for step in steps if 'uses: actions/upload-artifact@v4' in step]
+        uploads = [step for step in steps if re.search(r'uses: actions/upload-artifact@[^\s]+', step)]
         for name, path, pattern in (
                 ('backend-allure-results', 'target/allure-results/', 'target/allure-results/*-result.json'),
                 ('backend-allure-report', 'target/site/allure-maven-plugin/',

@@ -41,6 +41,22 @@ class SelectionTest(unittest.TestCase):
             with self.subTest(files=files):
                 self.assertEqual(scope.select(files), scope.FULL)
 
+    def test_dependency_pr_selects_consumers_without_secrets(self):
+        cases = {
+            "frontend/package.json": {"frontend", "package", "browser"},
+            "frontend/package-lock.json": {"frontend", "package", "browser"},
+            "pom.xml": {"backend", "package", "integration"},
+            "tools/browser/pom.xml": {"assets", "browser"},
+            "tools/smoke/pom.xml": {"package", "integration"},
+            ".github/workflows/ci.yml": scope.FULL,
+            "unknown": scope.FULL,
+        }
+        for path, expected in cases.items():
+            with self.subTest(path=path):
+                self.assertEqual(scope.select([path], dependency_pr=True), expected)
+        self.assertEqual(scope.select(["pom.xml", "frontend/package-lock.json"], dependency_pr=True),
+                         {"backend", "package", "integration", "frontend", "browser"})
+
     def test_union_and_rename_include_both_sides(self):
         self.assertEqual(scope.select(["README.md", "src/test/java/example/Test.java"]),
                          {"documents", "backend", "package"})
@@ -121,6 +137,35 @@ class RangeTest(unittest.TestCase):
         event["pull_request"]["head"]["sha"] = self.git("rev-parse", "HEAD")
         self.assertEqual(set(scope.changes(event, "pull_request", "refs/pull/1/merge")),
                          {"src/main/java/First.java", "docs/second.md"})
+
+    def test_bot_pr_command_selects_entire_range_independent_of_rerun_actor(self):
+        import json
+        import os
+        import subprocess
+        self.git("checkout", "-qb", "dependabot")
+        self.commit("pom.xml")
+        self.commit("frontend/package-lock.json")
+        event = {"pull_request": {"user": {"login": "dependabot[bot]"},
+                                  "base": {"sha": self.base},
+                                  "head": {"sha": self.git("rev-parse", "HEAD")}}}
+        event_path = Path("event.json").resolve()
+        event_path.write_text(json.dumps(event))
+        output = Path("output").resolve()
+        result = subprocess.run(["python3", str(Path(scope.__file__)), "classify"],
+            env={**os.environ, "GITHUB_EVENT_PATH": str(event_path),
+                 "GITHUB_EVENT_NAME": "pull_request", "GITHUB_REF": "refs/pull/1/merge",
+                 "GITHUB_ACTOR": "human-reviewer", "GITHUB_OUTPUT": str(output)},
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+        expected = scope.plan({"backend", "frontend", "package", "browser", "integration"})
+        self.assertEqual(json.loads(values["plan"]), expected)
+        needs = {job: {"result": "success" if required else "skipped"}
+                 for job, required in expected.items()}
+        needs["classify"] = {"result": "success"}
+        self.assertTrue(scope.gate(expected, needs))
+        for status in ("failure", "cancelled", "skipped"):
+            self.assertFalse(scope.gate(expected, {**needs, "backend": {"result": status}}))
 
     def test_push_includes_all_commits_and_deleted_rename_source(self):
         self.commit("docs/second.md")

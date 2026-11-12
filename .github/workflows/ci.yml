@@ -5,6 +5,8 @@ on:
     branches: [ "master", "main" ]
     tags:
       - 'v*.*.*'
+  pull_request:
+    branches: [ "master", "main" ]
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +18,7 @@ permissions:
 
 jobs:
   classify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'dependabot[bot]'
     name: Select Checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -32,7 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
+      - name: Test CI regression guards
+        if: github.event_name == 'pull_request'
+        run: python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
       - name: Select checks from complete event range
         id: scope
         run: python3 scripts/ci/checks/scope.py classify
@@ -45,6 +52,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Check local links, images, anchors and UTF-8
         run: python3 scripts/ci/checks/documents.py
       - name: Install documentation builder
@@ -62,6 +71,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Validate passive SVG assets
         run: python3 scripts/ci/checks/documents.py assets
       - name: Set up JDK 21 for browser checks
@@ -97,6 +108,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '20.15.0'
@@ -115,6 +128,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -160,6 +175,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Check shell script syntax
@@ -203,6 +219,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Set up JDK 21 for browser checks
         uses: actions/setup-java@v4
         with:
@@ -252,6 +270,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 21 for Java smoke tests
         uses: actions/setup-java@v4
@@ -297,8 +317,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Explain human PR policy
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+        run: echo 'Human PR checks run after push to master/main; dependency PR checks apply only to Dependabot authors.'
       - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'dependabot[bot]'
+        with:
+          persist-credentials: false
       - name: Require exactly the selected successful checks
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'dependabot[bot]'
         env:
           EXPECTED_PLAN: ${{ needs.classify.outputs.plan }}
           JOB_RESULTS: ${{ toJSON(needs) }}
@@ -321,6 +348,8 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 21 for Java smoke tests
         uses: actions/setup-java@v4

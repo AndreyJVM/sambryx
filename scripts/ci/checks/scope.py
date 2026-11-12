@@ -14,9 +14,19 @@ BRANDING = {f"frontend/public/sambryx/{name}.svg" for name in
             ("logo-full-dark", "logo-full-light", "logo-mark", "favicon")}
 
 
-def select(paths):
+def select(paths, dependency_pr=False):
     selected = set()
+    dependencies = {
+        "frontend/package.json": {"frontend", "package", "browser"},
+        "frontend/package-lock.json": {"frontend", "package", "browser"},
+        "pom.xml": {"backend", "package", "integration"},
+        "tools/browser/pom.xml": {"assets", "browser"},
+        "tools/smoke/pom.xml": {"package", "integration"},
+    }
     for path in paths:
+        if dependency_pr and path in dependencies:
+            selected.update(dependencies[path])
+            continue
         if path.startswith("tools/browser/"):
             return set(FULL)
         if path.startswith(tuple(f"src/main/java/mari/samba/{area}/" for area in
@@ -109,7 +119,9 @@ def main():
         try:
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
             paths = changes(event, os.environ["GITHUB_EVENT_NAME"], os.environ["GITHUB_REF"])
-            selected = select(paths)
+            dependency_pr = (os.environ["GITHUB_EVENT_NAME"] == "pull_request"
+                             and event["pull_request"]["user"]["login"] == "dependabot[bot]")
+            selected = select(paths, dependency_pr=dependency_pr)
             reason = "complete Git diff" if paths else "empty diff; full verification"
         except (ValueError, KeyError, TypeError, OSError, subprocess.CalledProcessError) as error:
             selected = set(FULL)
