@@ -1,3 +1,5 @@
+**English** | [Русский](README.ru.md)
+
 <p align="center">
   <img src="frontend/public/sambryx/logo-full-light.svg" alt="Sambryx" width="192" height="64">
 </p>
@@ -10,36 +12,41 @@
   <img src="https://img.shields.io/badge/Docs-MkDocs%20Material-purple.svg" alt="Documentation">
 </p>
 
-**Sambryx** — это современная веб-панель управления файловыми серверами Samba на Linux.
-Позволяет системным администраторам централизованно управлять каталогами, учетными записями,
-правами доступа и глобальными параметрами `smb.conf`. Управляемый сервер подключается по SSH. Основной способ поставки панели — Docker.
+<p align="center">
+  <img src="docs/assets/screenshots/dashboard.png" alt="Sambryx Dashboard showing service status, active sessions, open files and disk usage with demo data" width="1440">
+</p>
 
-## Документация
+*Dashboard preview with demo data.*
 
-Полное руководство пользователя, инструкции по настройке и описание архитектуры доступны в **[документации](https://AndreyJVM.github.io/sambryx/)**
+**Sambryx** is a web control panel for Samba file servers on Linux.
+It lets administrators manage shares, accounts, access permissions and global
+`smb.conf` settings through SSH. Docker is the primary distribution format.
 
-## Установка с Docker
+## Documentation
 
-Для одного администратора с существующим Samba-сервером начните с
-[быстрого старта](docs/quickstart.md): готовый образ, Docker Compose и HTTPS через Nginx.
-На машине с панелью нужны Docker Engine, Compose и доверенный TLS-сертификат;
-JDK, Maven и Node.js для установки не нужны.
+The **[documentation](https://AndreyJVM.github.io/sambryx/)** provides user guides,
+configuration instructions and architecture details. The linked guides are in Russian.
 
-Перед первым входом подготовьте [сервер](docs/server-setup.md) и
-[доверенные SSH-ключи](docs/ssh-host-keys.md). Форма принимает SSH-реквизиты сервера;
-отдельная учётная запись панели не создаётся.
+## Docker installation
 
-[Production-инструкция](docs/production.md) содержит команды установки, `.env`,
-проверку готовности и дополнительный вариант со встроенным Samba-узлом.
-При обновлении существующей установки см. [переход на Sambryx](docs/renaming.md).
+For one administrator with an existing Samba server, start with the
+[quick start](docs/quickstart.md): a prebuilt image, Docker Compose and HTTPS through Nginx.
+The panel host needs Docker Engine, Compose and a trusted TLS certificate;
+JDK, Maven and Node.js are not required for installation.
 
-## Локальная разработка и тестирование (Sandbox)
+Before signing in, prepare the [server](docs/server-setup.md) and
+[trusted SSH host keys](docs/ssh-host-keys.md). Sign in with the server's SSH credentials;
+there is no separate panel account.
 
-Для локальной разработки и тестирования проекта мы подготовили изолированное окружение (Sandbox). Оно автоматически поднимает контейнер с сервером Samba/SSH и собирает локальный образ веб-интерфейса, чтобы вы могли тестировать функционал без изменения настроек вашей реальной машины.
+The [production guide](docs/production.md) covers installation commands, `.env`,
+readiness checks and an optional bundled Samba node.
+For an existing installation, see [migration to Sambryx](docs/renaming.md).
 
-**Настоятельно рекомендуется запускать тестовый стенд через специальный скрипт**, который корректно соберет окружение, дождется готовности сервисов, а после завершения работы — аккуратно удалит все временные ресурсы (контейнеры, сети и тома), чтобы каждый новый запуск был чистым.
+## Local development and testing (Sandbox)
 
-Для запуска выполните:
+The isolated Sandbox starts a Samba/SSH server container and builds a local panel image,
+so you can test without changing your real server. Use the launcher to build the environment,
+wait for services and remove temporary containers, networks and volumes when finished.
 
 **Linux / macOS:**
 ```bash
@@ -51,169 +58,73 @@ JDK, Maven и Node.js для установки не нужны.
 bash scripts/sandbox/run-sandbox.sh
 ```
 
----
+### How the Sandbox works
 
-### Что под капотом песочницы:
-1. **Сборка фронтенда и бэкенда** прямо на хосте (быстро с локальным Maven кэшем `.m2` без долгого скачивания библиотек).
-2. **Docker Compose** поднимает:
-   - `samba-node`: Узел Ubuntu с реальным Samba-сервером и SSH (порт `2222` и SMB `1445`, `1139`).
-   - `web`: Локальный контейнер Web UI на `http://localhost:8080/ui`.
-3. **Автоматическая очистка**: при завершении скрипта (Ctrl+C или Enter) скрипт вычищает все временные контейнеры и тома.
+1. Builds frontend and backend on the host using the local Maven `.m2` cache.
+2. Starts Docker Compose services:
+   - `samba-node`: Ubuntu with Samba and SSH (SSH port `2222`, SMB ports `1445` and `1139`).
+   - `web`: the local panel at `http://localhost:8080/ui`.
+3. Removes temporary containers and volumes when the launcher exits (Ctrl+C or Enter).
 
-Подробнее о песочнице и параметрах читайте в [docker/README.md](docker/README.md).
+See [docker/README.md](docker/README.md) for details and configuration options.
 
-## Способ поставки
+## Distribution
 
-Sambryx поставляется в Docker-образе с JRE 21 и управляет Samba-серверами через SSH.
-Java на управляемом сервере не требуется. Используется один стандартный образ;
-Debian/Ubuntu — целевые семейства серверов и хостов, без отдельных образов панели.
-Стенды используют Samba-узлы Ubuntu 22.04 и 24.04; это не подтверждение всех версий
-Debian/Ubuntu. Границы проверок и статус Astra приведены в [руководстве по поставкам](docs/distribution.md).
+Sambryx ships as a Docker image with JRE 21 and manages Samba servers over SSH.
+Java is not required on the managed server. A single standard panel image is used;
+Debian/Ubuntu are the target server and host families.
+Test environments use Ubuntu 22.04 and 24.04 Samba nodes; this does not establish
+support for every Debian/Ubuntu version. See the [distribution guide](docs/distribution.md)
+for validation limits and Astra status.
 
-## Разработка
+## Development
 
-Docker использует собранный JAR с frontend. Перед локальной сборкой Docker-образа
-выполните `./mvnw clean package`. Проверки артефактов и команды упаковки описаны в
-[руководстве по поставкам](docs/distribution.md).
+Docker uses the packaged JAR with the frontend included. Run `./mvnw clean package`
+before building a local Docker image. The [distribution guide](docs/distribution.md)
+describes artifact checks and packaging commands.
 
-### Требования
+### Requirements
+
 - Java 21 (JDK)
-- Node.js 20+ и npm 10+
-- Docker и Docker Compose (для запуска Sandbox)
-- Python 3 (для проверки JAR в Sandbox)
+- Node.js 20+ and npm 10+
+- Docker and Docker Compose (for Sandbox)
+- Python 3 (for JAR validation in Sandbox)
 
-### Сборка проекта
+### Build
+
 ```bash
-# Сборка без тестов
+# Build without tests
 ./mvnw clean package -DskipTests
 
-# Запуск тестов
+# Run tests
 ./mvnw test
 
-# Проверка стиля кода (Spotless)
+# Check code style (Spotless)
 ./mvnw spotless:check
 
-# Автоматическое форматирование
+# Apply formatting
 ./mvnw spotless:apply
 ```
 
-### Запуск бэкенда из IDE
-Основной класс: `mari.samba.SambryxApplication`
+### Run the backend from an IDE
 
-Перед запуском из IDE убедитесь, что фронтенд собран (`cd frontend && npm run build`), либо запустите Vite dev-сервер:
+Main class: `mari.samba.SambryxApplication`.
+
+Build the frontend first (`cd frontend && npm run build`), or start the Vite development server:
+
 ```bash
 cd frontend
 npm run dev
 ```
-Vite dev-сервер доступен на `http://localhost:5173/ui/` с автопроксированием API-запросов на `http://localhost:8080`.
 
-## Тестирование интерфейса
+Vite serves `http://localhost:5173/ui/` and proxies API requests to `http://localhost:8080`.
 
-Для браузерных smoke-тестов не нужен Samba-сервер: Java/JUnit и Playwright проверяют собранный UI с
-изолированными API-фикстурами. Команды запуска, границы покрытия и диагностика CI описаны
-в [руководстве по тестированию](docs/testing.md).
+## Browser testing
 
-## Лицензия
+Browser smoke tests use Java/JUnit and Playwright against the built UI with isolated API
+fixtures; no Samba server is needed. See the [testing guide](docs/testing.md) for commands,
+coverage boundaries and CI troubleshooting.
 
-Распространяется под лицензией MIT. Подробнее см. в файле [LICENSE](LICENSE).
+## License
 
-## Выбор проверок CI
-
-CI всегда запускает `Select Checks` и итоговый `Quality Gate`, включая изменения только
-документации. Основной путь — прямой fast-forward push в `master`, затем один
-применимый цикл CI. PR и remote feature branch не обязательны; workflows CI и CodeQL
-не выполняют тяжёлые проверки на human PR. Для больших работ можно использовать локальную ветку или worktree.
-
-Исключение — PR с автором `dependabot[bot]`: существующий CI проверяет merge commit
-с read-only `contents` permission, без repository secrets и сохранённых checkout credentials.
-Автор берётся из PR, поэтому ручной rerun не меняет выбор проверок. Для human PR
-`Quality Gate` явно сообщает о проверках после push; предварительную валидацию он не подтверждает.
-
-| Dependabot PR | Проверки до merge |
-|---|---|
-| Root `pom.xml` | Backend, упаковка JAR, disposable Docker/Compose/SSH/SMB smoke |
-| `frontend/package.json`, `frontend/package-lock.json` | Frontend lint/unit/build, JAR, browser smoke |
-| `tools/browser/pom.xml` | Browser smoke и branding render |
-| `tools/smoke/pom.xml` | JAR и disposable integration smoke |
-| Actions, неизвестные пути или ненадёжный diff | Полный набор без публикации |
-
-Каждый bot PR также запускает существующие CI regression guards. Для PR используется
-полный diff от merge-base base/head, включая несколько коммитов; смешанные пути объединяются.
-Выбранные jobs должны успешно пройти gate; неожиданный skip считается ошибкой.
-Registry login, release и write token доступны только отдельной release job при успешном tag push.
-CodeQL и jobs публикации документации/Docker Hub README остаются только на прежних событиях.
-Перед merge вручную проверьте diff, release notes, совместимость и результаты checks.
-Обновления Actions публикации проверяются статическими regression guards и сборкой;
-реальная публикация проверяется отдельно на разрешённом событии. Auto-merge и auto-approval отсутствуют.
-`dependabot.yml` задаёт version updates, но не включает repository Dependabot alerts/security updates.
-
-| Изменения | Проверки CI |
-|---|---|
-| `README.md`, Markdown в `docker/` | Локальные ссылки, изображения, якоря, UTF-8 |
-| Markdown в `docs/` | Те же проверки и `mkdocs build --strict` |
-| Четыре SVG в `frontend/public/sambryx/` | Валидность пассивного SVG, браузерный рендер, frontend lint/unit/build/browser, упаковка UI в JAR |
-| Исходники и тесты frontend (`ts`, `tsx`, `js`, `mjs`, `css`) | Frontend lint/unit/build/browser, упаковка UI в JAR |
-| Java в `src/main/java/`, `src/test/java/` вне чувствительных пакетов | Spotless, backend tests/build, упаковка UI в JAR |
-| CI, scripts, Docker, SSH/delivery, конфигурация, общие зависимости и неизвестные пути | Полный набор, включая образ и Production Compose Smoke с TLS/SSH/SMB |
-| Тег релиза, ручной запуск, пустой или ненадёжный diff | Полный набор |
-
-При смешанных изменениях берётся объединение проверок. Разрешённые branding-файлы:
-`logo-full-dark.svg`, `logo-full-light.svg`, `logo-mark.svg`, `favicon.svg`.
-Другие файлы в public, entry HTML и конфигурация frontend требуют полного набора.
-Production Java-пакеты `infra`, `config`, `auth`, `session`, `smbconfig`, `fstec` также
-требуют полного набора: они отвечают за SSH, безопасность и конфигурацию Samba.
-
-Для push сравниваются реальные before/after SHA, включая все коммиты отправленного диапазона.
-Git diff читается полностью, с NUL-разделителями и обеими
-сторонами переименований, без API pagination или лимита файлов. Удаления учитываются.
-Нулевая/недоступная база, shallow history и неоднозначные статусы требуют полного набора.
-Git paths передаются как данные, без подстановки в shell.
-
-`Quality Gate` выполняется с `always()` и требует успеха каждой выбранной job.
-Failure, cancellation, неожиданный skip, отсутствие результата или ошибочная классификация
-завершают gate ошибкой. Для невыбранных jobs допустим только ожидаемый skip.
-Публикация релиза требует gate; настоящий tag не нужен для локальной проверки маршрутизации.
-
-Отдельный CodeQL параллельно выполняет три анализа на push в master, включая документацию.
-«Один цикл CI» означает отсутствие дублирования PR/master, а не единственный workflow.
-Quality Gate, CodeQL statuses и code scanning больше не являются предварительными
-условиями push: ошибочный коммит может попасть в master и исправляется следующим коммитом.
-Ruleset сохраняет запрет force-push/non-fast-forward и удаления master, без bypass actors.
-Для завершения обычной задачи достаточно выбранного основного CI; background CodeQL
-не задерживает публикацию коммита или завершение лёгкой задачи.
-
-Перед публикацией релиза по-прежнему обязательны полный Quality Gate, tests, image и
-Production Compose Smoke. Release guard требует успешный CodeQL push-run master/main
-для **точного source SHA** и успех всех трёх Analyze; старый или чужой SHA не подходит.
-Устаревшие master runs отменяются, publishing runs не отменяются посреди операции.
-Push в master не выполняет deployment приложения и не публикует release/image.
-Существующие workflows публикации документации и Docker Hub README работают отдельно.
-
-Обычный порядок работы: issue с критериями → реализация и узкая локальная проверка →
-review diff → commit и fast-forward push master → выбранный CI → закрытие issue.
-Полный backend, браузерный набор и Docker/SSH smoke локально на каждую задачу не нужны:
-при изменении поведения сначала запустите meaningful targeted test с Red → Green;
-для docs/visual правок проверьте соответствующий артефакт. Дополнительно проверьте
-`git diff --check`, форматирование/синтаксис затронутых файлов и необходимые быстрые guards.
-Полный набор для CI/security/shared/unknown изменений и релиза выполняется в облаке.
-При ошибке CI исправьте её следующим проверенным коммитом; не используйте force-push.
-
-Проверка документации не обращается ко всем внешним сайтам: она проверяет локальные ссылки,
-Markdown/HTML изображения и якоря. Strict MkDocs нужен для docs, а не для каждого SVG.
-Branding previews показывают светлую/тёмную тему на ширинах 320/1440; автоматическая проверка
-подтверждает загрузку и отсутствие overflow, но не оценивает дизайн. SVG с активным кодом
-или внешними ресурсами запрещены. Снимки доступны в artifact `branding-previews`.
-
-Локальные проверки инструментов CI:
-
-```bash
-python3 -B -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
-python3 scripts/ci/checks/documents.py
-python3 scripts/ci/checks/documents.py assets
-```
-
-Для проверки workflow при установленном actionlint выполните:
-
-```bash
-actionlint .github/workflows/*.yml
-```
+Distributed under the MIT License. See [LICENSE](LICENSE).
