@@ -96,13 +96,13 @@ class FileSystemServiceTest {
     // Tests for createDirectory
     // ==========================================
 
-    @DisplayName("Valid directory creation issues mkdir and chmod commands")
+    @DisplayName("Valid directory creation issues exclusive mkdir without follow-up chmod")
     @Test
-    void testCreateDirectory_ValidName_ShouldExecuteMkdirAndChmod() throws Exception {
+    void testCreateDirectory_ValidName_ShouldExecuteExclusiveMkdir() throws Exception {
         fileSystemService.createDirectory(SESSION_ID, "/srv/samba", "new_folder");
 
-        verify(commandExecutor).execute(eq(SESSION_ID), eq(LinuxCommands.mkdir("/srv/samba/new_folder")));
-        verify(commandExecutor).execute(eq(SESSION_ID), eq(LinuxCommands.chmod("0775", "/srv/samba/new_folder")));
+        verify(commandExecutor).execute(eq(SESSION_ID), eq(LinuxCommands.mkdirNew("/srv/samba/new_folder")));
+        verifyNoMoreInteractions(commandExecutor);
     }
 
     @DisplayName("Unsafe directory name throws an argument exception")
@@ -135,8 +135,7 @@ class FileSystemServiceTest {
         fileSystemService.createDirectory(SESSION_ID, "/srv", name);
         fileSystemService.uploadFile(SESSION_ID, "/srv", name, "ZmlsZQ==");
 
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.mkdir(path));
-        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.chmod("0775", path));
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.mkdirNew(path));
         verify(commandExecutor).execute(SESSION_ID, LinuxCommands.uploadBase64Stdin(path), "ZmlsZQ==");
         verifyNoMoreInteractions(commandExecutor);
     }

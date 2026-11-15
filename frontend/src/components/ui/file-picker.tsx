@@ -7,6 +7,8 @@ import { useToast } from "./toast";
 import { Modal } from "./modal";
 
 interface DirectoryItem { name: string; fullPath: string; type?: string; size?: number; }
+interface DirectoryPreparation { owner: string; group: string; mode: string; confirmed: boolean; }
+interface DirectoryCreation { parentPath: string; dirName: string; preparation?: DirectoryPreparation; }
 interface BrowseResult { currentPath: string; parentPath: string | null; directories: DirectoryItem[]; }
 
 interface FilePickerProps {
@@ -23,8 +25,15 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
   const [loading, setLoading] = useState(false);
   const [isCreatingDir, setIsCreatingDir] = useState(false);
   const [newDirName, setNewDirName] = useState("");
+  const [preparePrivate, setPreparePrivate] = useState(false);
+  const [owner, setOwner] = useState("");
+  const [group, setGroup] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [directoryResult, setDirectoryResult] = useState<{ error: boolean; message: string } | null>(null);
+  const creatingRef = useRef(false);
+  const [review, setReview] = useState<Required<DirectoryCreation> | null>(null);
   
-  const { error: toastError, success } = useToast();
+  const { error: toastError } = useToast();
   const { t } = useTranslation();
   const translate = useRef(t);
   useEffect(() => { translate.current = t; }, [t]);
@@ -48,6 +57,12 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
   useEffect(() => {
     if (isOpen) {
       const target = (initialPath && initialPath.trim()) ? initialPath.trim() : "/";
+      setIsCreatingDir(false);
+      setPreparePrivate(false);
+      setOwner("");
+      setGroup("");
+      setReview(null);
+      setDirectoryResult(null);
       setCurrentPath(target);
       fetchFiles(target);
     }
@@ -58,24 +73,44 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
     fetchFiles(path);
   };
 
-  const handleCreateDirectory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!newDirName) return;
+  const submitDirectory = async (request: DirectoryCreation) => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    setCreating(true);
+    setDirectoryResult(null);
+    setReview(null);
     try {
-      await api.post(`/api/fs/mkdir?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(newDirName)}`);
-      success(t("files.completed"), `${t("files.folderCreated")}: ${newDirName}`);
+      await api.post("/api/fs/mkdir", request);
+      setDirectoryResult({ error: false, message: `${t("files.folderCreated")}: ${request.dirName}` });
       setIsCreatingDir(false);
       setNewDirName("");
-      fetchFiles(currentPath);
+      setPreparePrivate(false);
+      setOwner("");
+      setGroup("");
+      fetchFiles(request.parentPath);
     } catch (err) {
-      toastError(t("files.error"), getErrorMessage(err));
+      setDirectoryResult({ error: true, message: getErrorMessage(err) });
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
+  };
+
+  const handleCreateDirectory = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!newDirName || creatingRef.current || review) return;
+    if (preparePrivate) {
+      if (!owner.trim() || !group.trim()) return;
+      setReview({ parentPath: currentPath, dirName: newDirName, preparation: { owner: owner.trim(), group: group.trim(), mode: "0700", confirmed: true } });
+    } else {
+      void submitDirectory({ parentPath: currentPath, dirName: newDirName });
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t("dashboard.storageExplorer")} maxWidth="3xl" zIndex={60}>
-      <div className="bg-surface rounded-lg border border-border flex flex-col overflow-hidden max-h-[70vh]">
+    <><Modal isOpen={isOpen} onClose={() => { if (!creatingRef.current) onClose(); }} title={t("dashboard.storageExplorer")} maxWidth="3xl" zIndex={60}>
+      <fieldset disabled={creating} className="min-w-0 bg-surface rounded-lg border border-border flex flex-col overflow-y-auto max-h-[70vh]">
         
         {/* Header / Toolbar */}
         <div className="px-4 py-3 border-b border-border flex flex-col gap-3 bg-surface-2">
@@ -115,11 +150,12 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
                   <FolderPlus className="w-3.5 h-3.5" /> {t("dashboard.mkdir")}
                 </button>
               ) : (
-                <div className="flex gap-2 isolate">
+                <fieldset disabled={creating} className="flex flex-wrap gap-2 isolate min-w-0">
                   <input 
                     autoFocus required pattern="[a-zA-Z0-9_.-]+"
                     className="text-xs font-mono border border-border-strong bg-surface px-3 py-1.5 rounded-md focus:outline-none focus:border-accent w-40 text-foreground"
                     placeholder={t("dashboard.dirname")}
+                    aria-label={t("dashboard.dirname")}
                     value={newDirName}
                     onChange={e => setNewDirName(e.target.value)}
                     onKeyDown={e => {
@@ -139,7 +175,7 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
                     onClick={handleCreateDirectory} 
                     className="text-xs font-medium text-on-accent bg-accent px-3 py-1.5 rounded-md hover:opacity-90 transition-colors"
                   >
-                    Save
+                    {t("common.save")}
                   </button>
                   <button 
                     type="button" 
@@ -148,10 +184,20 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
                   >
                     {t("common.cancel")}
                   </button>
-                </div>
+                  <div className="w-full space-y-2 text-xs text-foreground">
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={preparePrivate} onChange={e => setPreparePrivate(e.target.checked)} />{t("files.privateChoice")}</label>
+                    {preparePrivate && <>
+                      <p className="text-text-muted max-w-lg">{t("files.privateHint")}</p>
+                      <label className="block">{t("files.localOwner")}<input className="block w-full bg-surface border border-border rounded p-2" value={owner} onChange={e => setOwner(e.target.value)} /></label>
+                      <label className="block">{t("files.localGroup")}<input className="block w-full bg-surface border border-border rounded p-2" value={group} onChange={e => setGroup(e.target.value)} /></label>
+                      <p>0700 — {t("files.privateMode")}</p>
+                    </>}
+                  </div>
+                </fieldset>
               )}
              </div>
           </div>
+          {directoryResult && <p role={directoryResult.error ? "alert" : "status"} className="text-sm break-words text-foreground border border-border rounded p-2">{directoryResult.message}</p>}
         </div>
 
         {/* Content List */}
@@ -237,7 +283,18 @@ export function FilePickerModal({ isOpen, onClose, onSelect, initialPath = "/", 
               )}
            </div>
         </div>
-      </div>
+      </fieldset>
     </Modal>
+    <Modal isOpen={review !== null} onClose={() => setReview(null)} title={t("files.privateReview")} zIndex={70}>
+      {review && <div className="space-y-4 break-words">
+        <p className="font-mono">{review.parentPath.replace(/\/$/, "")}/{review.dirName}</p>
+        <p className="font-mono">{review.preparation.owner}:{review.preparation.group} — 0700</p>
+        <p>{t("files.privateConsequences")}</p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={() => setReview(null)} className="px-3 py-2 border border-border rounded">{t("common.cancel")}</button>
+          <button type="button" onClick={() => void submitDirectory(review)} className="px-3 py-2 bg-accent text-on-accent rounded">{t("files.privateCreate")}</button>
+        </div>
+      </div>}
+    </Modal></>
   );
 }

@@ -52,6 +52,12 @@ export const translations = {
       unavailable: "Unable to verify session status. Access may have expired."
     },
     files: {
+      privateChoice: "Prepare a private directory (0700)",
+      localOwner: "Local owner", localGroup: "Local group",
+      privateMode: "Only the owner can access the directory",
+      privateHint: "Enter an existing local user and group explicitly. Requires a root-owned parent chain without group/other write access. Samba masks apply to new objects, not this directory.",
+      privateReview: "Review private directory", privateCreate: "Create private directory",
+      privateConsequences: "Create this new directory only and assign the displayed owner/group and mode. Existing entries and symlinks are rejected. No recursion or parent changes. Failure may leave a new directory requiring administrator inspection. Share configuration and SMB access are separate checks.",
       name: "Name", size: "Size", selected: "Selected", copy: "Copy", move: "Move",
       error: "File operation error", downloadError: "Download failed", uploadError: "Upload failed",
       noDownloads: "No files selected for download", samePath: "Source and destination are the same",
@@ -147,7 +153,7 @@ export const translations = {
       mount: "Mount",
       mkdir: "New Directory",
       dirEmpty: "Directory is empty",
-      dirname: "dirname",
+      dirname: "Directory name",
       newFolder: "New folder", uploadFile: "Upload file", selectAll: "Select all items"
     },
     shares: {
@@ -438,6 +444,12 @@ export const translations = {
       unavailable: "Не удалось проверить сессию. Доступ мог истечь."
     },
     files: {
+      privateChoice: "Подготовить личную папку (0700)",
+      localOwner: "Локальный владелец", localGroup: "Локальная группа",
+      privateMode: "Доступ к папке есть только у владельца",
+      privateHint: "Явно укажите существующего локального пользователя и группу. Вся цепочка родителя должна принадлежать root без записи для группы и остальных. Маски Samba относятся к новым объектам, а не к этой папке.",
+      privateReview: "Проверка личной папки", privateCreate: "Создать личную папку",
+      privateConsequences: "Будет создана только новая папка с указанными владельцем, группой и правами. Существующие записи и ссылки отклоняются. Без рекурсии и изменения родителей. При ошибке новая папка может остаться и потребовать проверки администратором. Настройка ресурса и доступ по SMB проверяются отдельно.",
       name: "Имя", size: "Размер", selected: "Выбрано", copy: "Копировать", move: "Переместить",
       error: "Ошибка файловой операции", downloadError: "Ошибка скачивания", uploadError: "Ошибка загрузки файла",
       noDownloads: "Файлы для скачивания не выбраны", samePath: "Источник и назначение совпадают",
@@ -531,7 +543,7 @@ export const translations = {
       used: "Занято",
       free: "Свободно",
       mount: "Монтирование",
-      mkdir: "Новый ресурс",
+      mkdir: "Новая папка",
       dirEmpty: "Папка пуста",
       dirname: "имя_папки",
       newFolder: "Новая папка", uploadFile: "Загрузить файл", selectAll: "Выбрать все элементы"

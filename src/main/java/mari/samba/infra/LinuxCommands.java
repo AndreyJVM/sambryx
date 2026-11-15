@@ -140,6 +140,43 @@ public final class LinuxCommands {
         return String.format("sudo mkdir -p -- %s", escape(requireValidPath(path)));
     }
 
+    public static String mkdirNew(String path) {
+        return "sudo -n mkdir -m 0775 -- " + escape(requireValidPath(path));
+    }
+
+    /** Creates only a new private leaf beneath a physically allowed, root-controlled parent chain. */
+    public static String createPrivateDirectory(
+            String parent, String name, String owner, String group, java.util.List<String> allowedRoots) {
+        String safeParent = escape(requireValidPath(parent));
+        String safeOwner = escape(requireValidUsername(owner));
+        String safeGroup = escape(requireValidGroupName(group));
+        if (name == null || !name.matches("[a-zA-Z0-9_][a-zA-Z0-9._-]*")) {
+            throw new IllegalArgumentException("Invalid private directory name.");
+        }
+        String allowed = allowedRoots.stream()
+                .map(root -> escape(requireValidPath(root)) + "|" + escape(root + "/") + "*")
+                .collect(java.util.stream.Collectors.joining("|"));
+        String script = String.join(
+                " ",
+                "set -eu;",
+                "IFS=: read -r user unused uid rest <<< \"$(getent -s files passwd " + safeOwner + ")\";",
+                "[[ \"$user\" = " + safeOwner + " && \"$uid\" =~ ^[0-9]+$ && \"$uid\" -gt 0 ]] || exit 1;",
+                "IFS=: read -r group unused gid rest <<< \"$(getent -s files group " + safeGroup + ")\";",
+                "[[ \"$group\" = " + safeGroup + " && \"$gid\" =~ ^[0-9]+$ && \"$gid\" -gt 0 ]] || exit 1;",
+                "cd -P -- " + safeParent + " || exit 1;",
+                "( while :; do",
+                "metadata=$(stat -c '%u:%a' -- .) || exit 1;",
+                "[[ $metadata =~ ^0:([0-7]{3,4})$ ]] || exit 1;",
+                "(( (8#${BASH_REMATCH[1]} & 8#022) == 0 )) || exit 1;",
+                "[ \"$(pwd -P)\" != / ] || break; cd -P .. || exit 1; done ) || exit 1;",
+                "physical=$(pwd -P) || exit 1; case \"$physical\" in " + allowed + ") ;; *) exit 1;; esac;",
+                "target=\"$physical\"/" + escape(name) + ";",
+                "sudo -n mkdir -m 0700 -- \"$target\" || exit 1;",
+                "sudo -n chmod 00700 -- \"$target\" || exit 1;",
+                "sudo -n chown --no-dereference --from=0 -- \"$uid:$gid\" \"$target\"");
+        return "bash -c " + escape(script);
+    }
+
     public static String chmod(String permissions, String path) {
         if (!permissions.matches("^[0-7]{3,4}$")) {
             throw new SecurityException("Invalid chmod permissions format.");

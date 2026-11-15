@@ -6,6 +6,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.regex.Pattern;
 import mari.samba.config.SambaProperties;
+import mari.samba.core.SambaCommandException;
 import mari.samba.infra.CommandExecutor;
 import mari.samba.infra.LinuxCommands;
 import org.slf4j.Logger;
@@ -112,9 +113,27 @@ public class FileSystemService {
         String newDirPath = safeParent.endsWith("/") ? safeParent + name : safeParent + "/" + name;
         requireAllowedPath(newDirPath);
 
-        commandExecutor.execute(sessionId, LinuxCommands.mkdir(newDirPath));
-        commandExecutor.execute(sessionId, LinuxCommands.chmod("0775", newDirPath));
+        commandExecutor.execute(sessionId, LinuxCommands.mkdirNew(newDirPath));
         log.info("Created directory {} with permissions 0775", newDirPath);
+    }
+
+    public void createPrivateDirectory(
+            String sessionId, String parentPath, String name, CreateDirectoryDto.PrivatePreparation preparation) {
+        if (!isValidEntryName(name)) {
+            throw new IllegalArgumentException("Invalid directory name.");
+        }
+        if (!preparation.confirmed() || !"0700".equals(preparation.mode())) {
+            throw new IllegalArgumentException("Explicit confirmation and private mode 0700 are required.");
+        }
+        String parent = requireOperationPath(parentPath);
+        String command = LinuxCommands.createPrivateDirectory(
+                parent, name, preparation.owner(), preparation.group(), allowedRoots);
+        try {
+            commandExecutor.execute(sessionId, command);
+        } catch (SambaCommandException failure) {
+            throw new SambaCommandException(
+                    "Private directory creation failed. A new directory may remain; inspect it before retrying. Existing entries are never prepared.");
+        }
     }
 
     /** Retrieves disk usage information for a specified path. */

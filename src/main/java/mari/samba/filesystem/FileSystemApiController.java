@@ -99,7 +99,11 @@ public class FileSystemApiController {
             throw new IllegalArgumentException("Parent path and directory name are required.");
         }
 
-        fileSystemService.createDirectory(sessionId, parent, name);
+        if (bodyDto != null && bodyDto.preparation() != null) {
+            fileSystemService.createPrivateDirectory(sessionId, parent, name, bodyDto.preparation());
+        } else {
+            fileSystemService.createDirectory(sessionId, parent, name);
+        }
         return ApiResponse.ok("Directory created successfully", null);
     }
 
