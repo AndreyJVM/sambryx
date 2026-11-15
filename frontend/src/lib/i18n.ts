@@ -83,6 +83,7 @@ export const translations = {
     },
     sidebar: {
       dashboard: "Overview",
+      storage: "Storage and files",
       shares: "Shares",
       users: "Users",
       groups: "Groups",
@@ -146,7 +147,6 @@ export const translations = {
       openFiles: "Open Files",
       locked: "locked",
       noFilesInUse: "No files in use",
-      storageExplorer: "Storage & Explorer",
       total: "Total",
       used: "Used",
       free: "Free",
@@ -475,6 +475,7 @@ export const translations = {
     },
     sidebar: {
       dashboard: "Обзор",
+      storage: "Диски и файлы",
       shares: "Папки",
       users: "Пользователи",
       groups: "Группы",
@@ -538,7 +539,6 @@ export const translations = {
       openFiles: "Открытые файлы",
       locked: "заблокировано",
       noFilesInUse: "Нет используемых файлов",
-      storageExplorer: "Диски и Файлы",
       total: "Всего",
       used: "Занято",
       free: "Свободно",

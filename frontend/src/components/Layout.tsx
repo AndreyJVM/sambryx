@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import {
   Server,
+  HardDrive,
   FolderKanban,
   Users,
   Settings,
@@ -134,6 +135,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
 
   const navItems = [
     { name: t("sidebar.dashboard"), path: "/dashboard", icon: Server },
+    { name: t("sidebar.storage"), path: "/storage", icon: HardDrive },
     { name: t("sidebar.shares"), path: "/shares", icon: FolderKanban },
     { name: t("sidebar.users"), path: "/users", icon: Users },
     { name: t("sidebar.groups"), path: "/groups", icon: Users },

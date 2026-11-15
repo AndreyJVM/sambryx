@@ -10,7 +10,6 @@ import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
-  ChevronDown,
   FileStack,
   FolderOpen,
   HardDrive,
@@ -26,7 +25,6 @@ import { useToast } from "../components/ui/toast";
 import { useConfirm } from "../components/ui/confirm";
 import { useTranslation } from "../lib/i18n";
 import { ServerReadiness } from "../components/ServerReadiness";
-import { FileManager } from "../components/FileManager";
 
 interface DashboardData {
   isRunning: boolean;
@@ -83,8 +81,6 @@ export default function DashboardPage() {
   const [pendingAction, setPendingAction] = useState<ServiceAction | null>(
     null,
   );
-  const [explorerOpen, setExplorerOpen] = useState(false);
-  const [explorerLoaded, setExplorerLoaded] = useState(false);
   const mounted = useRef(false);
   const fetching = useRef(false);
   const controlling = useRef(false);
@@ -539,6 +535,11 @@ export default function DashboardPage() {
       </section>
 
       <div className="flex flex-wrap gap-3">
+        <Link to="/storage" className={button}>
+          <HardDrive className="h-4 w-4" />
+          {t("sidebar.storage")}
+          <ArrowUpRight className="h-3.5 w-3.5 text-text-muted" />
+        </Link>
         <Link to="/shares" className={button}>
           <FolderOpen className="h-4 w-4" />
           {t("sidebar.shares")}
@@ -550,38 +551,6 @@ export default function DashboardPage() {
           <ArrowUpRight className="h-3.5 w-3.5 text-text-muted" />
         </Link>
       </div>
-
-      <section className="border-t border-border pt-5">
-        <button
-          onClick={() => {
-            setExplorerLoaded(true);
-            setExplorerOpen(!explorerOpen);
-          }}
-          aria-expanded={explorerOpen}
-          aria-controls="dashboard-explorer"
-          className="flex w-full items-center justify-between gap-3 rounded-lg py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
-        >
-          <span>
-            <span className="flex items-center gap-2 text-base font-semibold">
-              <FolderOpen className="h-4 w-4 text-text-muted" />
-              {t("dashboard.storageExplorer")}
-            </span>
-            <span className="mt-1 block text-xs text-text-muted">
-              {t("dashboard.explorerCaption")}
-            </span>
-          </span>
-          <ChevronDown
-            className={`h-5 w-5 shrink-0 text-text-muted transition-transform ${explorerOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-        <div id="dashboard-explorer" hidden={!explorerOpen}>
-          {explorerLoaded && (
-            <div className="pt-4">
-              <FileManager />
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

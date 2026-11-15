@@ -22,6 +22,9 @@
 It lets administrators manage shares, accounts, access permissions and global
 `smb.conf` settings through SSH. Docker is the primary distribution format.
 
+Open **Storage and files** in the main menu to browse and manage server files.
+The section also opens directly at `/ui/storage` after signing in. Dashboard remains a server overview.
+
 ## Documentation
 
 The **[documentation](https://AndreyJVM.github.io/sambryx/)** provides user guides,

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import Layout from "./components/Layout";
+import StoragePage from "./pages/StoragePage";
 import DashboardPage from "./pages/DashboardPage";
 import SharesPage from "./pages/shares/SharesPage";
 import UsersPage from "./pages/users/UsersPage";
@@ -23,6 +24,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/shares" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/storage" element={<StoragePage />} />
               <Route path="/shares" element={<SharesPage />} />
               <Route path="/groups" element={<GroupsPage />} />
               <Route path="/users" element={<UsersPage />} />
