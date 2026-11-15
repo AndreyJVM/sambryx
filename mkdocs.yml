@@ -54,6 +54,7 @@ nav:
       - Переход с ShareGuard: renaming.md
   - Эксплуатация:
       - Общие папки: shares.md
+      - Создание личной папки: private-directory.md
       - Пользователи и группы: users-groups.md
       - Права доступа: permissions.md
       - Типовые проблемы: troubleshooting.md
