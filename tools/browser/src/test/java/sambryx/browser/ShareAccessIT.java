@@ -49,7 +49,8 @@ class ShareAccessIT {
             var run = button(dialog, "Run check");
             assertThat(run).isDisabled();
             dialog.getByLabel("Local username").fill("bob");
-            run.click();
+            if (variant.mobile()) run.tap();
+            else run.click();
             assertThat(dialog.getByRole(AriaRole.STATUS)).hasText("Checking…");
             assertThat(run).isDisabled();
             fixture.page.waitForCondition(() -> !pending.isEmpty());
@@ -66,7 +67,8 @@ class ShareAccessIT {
             assertThat(dialog.getByText(
                             "Not checked", new com.microsoft.playwright.Locator.GetByTextOptions().setExact(true)))
                     .isVisible();
-            assertThat(dialog.getByText(Pattern.compile("SMB authentication"))).isVisible();
+            assertThat(dialog.getByRole(AriaRole.LIST).getByText(Pattern.compile("SMB authentication")))
+                    .isVisible();
             assertTrue((Boolean) dialog.evaluate("element => element.scrollWidth <= element.clientWidth"));
             assertTrue(fixture.fits());
             fixture.screenshot("access-report");
@@ -211,6 +213,169 @@ class ShareAccessIT {
             }
             assertTrue(fixture.app.mutations().isEmpty(), "Dismissal must not mutate resources");
         });
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("localizedVariants")
+    void dismissesSuggestionsBeforeDialogWithoutRequests(BrowserVariant variant, String language, String label) {
+        runtime.verify(variant, language, "accessSuggestionsEscape-" + language, fixture -> {
+            mockLocalAccounts(fixture);
+            var calls = new ArrayList<Route>();
+            fixture.page.route("**/api/shares/*/access-check?*", calls::add);
+            fixture.go("/ui/shares");
+            var trigger = fixture.button(label + ": team");
+            trigger.click();
+            var dialog = fixture.page.getByRole(AriaRole.DIALOG);
+            var input = dialog.getByLabel(language.equals("ru") ? "Локальный пользователь" : "Local username");
+            input.fill("sys");
+            input.press("ArrowDown");
+            fixture.screenshot("opened-before-escape");
+            input.press("Escape");
+            assertThat(dialog).isVisible();
+            assertThat(input).hasValue("sys");
+            assertThat(input).isFocused();
+            assertThat(dialog.getByRole(AriaRole.LISTBOX)).hasCount(0);
+            assertEquals(0, calls.size());
+            input.press("Escape");
+            assertThat(dialog).hasCount(0);
+            assertThat(trigger).isFocused();
+            assertTrue(fixture.app.mutations().isEmpty());
+        });
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("localizedVariants")
+    void boundsAndSearchesLocalAccounts(BrowserVariant variant, String language, String label) {
+        runtime.verify(variant, language, "accessSuggestionsBounds-" + language, fixture -> {
+            mockLocalAccounts(fixture);
+            fixture.page.setViewportSize(variant.mobile() ? 320 : 1440, variant.mobile() ? 640 : 1000);
+            fixture.go("/ui/shares");
+            fixture.button(label + ": team").click();
+            var dialog = fixture.page.getByRole(AriaRole.DIALOG);
+            var input = dialog.getByLabel(language.equals("ru") ? "Локальный пользователь" : "Local username");
+            input.click();
+            var list = dialog.getByRole(AriaRole.LISTBOX);
+            assertThat(list).isVisible();
+            assertThat(list.getByRole(AriaRole.OPTION)).hasCount(104);
+            assertTrue(
+                    (Boolean)
+                            list.evaluate(
+                                    """
+                list => {
+                  const r=list.getBoundingClientRect(), d=list.closest('[role=dialog]').getBoundingClientRect();
+                  return list.scrollHeight>list.clientHeight && r.height<=240 && r.top>=d.top && r.bottom<=d.bottom
+                    && r.left>=d.left && r.right<=d.right && r.top>=0 && r.bottom<=innerHeight;
+                }
+                """));
+            assertTrue(fixture.fits());
+            viewportScreenshot(fixture, "bounded-local-accounts");
+            input.press("ArrowUp");
+            var last = list.getByRole(AriaRole.OPTION).last();
+            assertThat(last).hasAttribute("aria-selected", "true");
+            assertTrue(
+                    (Boolean)
+                            last.evaluate(
+                                    """
+                option => { const r=option.getBoundingClientRect(), l=option.parentElement.getBoundingClientRect();
+                  return r.top>=l.top && r.bottom<=l.bottom; }
+                """));
+            assertThat(input).isFocused();
+            assertThat(input).hasAttribute("aria-activedescendant", last.getAttribute("id"));
+            input.press("ArrowDown");
+            input.fill("sys09");
+            assertThat(list.getByRole(AriaRole.OPTION)).hasCount(10);
+            input.press("ArrowDown");
+            input.press("ArrowDown");
+            input.press("ArrowUp");
+            input.press("Enter");
+            assertThat(input).hasValue("sys090");
+            assertThat(list).hasCount(0);
+            input.click();
+            list.getByRole(AriaRole.OPTION).click();
+            assertThat(input).hasValue("sys090");
+            assertThat(input).isFocused();
+            input.fill("missing_local");
+            assertThat(dialog.getByRole(AriaRole.STATUS))
+                    .hasText(
+                            language.equals("ru")
+                                    ? "Нет совпадений. Можно ввести локальное имя вручную."
+                                    : "No matching accounts. You can enter a local username manually.");
+            viewportScreenshot(fixture, "no-matching-accounts");
+            input.press("Tab");
+            assertThat(list).hasCount(0);
+            assertThat(button(dialog, language.equals("ru") ? "Запустить проверку" : "Run check"))
+                    .isFocused();
+            assertTrue(fixture.app.mutations().isEmpty());
+        });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(BrowserVariant.class)
+    void submitsOnlyExplicitSelectedOrManualIdentity(BrowserVariant variant) {
+        runtime.verify(variant, "en", "accessSuggestionsSubmit", fixture -> {
+            mockLocalAccounts(fixture);
+            var names = new ArrayList<String>();
+            fixture.page.route("**/api/shares/*/access-check?*", route -> {
+                var query = URI.create(route.request().url()).getQuery();
+                names.add(query);
+                assertEquals("GET", route.request().method());
+                BrowserState.reply(
+                        route,
+                        BrowserState.json("{\"share\":\"team\",\"username\":\"" + query.substring("username=".length())
+                                + "\",\"findings\":[]}"));
+            });
+            fixture.go("/ui/shares");
+            fixture.button("Check access: team").click();
+            var dialog = fixture.page.getByRole(AriaRole.DIALOG);
+            var input = dialog.getByLabel("Local username");
+            var run = button(dialog, "Run check");
+            input.fill("sys09");
+            input.press("Enter");
+            assertEquals(List.of(), names);
+            assertThat(input).hasValue("sys09");
+            input.press("ArrowDown");
+            input.press("Enter");
+            assertThat(input).hasValue("sys090");
+            assertEquals(List.of(), names);
+            input.press("Enter");
+            assertThat(dialog.getByText("team · sys090")).isVisible();
+            assertEquals(List.of("username=sys090"), names);
+            input.fill("missing_local");
+            assertThat(dialog.getByText("team · sys090")).hasCount(0);
+            input.press("Enter");
+            assertEquals(1, names.size());
+            input.press("Enter");
+            assertThat(dialog.getByText("team · missing_local")).isVisible();
+            assertEquals(List.of("username=sys090", "username=missing_local"), names);
+            for (String invalid : List.of("Invalid", "-bad", "name space", "user@domain")) {
+                input.fill(invalid);
+                assertThat(run).isDisabled();
+                input.press("Escape");
+                input.press("Enter");
+                assertEquals(2, names.size());
+            }
+            input.fill("alice");
+            input.press("Tab");
+            fixture.page.keyboard().press("Shift+Tab");
+            assertThat(input).isFocused();
+            input.press("Escape");
+            assertThat(dialog).isVisible();
+            input.press("Escape");
+            assertThat(dialog).hasCount(0);
+            assertEquals(2, names.size());
+            assertTrue(fixture.app.mutations().isEmpty());
+        });
+    }
+
+    private static void viewportScreenshot(BrowserFixture fixture, String name) {
+        fixture.page.screenshot(
+                new com.microsoft.playwright.Page.ScreenshotOptions().setPath(fixture.output.resolve(name + ".png")));
+    }
+
+    private static void mockLocalAccounts(BrowserFixture fixture) {
+        var accounts = new ArrayList<>(List.of("root", "nobody"));
+        for (int i = 0; i < 100; i++) accounts.add("sys%03d".formatted(i));
+        fixture.page.route("**/api/users/system", route -> BrowserState.reply(route, accounts));
     }
 
     private static void cycleFocus(BrowserFixture fixture, com.microsoft.playwright.Locator dialog) {
