@@ -178,6 +178,15 @@ class DirectoryCreationSafetyTest {
     }
 
     @Test
+    void racedMkdirSuccessWithoutCreationReceiptCannotPrepareExistingDirectory() throws Exception {
+        shell.stub("mkdir", "for leaf do :; done; /bin/mkdir -m 0750 -- \"$leaf\"; exit 0");
+        assertThatThrownBy(this::createPrivate).isInstanceOf(SambaCommandException.class);
+        assertThat(root.resolve("chown-called")).doesNotExist();
+        assertThat(Files.getPosixFilePermissions(root.resolve("private")))
+                .isEqualTo(PosixFilePermissions.fromString("rwxr-x---"));
+    }
+
+    @Test
     void plantedLeafBeforeMkdirCannotChangeSymlinkTarget() throws Exception {
         Path target = Files.createDirectory(root.resolve("protected-target"));
         Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rwxr-x---"));

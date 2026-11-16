@@ -171,7 +171,9 @@ public final class LinuxCommands {
                 "[ \"$(pwd -P)\" != / ] || break; cd -P .. || exit 1; done ) || exit 1;",
                 "physical=$(pwd -P) || exit 1; case \"$physical\" in " + allowed + ") ;; *) exit 1;; esac;",
                 "target=\"$physical\"/" + escape(name) + ";",
-                "sudo -n mkdir -m 0700 -- \"$target\" || exit 1;",
+                // A creation receipt rejects uutils versions that report success after a raced EEXIST.
+                "creation=$(sudo -n mkdir -m 0700 -v -- \"$target\") || exit 1;",
+                "[ -n \"$creation\" ] || exit 1;",
                 "sudo -n chmod 00700 -- \"$target\" || exit 1;",
                 "sudo -n chown --no-dereference --from=0 -- \"$uid:$gid\" \"$target\"");
         return "bash -c " + escape(script);
