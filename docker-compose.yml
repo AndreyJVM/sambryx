@@ -35,7 +35,7 @@ services:
       - samba-network
 
   samba-node:
-    image: ${SAMBA_SANDBOX_IMAGE:-andreyvorobevaqa/samba-node-sandbox}
+    image: ${SAMBA_SANDBOX_IMAGE:-ghcr.io/andreyjvm/samba-node-sandbox:latest}
     build:
       context: .
       dockerfile: docker/Dockerfile.samba

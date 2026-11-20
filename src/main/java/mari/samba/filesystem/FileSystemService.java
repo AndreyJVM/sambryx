@@ -1,7 +1,6 @@
 package mari.samba.filesystem;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -91,12 +90,7 @@ public class FileSystemService {
         String parentPath = getParentPath(safePath);
         String rawOutput = commandExecutor.execute(sessionId, LinuxCommands.findDirectories(safePath));
 
-        List<DirectoryItemDto> subDirs = Arrays.stream(rawOutput.split("\\r?\\n"))
-                .map(String::trim)
-                .filter(line -> !line.isEmpty())
-                .map(this::parseDirectoryLine)
-                .filter(item -> item != null)
-                .toList();
+        List<DirectoryItemDto> subDirs = DirectoryListingParser.parse(rawOutput);
 
         return new DirectoryBrowseResultDto(safePath, parentPath, subDirs);
     }
@@ -208,24 +202,6 @@ public class FileSystemService {
         if (allowedRoots.contains(path)) {
             throw new SecurityException("Deletion or relocation of root directory '" + path + "' is not permitted.");
         }
-    }
-
-    private DirectoryItemDto parseDirectoryLine(String line) {
-        String[] parts = line.split("\\|", 3);
-        if (parts.length < 3) {
-            return null;
-        }
-        String typeCode = parts[0];
-        long size = 0;
-        try {
-            size = Long.parseLong(parts[1]);
-        } catch (NumberFormatException e) {
-            log.debug("Failed to parse size from directory listing: '{}'", parts[1]);
-        }
-        String fullPath = parts[2];
-        String type = "d".equals(typeCode) ? "dir" : ("f".equals(typeCode) ? "file" : "link");
-        String name = fullPath.substring(fullPath.lastIndexOf('/') + 1);
-        return new DirectoryItemDto(name, fullPath, type, size);
     }
 
     private String getParentPath(String path) {

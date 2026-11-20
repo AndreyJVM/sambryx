@@ -9,7 +9,7 @@ API, права пользователей Samba или содержимое о�
 | Назначение | Прежний адрес | Новый адрес |
 | --- | --- | --- |
 | GitHub | `AndreyJVM/shareguard` | `AndreyJVM/sambryx` |
-| Docker Hub | `andreyvorobevaqa/shareguard` | `andreyvorobevaqa/sambryx` |
+| Container Registry | `ghcr.io/andreyjvm/shareguard` | `ghcr.io/andreyjvm/sambryx` |
 | Документация | `AndreyJVM.github.io/shareguard/` | `AndreyJVM.github.io/sambryx/` |
 | JAR | `shareguard-<version>.jar` | `sambryx-<version>.jar` |
 
@@ -64,7 +64,7 @@ docker compose ls
 После обновления отдельный шаг читает публичный Docker Hub API и проверяет полное совпадение
 описания с файлом; короткая заглушка не считается успешной публикацией.
 
-Для первого запуска создайте публичный репозиторий `andreyvorobevaqa/sambryx` и проверьте
+Для первого запуска создайте публичный репозиторий `ghcr.io/andreyjvm/sambryx` и проверьте
 repository secrets `DOCKER_USERNAME` и `DOCKER_PASSWORD`. Учётная запись должна иметь право
 обновлять описание, а не только отправлять образы; для PAT action требует scope read/write/delete.
 Не добавляйте токены в исходники или `.env.example`.

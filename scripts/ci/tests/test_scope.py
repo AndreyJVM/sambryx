@@ -27,7 +27,7 @@ class SelectionTest(unittest.TestCase):
         for files in ([], ["pom.xml"], ["frontend/package-lock.json"], [".github/workflows/ci.yml"],
                       ["scripts/helper.sh"], ["scripts/ci/checks/scope.py"],
                       ["scripts/ci/checks/documents.py"], ["scripts/ci/checks/verify-artifacts.py"],
-                      ["scripts/ci/checks/verify-dockerhub.py"], ["scripts/ci/release/release.py"],
+                      ["scripts/ci/release/release.py"],
                       ["scripts/ci/release/select-jar.sh"],
                       ["tools/smoke/src/test/java/sambryx/smoke/ComposeModelIT.java"],
                       ["tools/smoke/pom.xml"], ["tools/smoke/src/test/java/sambryx/smoke/ProductionComposeSmokeIT.java"],

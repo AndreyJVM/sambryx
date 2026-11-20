@@ -54,7 +54,7 @@ class ExternalBoundaryTest(unittest.TestCase):
 
     def test_token_endpoint_404_does_not_prove_image_absence(self):
         import urllib.error
-        error = urllib.error.HTTPError('https://auth.docker.io/token', 404, '', {},
+        error = urllib.error.HTTPError('https://ghcr.io/token', 404, '', {},
                                       self.response(b'{"errors":[{"code":"MANIFEST_UNKNOWN"}]}'))
         with self.patch.object(urllib.request, 'urlopen', side_effect=error):
             with self.assertRaisesRegex(ValueError, 'Registry'):

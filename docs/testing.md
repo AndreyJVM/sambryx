@@ -305,7 +305,7 @@ Release coordinator проверяется отдельно без внешне�
 
 Утилиты CI сгруппированы по назначению:
 
-- `scripts/ci/checks/` — выбор проверок и верификация документации, JAR и Docker Hub.
+- `scripts/ci/checks/` — выбор проверок и верификация документации и JAR.
 - `scripts/ci/release/` — последовательная публикация новой версии и выбор JAR.
 - `tools/smoke/` — отдельные Java/JUnit-проверки Docker image и Production Compose, без Spring-контекста и сборки приложения.
 - `scripts/ci/tests/` — все Python-тесты утилит, отдельно от исполняемых скриптов.
@@ -512,6 +512,6 @@ JAVA_HOME=/path/to/jdk21 ./mvnw -f tools/smoke/pom.xml \
 Для проблем DNS только внутри build-сети Linux Docker можно передать тесту
 `-Dsmoke.build.network=host`; это касается установки пакетов в build, не runtime-изоляции.
 Для проверки опубликованного node без локальной сборки передайте
-`-Dsmoke.node.image=andreyvorobevaqa/samba-node-sandbox`.
+`-Dsmoke.node.image=ghcr.io/andreyjvm/samba-node-sandbox`.
 Предварительно загрузите этот образ через `docker pull`.
 Тест очищает только собственный Compose project и volumes. Рабочие контейнеры не меняются.

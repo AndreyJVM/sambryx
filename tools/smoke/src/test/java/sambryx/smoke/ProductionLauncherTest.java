@@ -26,7 +26,7 @@ class ProductionLauncherTest {
 
     @Test
     void stopsBeforeStartingContainersWhenImageResolutionFails() throws Exception {
-        var result = launch("andreyvorobevaqa/sambryx:0.12.0\n", 23);
+        var result = launch("ghcr.io/andreyjvm/sambryx:0.12.0\n", 23);
         assertFalse(result.output().contains("fixture-private-content"));
         assertNotEquals(0, result.exitCode());
         assertFalse(started());
@@ -50,9 +50,9 @@ class ProductionLauncherTest {
     @ParameterizedTest
     @ValueSource(
             strings = {
-                "andreyvorobevaqa/sambryx:0.12.0",
+                "ghcr.io/andreyjvm/sambryx:0.12.0",
                 "registry.example.test:5000/sambryx:0.12.0",
-                "andreyvorobevaqa/sambryx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                "ghcr.io/andreyjvm/sambryx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             })
     void startsContainersAfterSuccessfulImageValidation(String image) throws Exception {
         var result = launch(image + "\nnginx:1.30.6-alpine\n", 0);

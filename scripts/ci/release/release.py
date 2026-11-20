@@ -14,7 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-IMAGE = 'andreyvorobevaqa/sambryx'
+IMAGE = 'ghcr.io/andreyjvm/sambryx'
 STABLE = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 
 
@@ -76,12 +76,18 @@ class Services:
 
     def registry_request(self, suffix):
         try:
+            repo_path = IMAGE.split('/', 1)[1]
             if self.registry_token is None:
-                url = 'https://auth.docker.io/token?' + urllib.parse.urlencode({
-                    'service': 'registry.docker.io', 'scope': 'repository:' + IMAGE + ':pull'})
-                with urllib.request.urlopen(url, timeout=30) as response:
+                url = 'https://ghcr.io/token?' + urllib.parse.urlencode({
+                    'service': 'ghcr.io', 'scope': 'repository:' + repo_path + ':pull'})
+                headers = {}
+                token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+                if token:
+                    headers['Authorization'] = 'Bearer ' + token
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as response:
                     self.registry_token = json.load(response)['token']
-            request = urllib.request.Request('https://registry-1.docker.io/v2/' + IMAGE + suffix, headers={
+            request = urllib.request.Request('https://ghcr.io/v2/' + repo_path + suffix, headers={
                 'Authorization': 'Bearer ' + self.registry_token,
                 'Accept': ', '.join(('application/vnd.oci.image.manifest.v1+json',
                                      'application/vnd.docker.distribution.manifest.v2+json',

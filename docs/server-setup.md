@@ -193,7 +193,7 @@ sudo bash scripts/setup-samba-server.sh --permissions-only samba-admin
 Новый web-образ сам по себе не обновляет sudo удалённого хоста.
 
 Локальный Compose загружает готовый образ
-`andreyvorobevaqa/samba-node-sandbox`, собранный из
+`ghcr.io/andreyjvm/samba-node-sandbox`, собранный из
 `docker/Dockerfile.samba` и текущего setup-скрипта. Entry point этого собственного образа обновляет только его packaged
 sudo policy через `--permissions-only`; существующий smb.conf и данные не заменяет.
 Это не механизм управления произвольными удалёнными серверами. Старый запущенный

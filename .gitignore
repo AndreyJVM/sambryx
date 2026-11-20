@@ -54,3 +54,6 @@ frontend/*.js
 
 # Local SSH trust configuration
 /.local/
+
+# Antigravity / agent skills
+skills/

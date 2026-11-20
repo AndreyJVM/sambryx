@@ -73,6 +73,46 @@ class FileSystemServiceTest {
         assertEquals("/srv/samba/public", result.directories().get(0).fullPath());
     }
 
+    @DisplayName("Directory listing preserves row order, type mapping and malformed size fallback")
+    @Test
+    void directoryListingPreservesProtocolCompatibility() {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.findDirectories("/srv/team")))
+                .thenReturn(
+                        "  d|4096|/srv/team/folder  \r\n\r\nbroken\r\nf|bad|/srv/team/report|final.txt\r\n"
+                                + "l|12|/srv/team/shortcut\r\nx|-7|/srv/team/unknown\r\nf|9223372036854775808|/srv/team/overflow");
+
+        DirectoryBrowseResultDto result = fileSystemService.listDirectories(SESSION_ID, "/srv/team/child/..");
+
+        assertEquals(
+                new DirectoryBrowseResultDto(
+                        "/srv/team",
+                        "/srv",
+                        List.of(
+                                new DirectoryItemDto("folder", "/srv/team/folder", "dir", 4096),
+                                new DirectoryItemDto("report|final.txt", "/srv/team/report|final.txt", "file", 0),
+                                new DirectoryItemDto("shortcut", "/srv/team/shortcut", "link", 12),
+                                new DirectoryItemDto("unknown", "/srv/team/unknown", "link", -7),
+                                new DirectoryItemDto("overflow", "/srv/team/overflow", "file", 0))),
+                result);
+        assertThrows(
+                UnsupportedOperationException.class, () -> result.directories().clear());
+        verify(commandExecutor).execute(SESSION_ID, LinuxCommands.findDirectories("/srv/team"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
+    @DisplayName("Empty and malformed directory listings return an empty child list")
+    @ParameterizedTest
+    @ValueSource(strings = {"", "  \r\n", "missing fields\nonly|two"})
+    void directoryListingPreservesEmptyResults(String output) {
+        when(commandExecutor.execute(SESSION_ID, LinuxCommands.findDirectories("/srv")))
+                .thenReturn(output);
+
+        assertEquals(
+                new DirectoryBrowseResultDto("/srv", "/", List.of()),
+                fileSystemService.listDirectories(SESSION_ID, "/srv"));
+        verifyNoMoreInteractions(commandExecutor);
+    }
+
     @DisplayName("Virtual root browsing returns allowed roots without commands")
     @Test
     void testListDirectories_RootPath_ShouldReturnAllowedRoots() {

@@ -6,7 +6,7 @@
 
 Мы используем `docker-compose.yml` в корне проекта.
 Для `samba-node` загружается образ
-`andreyvorobevaqa/samba-node-sandbox` (Ubuntu 22.04).
+`ghcr.io/andreyjvm/samba-node-sandbox` (Ubuntu 22.04).
 Docker использует `latest`; образ содержит актуальный setup-скрипт.
 Локальная сборка нужна только при изменении самого Samba-образа:
 `docker compose build samba-node`. Она требует доступа Docker к репозиториям Ubuntu.

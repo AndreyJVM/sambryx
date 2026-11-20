@@ -5,7 +5,7 @@ JRE 21 входит в образ; Java на управляемом сервер
 
 ## Образы
 
-Поставляется один стандартный образ `andreyvorobevaqa/sambryx` на базе
+Поставляется один стандартный образ `ghcr.io/andreyjvm/sambryx` на базе
 `eclipse-temurin:21-jre-alpine`. Отдельных образов для Debian и Ubuntu нет:
 это целевые семейства управляемого сервера и хоста Docker, а не база образа панели.
 
@@ -92,10 +92,10 @@ Production-конфигурация с HTTPS и дополнительным Sam
 | `ci.yml` | Сборка, Python guards, frontend, Browser Smoke Tests, Production Compose Smoke и выпуск по тегу. |
 | `codeql.yml` | Независимый анализ Java, JavaScript/TypeScript и Python. |
 | `docs.yml` | Публикация документации из `master` в GitHub Pages. |
-| `dockerhub-description.yml` | Синхронизация и проверка описания Docker Hub. |
+| `samba-node-sandbox.yml` | Сборка и публикация образа тестового Samba-стенда в GitHub Container Registry. |
 
 В `ci.yml` запись разрешена только release-job. Он получает `contents: write` для
-GitHub Release и `actions: read` для проверки CodeQL. Docker Hub использует отдельные secrets.
+GitHub Release, `packages: write` для GitHub Container Registry (`ghcr.io`) и `actions: read` для проверки CodeQL. Публикация использует стандартный GITHUB_TOKEN.
 
 ## Порядок стабильного выпуска {#stable-release}
 
@@ -112,7 +112,7 @@ GitHub Release и `actions: read` для проверки CodeQL. Docker Hub и�
    Dockerfile упаковывает этот JAR; локальный smoke проверяет non-root runtime, идентичность JAR,
    ресурсы UI и API. Повторной Maven-сборки в release-job нет.
 5. Создаётся draft GitHub Release с автоматически сформированными notes. Публикуется образ
-   `andreyvorobevaqa/sambryx:X.Y.Z`, затем скачивается по digest и снова проходит smoke.
+   `ghcr.io/andreyjvm/sambryx:X.Y.Z`, затем скачивается по digest и снова проходит smoke.
 6. В draft загружаются `application.jar`, `SHA256SUMS`, `release.json`. Metadata содержит
    source SHA, версию, image repository, manifest digest и SHA-256 JAR.
 7. Draft становится публичным. GitHub latest не переводится на более старую stable-версию.
@@ -124,7 +124,7 @@ Docker aliases `latest` и `major.minor` больше не обновляютс�
 
 ## Частичный сбой и ручное восстановление {#release-recovery}
 
-Публикация в GitHub и Docker Hub не является одной транзакцией. При ошибке скрипт останавливается,
+Публикация в GitHub Release и GitHub Container Registry не является одной транзакцией. При ошибке скрипт останавливается,
 а CI пытается сохранить подготовленные JAR, checksum и metadata в Actions artifact
 `release-files-RUN_ID-ATTEMPT` на 90 дней. При аварийной потере runner или истечении retention
 эти файлы могут быть недоступны. OCI archive не создаётся; автоматического resume и repair нет.
