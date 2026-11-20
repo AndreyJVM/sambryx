@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 530" role="img" aria-labelledby="title desc">
+  <title id="title">Configuration restore sequence</title>
+  <desc id="desc">Select a backup, validate its name and syntax, back up the active configuration, replace smb.conf, restart smbd. A failure stops the chain without automatic rollback.</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#44634a"/></marker></defs>
+  <rect width="460" height="530" rx="16" fill="#f7faf5"/>
+  <g fill="#fff" stroke="#9db299" stroke-width="1.5">
+    <rect x="40" y="20" width="380" height="56" rx="10"/>
+    <rect x="40" y="110" width="380" height="56" rx="10"/>
+    <rect x="40" y="200" width="380" height="56" rx="10"/>
+    <rect x="40" y="290" width="380" height="56" rx="10"/>
+    <rect x="40" y="380" width="380" height="56" rx="10"/>
+  </g>
+  <g stroke="#44634a" stroke-width="2" marker-end="url(#arrow)"><path d="M230 76 V110"/><path d="M230 166 V200"/><path d="M230 256 V290"/><path d="M230 346 V380"/></g>
+  <g font-family="Arial, sans-serif" text-anchor="middle" fill="#243b2a">
+    <g font-size="19" font-weight="bold"><text x="230" y="55">1. Select backup</text><text x="230" y="145">2. Validate name + testparm</text><text x="230" y="235">3. Back up active config</text><text x="230" y="325">4. Replace smb.conf</text><text x="230" y="415">5. Restart smbd</text></g>
+    <g font-size="16"><text x="230" y="478">Any failure stops the chain.</text><text x="230" y="504">Completed steps are not rolled back automatically.</text></g>
+  </g>
+</svg>
